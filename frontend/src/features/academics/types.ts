@@ -63,8 +63,8 @@ export interface Subject {
   id: string;
   name: string;
   code: string;
-  department: string | null;
-  department_name: string | null;
+  departments: string[];
+  department_names: string[];
   created_at: string;
   updated_at: string;
 }
@@ -72,11 +72,11 @@ export interface Subject {
 export interface SubjectPayload {
   name: string;
   code?: string;
-  department?: string;
+  departments?: string[];
 }
 
 export interface SubjectListParams {
-  department?: string;
+  departments?: string;
 }
 
 export type SubjectOfferingStatus = "active" | "inactive";
@@ -107,6 +107,7 @@ export interface SubjectOffering {
   status: SubjectOfferingStatus;
   ca_status: CAStatus;
   ca_closed_at: string | null;
+  cover_image: string | null;
   ca_allocated_percent: number;
   ca_remaining_percent: number;
   created_at: string;

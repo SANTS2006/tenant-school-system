@@ -45,6 +45,33 @@ def send_invitation_email(*, user, uidb64: str, token: str) -> bool:
     )
 
 
+def send_account_created_email(*, user, password: str, role_label: str) -> bool:
+    """Tells a newly-provisioned account holder how to sign in: their email plus the default
+    password they were given (a school's default, or the platform-admin default) — both are
+    already knowable to whoever created the account, so putting the password in this one email
+    isn't disclosing a secret. The account is flagged `must_change_password`, so this password
+    only ever works for the first sign-in.
+    """
+    url = f"{settings.FRONTEND_URL}/login"
+    body = f"""
+        <p>Hi {escape(user.first_name)},</p>
+        <p>An account was created for you on the School Management Platform
+        {f"for {escape(user.school.name)} " if user.school else ""}as {escape(role_label)}.</p>
+        <p style="margin-top:12px;">
+          <strong>Email:</strong> {escape(user.email)}<br>
+          <strong>Temporary password:</strong> {escape(password)}
+        </p>
+        <p style="margin-top:12px;">You'll be asked to choose your own password the first time you sign in.</p>
+        {_button(url, "Sign in")}
+    """
+    return send_email(
+        to_email=user.email,
+        to_name=user.full_name,
+        subject="Your account is ready — sign-in details inside",
+        html_content=_wrap("Your account is ready", body),
+    )
+
+
 def send_verification_email(*, user, uidb64: str, token: str) -> bool:
     url = f"{settings.FRONTEND_URL}/verify-email?uid={uidb64}&token={token}"
     body = f"""

@@ -174,15 +174,15 @@ class Command(BaseCommand):
             "Geography", "Kiswahili", "Computer Studies", "Art & Design",
         ]
         for i, name in enumerate(subject_specs):
-            Subject.objects.get_or_create(
+            subject, _created = Subject.objects.get_or_create(
                 school=self.school, name=name,
                 defaults={
                     "code": name[:4].upper(),
-                    "department": self.departments[i % len(self.departments)],
                     "ca_weight_percent": 40,
                     "exam_weight_percent": 60,
                 },
             )
+            subject.departments.set([self.departments[i % len(self.departments)]])
         self.subjects = list(Subject.objects.filter(school=self.school))
 
         class_names = ["Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12", "Grade 7"]

@@ -132,6 +132,16 @@ export async function deleteExamSchedule(id: string): Promise<void> {
   await apiClient.delete(`/examinations/schedules/${id}/`);
 }
 
+/** Live CA figures (0-100 scale) for every active student in this schedule's class, from
+ * whatever the teacher has submitted so far for that subject/term — available even before an
+ * exam score exists, unlike `Result.ca_score` which only snapshots once both exist together. */
+export async function fetchExamScheduleCaPreview(scheduleId: string): Promise<Record<string, number | null>> {
+  const { data } = await apiClient.get<{ ca_scores: Record<string, number | null> }>(
+    `/examinations/schedules/${scheduleId}/ca-preview/`,
+  );
+  return data.ca_scores;
+}
+
 export async function fetchResults(params: PageParams & ResultListParams): Promise<PaginatedResponse<Result>> {
   const { data } = await apiClient.get<PaginatedResponse<Result>>("/results/", { params });
   return data;

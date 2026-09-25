@@ -95,6 +95,28 @@ class ExamScheduleViewSet(ExaminationsModelViewSet):
     def get_queryset(self):
         return ExamSchedule.objects.select_related("exam", "school_class", "subject").all()
 
+    @action(detail=True, methods=["get"], url_path="ca-preview")
+    def ca_preview(self, request, pk=None):
+        """The CA (continuous assessment) figure each of this schedule's class's active students
+        currently has for this subject/term — live, from whatever the teacher has submitted so
+        far (see apps.examinations.services.compute_ca_score) — so Enter Marks can show it before
+        an exam score exists. `Result.ca_score` itself is only ever snapshotted once both the CA
+        and the exam score are entered together (see `combine_score`'s docstring), so this is
+        deliberately a separate read rather than something read off the Result rows.
+        """
+        schedule = self.get_object()
+        students = Student.objects.filter(current_class=schedule.school_class, status=Student.Status.ACTIVE)
+        ca_by_student = {
+            str(student.pk): services.compute_ca_score(
+                student=student,
+                subject=schedule.subject,
+                school_class=schedule.school_class,
+                term=schedule.exam.term,
+            )
+            for student in students
+        }
+        return Response({"success": True, "message": "", "code": "OK", "errors": [], "ca_scores": ca_by_student})
+
 
 _PAST_TENSE = {
     "submit": "submitted",

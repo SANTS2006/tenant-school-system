@@ -60,17 +60,20 @@ class DepartmentSerializer(serializers.ModelSerializer):
 
 
 class SubjectSerializer(serializers.ModelSerializer):
-    department_name = serializers.CharField(source="department.name", read_only=True, default=None)
+    department_names = serializers.SlugRelatedField(
+        source="departments", slug_field="name", many=True, read_only=True
+    )
 
     class Meta:
         model = Subject
-        fields = ["id", "name", "code", "department", "department_name", "created_at", "updated_at"]
+        fields = ["id", "name", "code", "departments", "department_names", "created_at", "updated_at"]
         read_only_fields = ["id", "created_at", "updated_at"]
 
-    def validate_department(self, value):
+    def validate_departments(self, value):
         request = self.context["request"]
-        if value is not None and value.school_id != request.user.school_id:
-            raise serializers.ValidationError("Department must belong to your own school.")
+        for department in value:
+            if department.school_id != request.user.school_id:
+                raise serializers.ValidationError("Every department must belong to your own school.")
         return value
 
 
@@ -92,7 +95,7 @@ class SubjectOfferingSerializer(serializers.ModelSerializer):
             "id", "subject", "subject_name", "academic_year", "academic_year_name", "term", "term_name",
             "school_class", "school_class_name", "main_teacher", "main_teacher_name",
             "assistant_teacher", "assistant_teacher_name", "ca_weight_percent", "exam_weight_percent",
-            "pass_mark", "exam_max_score", "status", "ca_status", "ca_closed_at",
+            "pass_mark", "exam_max_score", "status", "ca_status", "ca_closed_at", "cover_image",
             "ca_allocated_percent", "ca_remaining_percent", "created_at", "updated_at",
         ]
         read_only_fields = ["id", "ca_status", "ca_closed_at", "created_at", "updated_at"]

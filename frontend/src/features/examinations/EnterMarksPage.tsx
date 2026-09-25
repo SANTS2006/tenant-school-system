@@ -27,7 +27,7 @@ import type { PaginatedResponse } from "@/types/pagination";
 
 import { resultStatusLabel, resultStatusTone } from "./resultStatusTone";
 import type { BulkEnterResponse, Result } from "./types";
-import { useExamList, useExamScheduleList } from "./useExaminationsCrud";
+import { useExamList, useExamScheduleCaPreview, useExamScheduleList } from "./useExaminationsCrud";
 import { useBulkEnterResults, useResultList } from "./useResultsCrud";
 
 interface EntryState {
@@ -67,6 +67,10 @@ function MarksEditor({
 }) {
   const { showToast } = useToast();
   const bulkEnter = useBulkEnterResults();
+  // Live CA (continuous assessment), from whatever the teacher has already submitted for this
+  // subject/term — shown even before an exam score exists, since Result.ca_score itself is only
+  // snapshotted once both are entered together.
+  const { data: caPreview } = useExamScheduleCaPreview(scheduleId);
   const [entries, setEntries] = useState<Record<string, EntryState>>(() => initialEntries(roster, existing));
   const [skipped, setSkipped] = useState<BulkEnterResponse["skipped"]>([]);
 
@@ -155,7 +159,11 @@ function MarksEditor({
                       className="w-24"
                     />
                   </TableCell>
-                  <TableCell>{result?.ca_score ?? <span className="text-[var(--color-text-muted)]">—</span>}</TableCell>
+                  <TableCell>
+                    {(result?.ca_score ?? caPreview?.[student.id]) ?? (
+                      <span className="text-[var(--color-text-muted)]">—</span>
+                    )}
+                  </TableCell>
                   <TableCell>{result?.score ?? <span className="text-[var(--color-text-muted)]">—</span>}</TableCell>
                   <TableCell>
                     <Input

@@ -32,8 +32,9 @@ class DepartmentAdmin(admin.ModelAdmin):
 
 @admin.register(Subject)
 class SubjectAdmin(admin.ModelAdmin):
-    list_display = ("name", "code", "department", "school")
-    list_filter = ("school", "department")
+    list_display = ("name", "code", "school")
+    list_filter = ("school", "departments")
+    filter_horizontal = ("departments",)
 
     def get_queryset(self, request):
         return Subject.unscoped_objects.all()

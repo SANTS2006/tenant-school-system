@@ -15,6 +15,7 @@ import {
   createSubjectMaterial,
   createSubjectMessage,
   createSubjectOffering,
+  uploadSubjectOfferingCoverImage,
   createSubjectPrivateMessage,
   createTerm,
   deleteAcademicYear,
@@ -360,6 +361,17 @@ export function useDeleteSubjectOffering() {
   return useMutation<void, ApiError, string>({
     mutationFn: deleteSubjectOffering,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["academics"] }),
+  });
+}
+
+export function useUploadSubjectOfferingCoverImage() {
+  const queryClient = useQueryClient();
+  return useMutation<SubjectOffering, ApiError, { id: string; file: File }>({
+    mutationFn: ({ id, file }) => uploadSubjectOfferingCoverImage(id, file),
+    onSuccess: (offering) => {
+      queryClient.invalidateQueries({ queryKey: ["academics"] });
+      queryClient.setQueryData([...SUBJECT_OFFERINGS_KEY, "detail", offering.id], offering);
+    },
   });
 }
 

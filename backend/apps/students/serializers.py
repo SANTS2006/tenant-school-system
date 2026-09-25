@@ -14,7 +14,7 @@ class StudentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Student
         fields = [
-            "id", "user", "admission_number", "first_name", "last_name", "full_name",
+            "id", "user", "admission_number", "first_name", "middle_name", "last_name", "full_name",
             "date_of_birth", "gender", "photo", "address", "previous_school",
             "admission_date", "status",
             "current_academic_year", "current_academic_year_name",

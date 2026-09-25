@@ -14,59 +14,46 @@ def invite_user(
     school=None,
     user_type: str = User.UserType.SCHOOL_USER,
     invited_by=None,
+    role_label: str | None = None,
 ) -> User:
     """
-    Platform admins: unchanged — an inactive account with an unusable password, activated via
-    an emailed invitation link (accept_invitation()). There's no school to derive a password
-    from, and platform admins are a small, trusted set, so the link-based flow stays.
-
-    School users: active immediately, with a deterministic default password derived from their
-    school (see apps.tenants.services.generate_default_password) rather than an unusable
-    password + email link — a school-administrator role can reset any of their users back to
-    this same value later (see apps.users.views.ResetPasswordView), which only makes sense if
-    the value is knowable/reproducible rather than random. No email is sent for this path: the
-    password format is public knowledge to anyone who knows the school's name and creation
-    year, so there's nothing secret to transmit, and a plaintext password in an email is a
-    pattern worth avoiding even when the "secret" is this weak — the admin who created the
-    account already knows the default and can tell the new user directly.
+    Every invited account — platform admin or school user — is active immediately with a
+    deterministic default password (a school's, or the shared platform-admin one; see
+    apps.tenants.services), flagged `must_change_password`, and emailed those sign-in details.
+    The password is knowable/reproducible by design rather than random: an administrator can
+    reset any of their users back to this same value later (see the `reset_password` actions on
+    Staff/Parent/PlatformAdmin), which only makes sense if the value doesn't move around, and
+    it's already knowable to whoever created the account, so putting it in one first email isn't
+    disclosing anything new.
     """
-    from apps.authentication.emails import send_invitation_email
-    from apps.authentication.tokens import encode_uid, invitation_token
+    from apps.authentication.emails import send_account_created_email
+    from apps.tenants.services import PLATFORM_ADMIN_DEFAULT_PASSWORD, generate_default_password
 
     if user_type == User.UserType.PLATFORM_ADMIN and school is not None:
         raise ValueError("Platform admins cannot belong to a school.")
     if user_type == User.UserType.SCHOOL_USER and school is None:
         raise ValueError("A school is required to invite a school user.")
 
-    if user_type == User.UserType.SCHOOL_USER:
-        from apps.tenants.services import generate_default_password
+    is_platform_admin = user_type == User.UserType.PLATFORM_ADMIN
+    password = PLATFORM_ADMIN_DEFAULT_PASSWORD if is_platform_admin else generate_default_password(school)
 
-        user = User.objects.create(
-            email=email,
-            first_name=first_name,
-            last_name=last_name,
-            school=school,
-            user_type=user_type,
-            is_active=True,
-        )
-        user.set_password(generate_default_password(school))
-        user.must_change_password = True
-        user.save(update_fields=["password", "must_change_password"])
-    else:
-        user = User.objects.create(
-            email=email,
-            first_name=first_name,
-            last_name=last_name,
-            school=school,
-            user_type=user_type,
-            is_active=False,
-        )
-        user.set_unusable_password()
-        user.save(update_fields=["password"])
+    user = User.objects.create(
+        email=email,
+        first_name=first_name,
+        last_name=last_name,
+        school=school,
+        user_type=user_type,
+        is_active=True,
+    )
+    user.set_password(password)
+    user.must_change_password = True
+    user.save(update_fields=["password", "must_change_password"])
 
-        uidb64 = encode_uid(user.pk)
-        token = invitation_token.make_token(user)
-        send_invitation_email(user=user, uidb64=uidb64, token=token)
+    send_account_created_email(
+        user=user,
+        password=password,
+        role_label=role_label or ("platform administrator" if is_platform_admin else "a school user"),
+    )
 
     log_action(
         action="users.invited",

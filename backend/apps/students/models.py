@@ -28,6 +28,7 @@ class Student(TenantScopedModel, TimeStampedModel):
 
     admission_number = models.CharField(max_length=50)
     first_name = models.CharField(max_length=150)
+    middle_name = models.CharField(max_length=150, blank=True)
     last_name = models.CharField(max_length=150)
     date_of_birth = models.DateField(null=True, blank=True)
     gender = models.CharField(max_length=10, choices=Gender.choices, blank=True)
@@ -62,7 +63,7 @@ class Student(TenantScopedModel, TimeStampedModel):
 
     @property
     def full_name(self):
-        return f"{self.first_name} {self.last_name}".strip()
+        return " ".join(part for part in (self.first_name, self.middle_name, self.last_name) if part).strip()
 
     def save(self, *args, **kwargs):
         for field_name in ("current_academic_year", "current_class", "current_section"):

@@ -48,7 +48,7 @@ export function SubjectsListPage() {
 
   const filterParams = {
     search: debouncedSearch || undefined,
-    department: department || undefined,
+    departments: department || undefined,
   };
   const { data, isLoading, isError, error, isFetching } = useSubjectList({
     page,
@@ -142,7 +142,9 @@ export function SubjectsListPage() {
                   <TableCell className="font-medium">{subject.name}</TableCell>
                   <TableCell>{subject.code || <span className="text-[var(--color-text-muted)]">—</span>}</TableCell>
                   <TableCell>
-                    {subject.department_name ?? <span className="text-[var(--color-text-muted)]">—</span>}
+                    {subject.department_names.length > 0
+                      ? subject.department_names.join(", ")
+                      : <span className="text-[var(--color-text-muted)]">—</span>}
                   </TableCell>
                   {canDelete && (
                     <TableCell className="text-right">

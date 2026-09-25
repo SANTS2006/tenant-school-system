@@ -31,7 +31,7 @@ import type { ApiError } from "@/lib/api-client";
 
 import { studentStatusTone } from "./statusTone";
 import type { StudentStatus } from "./types";
-import { useArchiveStudent, useStudents } from "./useStudents";
+import { useArchiveStudent, useBulkUpdateStudentStatus, useStudents } from "./useStudents";
 
 const PAGE_SIZE = 25;
 
@@ -66,6 +66,41 @@ export function StudentsListPage() {
   });
   const { data: stats } = useSummaryStats("students", filterParams);
   const archiveStudent = useArchiveStudent();
+  const bulkUpdateStatus = useBulkUpdateStudentStatus();
+  const canUpdate = useHasPermission("students.update");
+
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const pageIds = data?.results.map((student) => student.id) ?? [];
+  const allSelectedOnPage = pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+
+  const toggleOne = (id: string) => {
+    setSelectedIds((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]));
+  };
+
+  const toggleAllOnPage = () => {
+    setSelectedIds((current) =>
+      allSelectedOnPage ? current.filter((id) => !pageIds.includes(id)) : [...new Set([...current, ...pageIds])],
+    );
+  };
+
+  const handleBulkStatusChange = async (newStatus: StudentStatus) => {
+    const ok = await confirm({
+      title: `Change status for ${selectedIds.length} student(s)?`,
+      description: `They will be marked as "${newStatus}".`,
+      tone: newStatus === "archived" || newStatus === "withdrawn" ? "danger" : "neutral",
+    });
+    if (!ok) return;
+    bulkUpdateStatus.mutate(
+      { studentIds: selectedIds, status: newStatus },
+      {
+        onSuccess: ({ updated }) => {
+          showToast({ title: `Updated ${updated} student(s)` });
+          setSelectedIds([]);
+        },
+        onError: (err) => showToast({ title: "Could not update status", description: err.message, tone: "danger" }),
+      },
+    );
+  };
 
   const handleArchive = async (id: string, name: string) => {
     const ok = await confirm({
@@ -136,6 +171,33 @@ export function StudentsListPage() {
         </div>
       </div>
 
+      {canUpdate && selectedIds.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-4 py-2.5">
+          <span className="text-sm font-medium text-[var(--color-text)]">
+            {selectedIds.length} selected
+          </span>
+          <div className="w-full max-w-[180px]">
+            <Select
+              value=""
+              disabled={bulkUpdateStatus.isPending}
+              onChange={(e) => {
+                if (e.target.value) handleBulkStatusChange(e.target.value as StudentStatus);
+              }}
+            >
+              <option value="">Change status to&hellip;</option>
+              {STATUS_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option[0].toUpperCase() + option.slice(1)}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <Button variant="secondary" onClick={() => setSelectedIds([])}>
+            Clear selection
+          </Button>
+        </div>
+      )}
+
       {isError && <Alert tone="danger">{(error as ApiError).message}</Alert>}
 
       {isLoading ? (
@@ -152,6 +214,17 @@ export function StudentsListPage() {
           <Table>
             <TableHead>
               <tr>
+                {canUpdate && (
+                  <TableHeaderCell className="w-10">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all students on this page"
+                      checked={allSelectedOnPage}
+                      onChange={toggleAllOnPage}
+                      className="size-4 rounded border-[var(--color-border)]"
+                    />
+                  </TableHeaderCell>
+                )}
                 <TableHeaderCell>Admission #</TableHeaderCell>
                 <TableHeaderCell>Name</TableHeaderCell>
                 <TableHeaderCell>Class</TableHeaderCell>
@@ -162,6 +235,17 @@ export function StudentsListPage() {
             <TableBody>
               {data.results.map((student) => (
                 <TableRowLink key={student.id} onClick={() => navigate(`/students/${student.id}`)}>
+                  {canUpdate && (
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${student.full_name}`}
+                        checked={selectedIds.includes(student.id)}
+                        onChange={() => toggleOne(student.id)}
+                        className="size-4 rounded border-[var(--color-border)]"
+                      />
+                    </TableCell>
+                  )}
                   <TableCell className="font-medium">{student.admission_number}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2.5">

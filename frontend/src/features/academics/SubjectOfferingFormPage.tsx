@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Save } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
 import { z } from "zod";
@@ -8,6 +8,7 @@ import { z } from "zod";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { FullPageSpinner } from "@/components/ui/Spinner";
@@ -29,7 +30,6 @@ const schema = z
     subject: z.string().min(1, "Subject is required"),
     academic_year: z.string().min(1, "Academic year is required"),
     term: z.string().min(1, "Term is required"),
-    school_class: z.string().min(1, "Class is required"),
     main_teacher: z.string().min(1, "Main teacher is required"),
     assistant_teacher: z.string(),
     ca_weight_percent: z.coerce.number().int().min(0).max(100),
@@ -45,7 +45,7 @@ const schema = z
 type FormValues = z.infer<typeof schema>;
 
 const EMPTY_VALUES: FormValues = {
-  subject: "", academic_year: "", term: "", school_class: "",
+  subject: "", academic_year: "", term: "",
   main_teacher: "", assistant_teacher: "",
   ca_weight_percent: 40, exam_weight_percent: 60, pass_mark: 50, status: "active",
 };
@@ -70,6 +70,21 @@ export function SubjectOfferingFormPage() {
   const updateOffering = useUpdateSubjectOffering(id ?? "");
   const mutation = isEditMode ? updateOffering : createOffering;
 
+  // Creating: one or more classes, each becoming its own offering with the same subject/
+  // teacher/weighting. Editing: exactly one, since an existing offering IS one specific class.
+  const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
+  const [classesTouched, setClassesTouched] = useState(false);
+  const toggleClass = (classId: string) => {
+    setClassesTouched(true);
+    setSelectedClasses((current) =>
+      isEditMode
+        ? [classId]
+        : current.includes(classId)
+          ? current.filter((id) => id !== classId)
+          : [...current, classId],
+    );
+  };
+
   const {
     register,
     handleSubmit,
@@ -88,7 +103,6 @@ export function SubjectOfferingFormPage() {
         subject: offering.subject,
         academic_year: offering.academic_year,
         term: offering.term,
-        school_class: offering.school_class,
         main_teacher: offering.main_teacher,
         assistant_teacher: offering.assistant_teacher ?? "",
         ca_weight_percent: offering.ca_weight_percent,
@@ -96,6 +110,7 @@ export function SubjectOfferingFormPage() {
         pass_mark: offering.pass_mark,
         status: offering.status,
       });
+      setSelectedClasses([offering.school_class]);
     }
   }, [offering, reset]);
 
@@ -103,32 +118,50 @@ export function SubjectOfferingFormPage() {
   const examWeight = watch("exam_weight_percent");
   const totalWeight = Number(caWeight || 0) + Number(examWeight || 0);
 
-  const onSubmit = (values: FormValues) => {
-    mutation.mutate(
-      {
-        subject: values.subject,
-        academic_year: values.academic_year,
-        term: values.term,
-        school_class: values.school_class,
-        main_teacher: values.main_teacher,
-        assistant_teacher: values.assistant_teacher || null,
-        ca_weight_percent: values.ca_weight_percent,
-        exam_weight_percent: values.exam_weight_percent,
-        pass_mark: values.pass_mark,
-        status: values.status,
-      },
-      {
-        onSuccess: () => {
-          showToast({ title: isEditMode ? "Subject offering updated" : "Subject offering created" });
-          navigate("/academics/subject-offerings");
-        },
-        onError: (err: ApiError) => {
-          if (!applyFieldErrors(err, setError, FIELD_KEYS)) {
-            showToast({ title: "Could not save subject offering", description: generalErrorMessage(err), tone: "danger" });
-          }
-        },
-      },
-    );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<ApiError | null>(null);
+
+  const onSubmit = async (values: FormValues) => {
+    if (selectedClasses.length === 0) {
+      setClassesTouched(true);
+      return;
+    }
+    setSubmitError(null);
+    setIsSubmitting(true);
+    const basePayload = {
+      subject: values.subject,
+      academic_year: values.academic_year,
+      term: values.term,
+      main_teacher: values.main_teacher,
+      assistant_teacher: values.assistant_teacher || null,
+      ca_weight_percent: values.ca_weight_percent,
+      exam_weight_percent: values.exam_weight_percent,
+      pass_mark: values.pass_mark,
+      status: values.status,
+    };
+    try {
+      // One offering per selected class — the backend models "who teaches what, for which
+      // class" as one row per class, so several classes means several requests, not one.
+      await Promise.all(
+        selectedClasses.map((schoolClass) =>
+          mutation.mutateAsync({ ...basePayload, school_class: schoolClass }),
+        ),
+      );
+      showToast({
+        title:
+          isEditMode
+            ? "Subject offering updated"
+            : `Subject offering created for ${selectedClasses.length} class${selectedClasses.length === 1 ? "" : "es"}`,
+      });
+      navigate("/academics/subject-offerings");
+    } catch (err) {
+      if (!applyFieldErrors(err as ApiError, setError, FIELD_KEYS)) {
+        setSubmitError(err as ApiError);
+        showToast({ title: "Could not save subject offering", description: generalErrorMessage(err as ApiError), tone: "danger" });
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isEditMode && isLoadingOffering) {
@@ -146,9 +179,9 @@ export function SubjectOfferingFormPage() {
           <CardTitle>Offering details</CardTitle>
         </CardHeader>
         <CardContent>
-          {mutation.isError && !Object.keys(errors).length && (
+          {submitError && !Object.keys(errors).length && (
             <Alert tone="danger" className="mb-4">
-              {generalErrorMessage(mutation.error as ApiError)}
+              {generalErrorMessage(submitError)}
             </Alert>
           )}
           <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-4">
@@ -179,12 +212,30 @@ export function SubjectOfferingFormPage() {
               </Select>
             </div>
 
-            <Select label="Class" error={errors.school_class?.message} {...register("school_class")}>
-              <option value="">Select a class</option>
-              {classes?.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </Select>
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium text-[var(--color-text)]">
+                {isEditMode ? "Class" : "Classes"}
+              </span>
+              <p className="text-xs text-[var(--color-text-muted)]">
+                {isEditMode
+                  ? "This offering's class can't be changed here — create a new offering for a different class instead."
+                  : "Select every class this subject should be offered to — one offering is created per class."}
+              </p>
+              <div className="grid grid-cols-2 gap-2 rounded-[var(--radius-md)] border border-[var(--color-border)] p-3 sm:grid-cols-3">
+                {classes?.map((c) => (
+                  <Checkbox
+                    key={c.id}
+                    label={c.name}
+                    disabled={isEditMode}
+                    checked={selectedClasses.includes(c.id)}
+                    onChange={() => toggleClass(c.id)}
+                  />
+                ))}
+              </div>
+              {classesTouched && selectedClasses.length === 0 && (
+                <p className="text-sm text-[var(--color-danger)]">Select at least one class.</p>
+              )}
+            </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Select label="Main teacher" error={errors.main_teacher?.message} {...register("main_teacher")}>
@@ -246,8 +297,8 @@ export function SubjectOfferingFormPage() {
               <Button type="button" variant="secondary" onClick={() => navigate("/academics/subject-offerings")}>
                 Cancel
               </Button>
-              <Button type="submit" isLoading={mutation.isPending}>
-                {!mutation.isPending && <Save className="size-4" aria-hidden="true" />}
+              <Button type="submit" isLoading={isSubmitting}>
+                {!isSubmitting && <Save className="size-4" aria-hidden="true" />}
                 Save
               </Button>
             </div>

@@ -23,6 +23,25 @@ def _round2(value):
     return Decimal(value).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
+def scope_subject_offerings_for_teacher(queryset, user):
+    """A Teacher must only see the subject offerings they actually teach — as either the main or
+    the assistant teacher — never the whole school's catalog. Keyed off the "teacher" role slug
+    specifically (same pattern as apps.students.services.scope_students_for_teacher), not a
+    view-only permission, since e.g. a Principal or Exams Director legitimately needs
+    school-wide visibility without "teaching" anything."""
+    from apps.authorization.models import UserRole
+
+    is_teacher = UserRole.unscoped_objects.filter(user=user, role__slug="teacher").exists()
+    if not is_teacher:
+        return queryset
+
+    staff_profile = getattr(user, "staff_profile", None)
+    if staff_profile is None:
+        return queryset.none()
+
+    return queryset.filter(models.Q(main_teacher=staff_profile) | models.Q(assistant_teacher=staff_profile))
+
+
 def compute_ca_allocation(subject_offering: SubjectOffering) -> dict:
     """CA weight budget for one offering: configured (its ca_weight_percent), allocated (sum of
     active Assessment weights), and remaining. Backs both the "CA progress display" and the

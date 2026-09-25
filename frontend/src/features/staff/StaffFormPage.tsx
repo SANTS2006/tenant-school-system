@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Camera, Save, User as UserIcon } from "lucide-react";
+import { Camera, FileText, Save, User as UserIcon, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
@@ -16,7 +16,21 @@ import { useRoles } from "@/features/authorization/useRoles";
 import { useInviteUser } from "@/features/users/useUsers";
 import type { ApiError } from "@/lib/api-client";
 
+import { useCreateDocument } from "@/features/documents/useDocumentsCrud";
+
 import { useCreateStaff } from "./useStaffCrud";
+
+const ACADEMIC_QUALIFICATIONS = [
+  "Certificate",
+  "Diploma in Education",
+  "Higher Diploma",
+  "Bachelor of Education (B.Ed)",
+  "Bachelor's Degree (B.A/B.Sc)",
+  "Postgraduate Diploma in Education (PGDE)",
+  "Master's Degree (M.A/M.Sc/M.Ed)",
+  "Doctorate (PhD)",
+  "Other",
+] as const;
 
 const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024; // matches the backend's validate_image_file cap
 const ACCEPTED_PHOTO_TYPES = "image/jpeg,image/png,image/gif,image/webp";
@@ -29,7 +43,6 @@ const schema = z.object({
   staff_id: z.string(),
   department: z.string(),
   job_title: z.string(),
-  qualification: z.string(),
   hire_date: z.string(),
   emergency_contact_name: z.string(),
   emergency_contact_phone: z.string(),
@@ -45,7 +58,6 @@ const EMPTY_VALUES: FormValues = {
   staff_id: "",
   department: "",
   job_title: "",
-  qualification: "",
   hire_date: "",
   emergency_contact_name: "",
   emergency_contact_phone: "",
@@ -70,10 +82,30 @@ export function StaffFormPage() {
     formState: { errors },
   } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: EMPTY_VALUES });
 
+  const createDocument = useCreateDocument();
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | undefined>();
+
+  // The qualification field is a fixed dropdown, with "Other" revealing free text — so an
+  // unusual qualification isn't blocked, but the common case gets consistent, comparable values.
+  const [qualificationChoice, setQualificationChoice] = useState("");
+  const [customQualification, setCustomQualification] = useState("");
+
+  const documentInputRef = useRef<HTMLInputElement>(null);
+  const [documentFiles, setDocumentFiles] = useState<File[]>([]);
+  const handleDocumentFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (files.length > 0) {
+      setDocumentFiles((current) => [...current, ...files]);
+    }
+  };
+  const removeDocumentFile = (index: number) => {
+    setDocumentFiles((current) => current.filter((_, i) => i !== index));
+  };
 
   useEffect(() => {
     return () => {
@@ -98,6 +130,24 @@ export function StaffFormPage() {
   };
 
   const isSubmitting = inviteUser.isPending || createStaff.isPending;
+  const qualification = qualificationChoice === "Other" ? customQualification : qualificationChoice;
+
+  const uploadStaffDocuments = async (staffId: string) => {
+    if (documentFiles.length === 0) return;
+    const results = await Promise.allSettled(
+      documentFiles.map((file) =>
+        createDocument.mutateAsync({ title: file.name, owner_type: "staff", staff: staffId, file }),
+      ),
+    );
+    const failed = results.filter((r) => r.status === "rejected").length;
+    if (failed > 0) {
+      showToast({
+        title: `${failed} of ${documentFiles.length} document(s) could not be uploaded`,
+        description: "You can add them again from this staff member's profile.",
+        tone: "danger",
+      });
+    }
+  };
 
   const onSubmit = (values: FormValues) => {
     inviteUser.mutate(
@@ -115,14 +165,15 @@ export function StaffFormPage() {
               staff_id: values.staff_id || undefined,
               department: values.department || undefined,
               job_title: values.job_title || undefined,
-              qualification: values.qualification || undefined,
+              qualification: qualification || undefined,
               hire_date: values.hire_date || undefined,
               emergency_contact_name: values.emergency_contact_name || undefined,
               emergency_contact_phone: values.emergency_contact_phone || undefined,
               photo: photoFile ?? undefined,
             },
             {
-              onSuccess: (staff) => {
+              onSuccess: async (staff) => {
+                await uploadStaffDocuments(staff.id);
                 showToast({ title: "Staff member added", description: `${staff.email} can sign in now with the school's default password.` });
                 navigate(`/staff/${staff.id}`);
               },
@@ -223,7 +274,27 @@ export function StaffFormPage() {
               <Input label="Job title" error={errors.job_title?.message} {...register("job_title")} />
               <Input type="date" label="Hire date" error={errors.hire_date?.message} {...register("hire_date")} />
             </div>
-            <Input label="Qualification" error={errors.qualification?.message} {...register("qualification")} />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Select
+                label="Qualification"
+                value={qualificationChoice}
+                onChange={(e) => setQualificationChoice(e.target.value)}
+              >
+                <option value="">Not set</option>
+                {ACADEMIC_QUALIFICATIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </Select>
+              {qualificationChoice === "Other" && (
+                <Input
+                  label="Specify qualification"
+                  value={customQualification}
+                  onChange={(e) => setCustomQualification(e.target.value)}
+                />
+              )}
+            </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Input
                 label="Emergency contact name"
@@ -234,6 +305,50 @@ export function StaffFormPage() {
                 label="Emergency contact phone"
                 error={errors.emergency_contact_phone?.message}
                 {...register("emergency_contact_phone")}
+              />
+            </div>
+
+            <hr className="my-2 border-[var(--color-border)]" />
+
+            <div>
+              <h2 className="text-sm font-medium text-[var(--color-text)]">Documents</h2>
+              <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+                Certificates, ID, contract, or any other files for this staff member's record. Optional — add as many
+                as needed.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              {documentFiles.length > 0 && (
+                <ul className="flex flex-col gap-1.5">
+                  {documentFiles.map((file, index) => (
+                    <li
+                      key={`${file.name}-${index}`}
+                      className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-3 py-2 text-sm"
+                    >
+                      <FileText className="size-4 shrink-0 text-[var(--color-text-muted)]" aria-hidden="true" />
+                      <span className="min-w-0 flex-1 truncate text-[var(--color-text)]">{file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeDocumentFile(index)}
+                        aria-label={`Remove ${file.name}`}
+                        className="shrink-0 rounded p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-bg)] hover:text-[var(--color-danger)]"
+                      >
+                        <X className="size-4" aria-hidden="true" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <Button type="button" variant="secondary" onClick={() => documentInputRef.current?.click()}>
+                <FileText className="size-4" aria-hidden="true" />
+                Add document(s)
+              </Button>
+              <input
+                ref={documentInputRef}
+                type="file"
+                multiple
+                onChange={handleDocumentFilesChange}
+                className="hidden"
               />
             </div>
 

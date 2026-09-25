@@ -1,7 +1,7 @@
 from django.db import models
 
 from apps.common.models import TimeStampedModel
-from apps.common.validators import validate_upload_file
+from apps.common.validators import validate_image_file, validate_upload_file
 from apps.tenants.models import TenantScopedModel
 
 
@@ -75,9 +75,9 @@ class Department(TenantScopedModel, TimeStampedModel):
 class Subject(TenantScopedModel, TimeStampedModel):
     name = models.CharField(max_length=100)
     code = models.CharField(max_length=20, blank=True)
-    department = models.ForeignKey(
-        Department, null=True, blank=True, on_delete=models.SET_NULL, related_name="subjects"
-    )
+    # A subject can be offered by more than one department (e.g. "Financial Accounting" taught
+    # by both Business and Accounting) — plain M2M, no through-model attributes needed.
+    departments = models.ManyToManyField(Department, blank=True, related_name="subjects")
     # LEGACY grading split, kept for backward compatibility with Result rows created before
     # SubjectOffering existed (Phase 44's grading engine originally read these two fields
     # directly). New code should read the CA/Exam split from the relevant SubjectOffering
@@ -99,8 +99,8 @@ class Subject(TenantScopedModel, TimeStampedModel):
         return self.name
 
     def save(self, *args, **kwargs):
-        if self.department_id and self.department.school_id != self.school_id:
-            raise ValueError("Subject.school must match department.school")
+        # `departments` is M2M, so cross-school membership can't be checked here the way a plain
+        # FK could be (the row must exist first) — see SubjectSerializer.validate_departments.
         if self.ca_weight_percent + self.exam_weight_percent != 100:
             raise ValueError("Subject.ca_weight_percent and exam_weight_percent must sum to 100")
         super().save(*args, **kwargs)
@@ -159,6 +159,11 @@ class SubjectOffering(TenantScopedModel, TimeStampedModel):
     ca_closed_at = models.DateTimeField(null=True, blank=True)
     ca_closed_by = models.ForeignKey(
         "users.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    # Optional: a teacher-picked cover photo shown large on this offering's card in the teacher's
+    # Subjects grid — purely cosmetic, no effect on grading.
+    cover_image = models.FileField(
+        upload_to="subject_offering_covers/", null=True, blank=True, validators=[validate_image_file]
     )
 
     class Meta:

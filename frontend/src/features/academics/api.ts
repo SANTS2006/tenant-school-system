@@ -215,6 +215,16 @@ export async function deleteSubjectOffering(id: string): Promise<void> {
   await apiClient.delete(`/academics/subject-offerings/${id}/`);
 }
 
+export async function uploadSubjectOfferingCoverImage(id: string, file: File): Promise<SubjectOffering> {
+  const formData = new FormData();
+  formData.append("cover_image", file);
+  const { data } = await apiClient.post<{ subject_offering: SubjectOffering }>(
+    `/academics/subject-offerings/${id}/cover-image/`,
+    formData,
+  );
+  return data.subject_offering;
+}
+
 export async function closeSubjectOfferingCA(id: string): Promise<SubjectOffering> {
   const { data } = await apiClient.post<{ subject_offering: SubjectOffering }>(
     `/academics/subject-offerings/${id}/close-ca/`,

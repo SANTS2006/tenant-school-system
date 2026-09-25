@@ -79,16 +79,18 @@ class UserViewSet(TenantScopedModelViewSet):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
+        role_id = data.get("role_id")
+        role = get_object_or_404(Role.unscoped_objects, pk=role_id, school=get_current_school()) if role_id else None
+
         user = invite_user_service(
             email=data["email"],
             first_name=data["first_name"],
             last_name=data["last_name"],
             school=get_current_school(),
             invited_by=request.user,
+            role_label=role.name if role else None,
         )
-        role_id = data.get("role_id")
-        if role_id:
-            role = get_object_or_404(Role.unscoped_objects, pk=role_id, school=get_current_school())
+        if role:
             assign_role(user=user, role=role, assigned_by=request.user)
 
         return _ok("Account created with the school's default password.", user=UserSerializer(user).data)

@@ -6,10 +6,26 @@ from django.db.models import Q
 from .models import ExamSchedule, Result
 
 
-def compute_ca_score(*, student, subject, school_class, term):
-    """
-    The weighted average of `student`'s graded Assignments for `subject`/`school_class`/`term`,
-    on a 0-100 scale — the CA (continuous assessment) component of a final grade.
+def _compute_ca_score_from_offering(*, offering, student):
+    """The CA (continuous assessment) component sourced from `offering`'s own Assessments/
+    AssessmentScores — the same "CA" data a teacher enters from a subject's CA tab (see
+    apps.academics.services.compute_total_ca) — rescaled to a 0-100 "average performance" figure
+    so it matches the shape `combine_score` expects (which re-applies the weighting itself).
+    Returns `None` if that CA isn't configured, or nothing has been submitted yet."""
+    from apps.academics.services import compute_total_ca
+
+    if not offering.ca_weight_percent:
+        return None
+    total_ca = compute_total_ca(offering, student)
+    if total_ca is None:
+        return None
+    return round(total_ca * 100 / offering.ca_weight_percent, 2)
+
+
+def _compute_ca_score_from_assignments(*, student, subject, school_class, term):
+    """LEGACY fallback, used only when no SubjectOffering matches this subject/class/term (see
+    Subject.ca_weight_percent's docstring): the weighted average of `student`'s graded
+    Assignments, on a 0-100 scale.
 
     Each Assignment carries its own teacher-set `weight` (a relative share, not required to sum
     to 100 across a subject's assignments — see Assignment.weight's docstring). This normalizes
@@ -22,8 +38,7 @@ def compute_ca_score(*, student, subject, school_class, term):
     before that field existed (term is null), falls back to matching by `due_date` falling within
     the term's date range — a Subject/Term pair predates nothing else `Assignment` could key off.
 
-    Returns `None` if the student has zero graded submissions for this scope — callers (see
-    `enter_exam_score`) must not treat that as a CA score of zero.
+    Returns `None` if the student has zero graded submissions for this scope.
     """
     from apps.assignments.models import Assignment, AssignmentSubmission
 
@@ -53,6 +68,28 @@ def compute_ca_score(*, student, subject, school_class, term):
     return round(weighted_sum / weight_total, 2)
 
 
+def compute_ca_score(*, student, subject, school_class, term):
+    """
+    The CA (continuous assessment) component of `student`'s final grade for `subject`/
+    `school_class`/`term`, on a 0-100 scale.
+
+    Prefers the matching SubjectOffering's own CA data (the Assessments/AssessmentScores a
+    teacher enters from that subject's CA tab) since that's what teachers actually use day to
+    day and carries the offering's own CA weighting. Falls back to the legacy graded-Assignment
+    average only when no SubjectOffering matches this subject/class/term at all, so historical
+    data predating SubjectOffering still resolves (see Subject.ca_weight_percent's docstring).
+
+    Returns `None` if neither source has anything yet — callers (see `enter_exam_score`) must
+    not treat that as a CA score of zero.
+    """
+    from apps.academics.models import SubjectOffering
+
+    offering = SubjectOffering.objects.filter(subject=subject, school_class=school_class, term=term).first()
+    if offering is not None:
+        return _compute_ca_score_from_offering(offering=offering, student=student)
+    return _compute_ca_score_from_assignments(student=student, subject=subject, school_class=school_class, term=term)
+
+
 def combine_score(*, exam_score, exam_schedule: ExamSchedule, student):
     """
     Resolves the CA component for `student` on `exam_schedule`'s subject/class/term and combines
@@ -62,14 +99,24 @@ def combine_score(*, exam_score, exam_schedule: ExamSchedule, student):
     `ResultViewSet.correct` (the locked-result override path, which bypasses the draft-only guard
     on purpose — see that view for why).
     """
+    from apps.academics.models import SubjectOffering
+
     subject = exam_schedule.subject
-    ca_avg_pct = compute_ca_score(
-        student=student, subject=subject, school_class=exam_schedule.school_class, term=exam_schedule.exam.term
+    school_class = exam_schedule.school_class
+    term = exam_schedule.exam.term
+    offering = SubjectOffering.objects.filter(subject=subject, school_class=school_class, term=term).first()
+    ca_weight_percent = offering.ca_weight_percent if offering else subject.ca_weight_percent
+    exam_weight_percent = offering.exam_weight_percent if offering else subject.exam_weight_percent
+
+    ca_avg_pct = (
+        _compute_ca_score_from_offering(offering=offering, student=student)
+        if offering
+        else _compute_ca_score_from_assignments(student=student, subject=subject, school_class=school_class, term=term)
     )
     if ca_avg_pct is None or exam_score is None:
         return None, None
     exam_pct = (exam_score / exam_schedule.max_score) * 100
-    final_score = round(ca_avg_pct * subject.ca_weight_percent / 100 + exam_pct * subject.exam_weight_percent / 100, 2)
+    final_score = round(ca_avg_pct * ca_weight_percent / 100 + exam_pct * exam_weight_percent / 100, 2)
     return ca_avg_pct, final_score
 
 

@@ -150,3 +150,26 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* Scoped printing: a page marks the one thing it wants printed with data-printable-root, and
+ * window.print() then prints only that (and nothing of the surrounding app shell/sidebar/nav) —
+ * see src/hooks/usePrintableSection.ts. Everything is hidden by default; the printable root and
+ * its descendants are switched back to visible and taken out of the app's normal layout so they
+ * render as their own page, starting at the top-left. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  [data-printable-root],
+  [data-printable-root] * {
+    visibility: visible;
+  }
+  [data-printable-root] {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+  }
+  [data-print-hidden] {
+    display: none !important;
+  }
+}

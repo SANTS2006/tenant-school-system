@@ -43,6 +43,17 @@ export async function archiveStudent(id: string): Promise<void> {
   await apiClient.delete(`/students/${id}/`);
 }
 
+export async function bulkUpdateStudentStatus(
+  studentIds: string[],
+  status: Student["status"],
+): Promise<{ updated: number }> {
+  const { data } = await apiClient.post<{ updated: number }>("/students/bulk-status/", {
+    student_ids: studentIds,
+    status,
+  });
+  return data;
+}
+
 /** Linking/unlinking a guardian happens entirely through this student-side action — there is no
  * flat `StudentGuardian` list endpoint and no reverse "this guardian's students" endpoint, so a
  * student's guardians can only ever be read/changed via its own id. */

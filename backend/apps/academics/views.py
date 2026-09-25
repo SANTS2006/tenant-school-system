@@ -87,6 +87,7 @@ class AcademicsModelViewSet(TenantScopedModelViewSet):
 
     model = None
     select_related_fields = ()
+    prefetch_related_fields = ()
 
     def get_permissions(self):
         code = f"academics.{_ACTION_SUFFIX.get(self.action, 'view')}"
@@ -96,6 +97,8 @@ class AcademicsModelViewSet(TenantScopedModelViewSet):
         qs = self.model.objects.all()
         if self.select_related_fields:
             qs = qs.select_related(*self.select_related_fields)
+        if self.prefetch_related_fields:
+            qs = qs.prefetch_related(*self.prefetch_related_fields)
         return qs
 
 
@@ -136,9 +139,9 @@ class DepartmentViewSet(AcademicsModelViewSet):
 
 class SubjectViewSet(AcademicsModelViewSet):
     model = Subject
-    select_related_fields = ("department",)
+    prefetch_related_fields = ("departments",)
     serializer_class = SubjectSerializer
-    filterset_fields = ["department"]
+    filterset_fields = ["departments"]
     search_fields = ["name", "code"]
     ordering_fields = ["name"]
     summary_stats = {
@@ -158,6 +161,34 @@ class SubjectOfferingViewSet(AcademicsModelViewSet):
         "total": {},
         "active": {"status": SubjectOffering.Status.ACTIVE},
     }
+
+    def get_queryset(self):
+        return services.scope_subject_offerings_for_teacher(super().get_queryset(), self.request.user)
+
+    def _can_set_cover_image(self, offering):
+        """A teacher may set their own offering's cover photo without holding the broader
+        `academics.update` permission (which is reserved for the grading-config fields an
+        administrator manages) — same "own it or hold the admin permission" split used by
+        StudentSubjectEnrollmentViewSet above."""
+        if user_has_permission(self.request.user, "academics.update"):
+            return True
+        staff_profile = getattr(self.request.user, "staff_profile", None)
+        return staff_profile is not None and staff_profile.id in {offering.main_teacher_id, offering.assistant_teacher_id}
+
+    @action(detail=True, methods=["post"], url_path="cover-image")
+    def cover_image(self, request, pk=None):
+        offering = self.get_object()
+        if not self._can_set_cover_image(offering):
+            return _error("You can only set the cover image for a subject you teach.", "FORBIDDEN", status.HTTP_403_FORBIDDEN)
+        file_obj = request.FILES.get("cover_image")
+        if not file_obj:
+            return _error("No file provided.", "VALIDATION_ERROR", status.HTTP_400_BAD_REQUEST)
+        serializer = SubjectOfferingSerializer(
+            offering, data={"cover_image": file_obj}, partial=True, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return _ok("Cover image updated.", subject_offering=serializer.data)
 
     @action(detail=True, methods=["post"], url_path="close-ca")
     def close_ca(self, request, pk=None):

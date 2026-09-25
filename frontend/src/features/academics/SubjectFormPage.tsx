@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Save } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
 import { z } from "zod";
@@ -8,8 +8,8 @@ import { z } from "zod";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import { FullPageSpinner } from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/Toast";
 import type { ApiError } from "@/lib/api-client";
@@ -19,12 +19,11 @@ import { useCreateSubject, useDepartmentList, useSubject, useUpdateSubject } fro
 const schema = z.object({
   name: z.string().min(1, "Name is required"),
   code: z.string(),
-  department: z.string(),
 });
 
 type FormValues = z.infer<typeof schema>;
 
-const EMPTY_VALUES: FormValues = { name: "", code: "", department: "" };
+const EMPTY_VALUES: FormValues = { name: "", code: "" };
 
 export function SubjectFormPage() {
   const { id } = useParams<{ id: string }>();
@@ -38,6 +37,16 @@ export function SubjectFormPage() {
   const updateSubject = useUpdateSubject(id ?? "");
   const mutation = isEditMode ? updateSubject : createSubject;
 
+  // A subject can be offered by more than one department, so this is a checkbox group rather
+  // than a react-hook-form-registered field — the same pattern the photo picker elsewhere in
+  // this app uses for a value that isn't a plain input.
+  const [selectedDepartments, setSelectedDepartments] = useState<string[]>([]);
+  const toggleDepartment = (departmentId: string) => {
+    setSelectedDepartments((current) =>
+      current.includes(departmentId) ? current.filter((id) => id !== departmentId) : [...current, departmentId],
+    );
+  };
+
   const {
     register,
     handleSubmit,
@@ -47,7 +56,8 @@ export function SubjectFormPage() {
 
   useEffect(() => {
     if (subject) {
-      reset({ name: subject.name, code: subject.code, department: subject.department ?? "" });
+      reset({ name: subject.name, code: subject.code });
+      setSelectedDepartments(subject.departments);
     }
   }, [subject, reset]);
 
@@ -56,7 +66,7 @@ export function SubjectFormPage() {
       {
         name: values.name,
         code: values.code || undefined,
-        department: values.department || undefined,
+        departments: selectedDepartments,
       },
       {
         onSuccess: () => {
@@ -93,14 +103,22 @@ export function SubjectFormPage() {
           <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-4">
             <Input label="Name" placeholder="Mathematics" error={errors.name?.message} {...register("name")} />
             <Input label="Code" placeholder="MATH" error={errors.code?.message} {...register("code")} />
-            <Select label="Department" error={errors.department?.message} {...register("department")}>
-              <option value="">Not set</option>
-              {departments?.results.map((dept) => (
-                <option key={dept.id} value={dept.id}>
-                  {dept.name}
-                </option>
-              ))}
-            </Select>
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium text-[var(--color-text)]">Departments</span>
+              <p className="text-xs text-[var(--color-text-muted)]">
+                Select every department that offers this subject.
+              </p>
+              <div className="grid grid-cols-2 gap-2 rounded-[var(--radius-md)] border border-[var(--color-border)] p-3 sm:grid-cols-3">
+                {departments?.results.map((dept) => (
+                  <Checkbox
+                    key={dept.id}
+                    label={dept.name}
+                    checked={selectedDepartments.includes(dept.id)}
+                    onChange={() => toggleDepartment(dept.id)}
+                  />
+                ))}
+              </div>
+            </div>
 
             <div className="mt-2 flex justify-end gap-3">
               <Button type="button" variant="secondary" onClick={() => navigate("/academics/subjects")}>

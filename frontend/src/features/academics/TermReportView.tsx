@@ -1,9 +1,10 @@
-import { Printer } from "lucide-react";
+import { Download, Printer } from "lucide-react";
 
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
+import { usePrintableSection } from "@/hooks/usePrintableSection";
 import { LogoBadge } from "@/layouts/AppShell";
 import type { School } from "@/features/schools/types";
 
@@ -37,17 +38,26 @@ interface TermReportViewProps {
 }
 
 export function TermReportView({ report, studentName, school, showPrintButton = true }: TermReportViewProps) {
+  const { printableRef, print, download, isDownloading } = usePrintableSection(
+    `${studentName} - ${report.term_name} report.pdf`,
+  );
+
   return (
     <div className="flex flex-col gap-6">
       {showPrintButton && (
-        <div className="flex justify-end">
-          <Button variant="secondary" onClick={() => window.print()}>
+        <div className="flex justify-end gap-2" data-print-hidden>
+          <Button variant="secondary" onClick={download} isLoading={isDownloading}>
+            {!isDownloading && <Download className="size-4" aria-hidden="true" />}
+            Download
+          </Button>
+          <Button variant="secondary" onClick={print}>
             <Printer className="size-4" aria-hidden="true" />
             Print
           </Button>
         </div>
       )}
 
+      <div ref={printableRef} data-printable-root className="flex flex-col gap-6">
       <Card>
         <CardHeader className="flex-row items-center gap-3">
           <LogoBadge logoUrl={school?.logo} className="size-12" />
@@ -151,6 +161,7 @@ export function TermReportView({ report, studentName, school, showPrintButton = 
           </dl>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

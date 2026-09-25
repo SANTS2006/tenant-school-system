@@ -14,6 +14,7 @@ export interface Student {
   user: string | null;
   admission_number: string;
   first_name: string;
+  middle_name: string;
   last_name: string;
   full_name: string;
   date_of_birth: string | null;
@@ -49,6 +50,7 @@ export interface StudentListParams {
 export interface StudentPayload {
   admission_number: string;
   first_name: string;
+  middle_name?: string;
   last_name: string;
   status: StudentStatus;
   date_of_birth?: string;

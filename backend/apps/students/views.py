@@ -48,6 +48,8 @@ class StudentViewSet(TenantScopedModelViewSet):
     def get_permissions(self):
         if self.action == "guardians":
             code = "students.view" if self.request.method.lower() == "get" else "students.update"
+        elif self.action == "bulk_status":
+            code = "students.update"
         else:
             code = f"students.{_ACTION_SUFFIX.get(self.action, 'view')}"
         return [require_permission(code)()]
@@ -63,6 +65,42 @@ class StudentViewSet(TenantScopedModelViewSet):
             entity_id=str(instance.pk),
             severity="warning",
         )
+
+    @action(detail=False, methods=["post"], url_path="bulk-status")
+    def bulk_status(self, request):
+        """Change the status of several students in one request, for the list page's
+        multi-select toolbar. Archiving here goes through the same path as a single-row
+        archive (status=archived), never a hard delete."""
+        student_ids = request.data.get("student_ids") or []
+        new_status = request.data.get("status")
+        valid_statuses = {choice for choice, _label in Student.Status.choices}
+        if not student_ids or new_status not in valid_statuses:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Provide student_ids and a valid status.",
+                    "code": "VALIDATION_ERROR",
+                    "errors": [],
+                },
+                status=400,
+            )
+
+        students = list(self.get_queryset().filter(pk__in=student_ids))
+        updated = 0
+        for student in students:
+            if student.status != new_status:
+                student.status = new_status
+                student.save(update_fields=["status"])
+                updated += 1
+            log_action(
+                action="students.status_changed",
+                actor=request.user,
+                school=get_current_school(),
+                entity_type="Student",
+                entity_id=str(student.pk),
+                after={"status": new_status},
+            )
+        return _ok(f"Updated {updated} student(s).", updated=updated)
 
     @action(detail=True, methods=["get", "post", "delete"])
     def guardians(self, request, pk=None):

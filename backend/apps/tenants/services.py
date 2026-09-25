@@ -10,6 +10,12 @@ from .context import get_current_school_id
 from .models import School
 
 
+# Platform admins have no school to derive a per-school default password from, so they share
+# this one fixed default instead. Same handling as a school's default everywhere else: it's set
+# on invite, forces a change at next sign-in, and can never be *chosen* as the new password.
+PLATFORM_ADMIN_DEFAULT_PASSWORD = "ntsschoolsystem@2026"
+
+
 def get_current_school() -> School | None:
     """The school for the current request's tenant context — a normal school user's own school,
     or (for a platform admin) whichever school they're currently "viewing" via the acting-school
@@ -37,11 +43,20 @@ def generate_default_password(school: School) -> str:
 
 
 def is_default_password(user, raw_password: str) -> bool:
-    """True if `raw_password` is the guessable per-school default for this user's school. Such a
-    password must never be *chosen*: it is public knowledge to anyone who knows the school's name."""
-    if user.school_id is None or not raw_password:
+    """True if `raw_password` is the guessable default for this account: the per-school default
+    for a school user, or the shared platform-admin default. Such a password must never be
+    *chosen*: it is public knowledge to anyone who knows the school's name (or, for a platform
+    admin, to anyone who has read this codebase)."""
+    from apps.users.models import User
+
+    if not raw_password:
         return False
-    return raw_password.strip().lower() == generate_default_password(user.school).lower()
+    raw = raw_password.strip().lower()
+    if user.user_type == User.UserType.PLATFORM_ADMIN:
+        return raw == PLATFORM_ADMIN_DEFAULT_PASSWORD.lower()
+    if user.school_id is None:
+        return False
+    return raw == generate_default_password(user.school).lower()
 
 
 @transaction.atomic
@@ -76,6 +91,7 @@ def create_school(
         school=school,
         user_type=User.UserType.SCHOOL_USER,
         invited_by=created_by,
+        role_label="School Administrator",
     )
     admin_role = Role.unscoped_objects.get(school=school, slug="school-administrator")
     assign_role(user=admin_user, role=admin_role, assigned_by=created_by)

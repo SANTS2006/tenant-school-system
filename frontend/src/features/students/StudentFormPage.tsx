@@ -21,6 +21,7 @@ import { useCreateStudent, useStudent, useUpdateStudent } from "./useStudents";
 const studentSchema = z.object({
   admission_number: z.string().min(1, "Admission number is required"),
   first_name: z.string().min(1, "First name is required"),
+  middle_name: z.string(),
   last_name: z.string().min(1, "Last name is required"),
   date_of_birth: z.string(),
   gender: z.enum(["male", "female", "other", ""]),
@@ -38,6 +39,7 @@ type StudentFormValues = z.infer<typeof studentSchema>;
 const EMPTY_VALUES: StudentFormValues = {
   admission_number: "",
   first_name: "",
+  middle_name: "",
   last_name: "",
   date_of_birth: "",
   gender: "",
@@ -51,6 +53,7 @@ const EMPTY_VALUES: StudentFormValues = {
 };
 
 const OPTIONAL_KEYS = [
+  "middle_name",
   "date_of_birth",
   "gender",
   "address",
@@ -126,6 +129,7 @@ export function StudentFormPage() {
       reset({
         admission_number: student.admission_number,
         first_name: student.first_name,
+        middle_name: student.middle_name ?? "",
         last_name: student.last_name,
         date_of_birth: student.date_of_birth ?? "",
         gender: student.gender,
@@ -242,6 +246,7 @@ export function StudentFormPage() {
                 <option value="archived">Archived</option>
               </Select>
               <Input label="First name" error={errors.first_name?.message} {...register("first_name")} />
+              <Input label="Middle name" error={errors.middle_name?.message} {...register("middle_name")} />
               <Input label="Last name" error={errors.last_name?.message} {...register("last_name")} />
               <Input type="date" label="Date of birth" error={errors.date_of_birth?.message} {...register("date_of_birth")} />
               <Select label="Gender" error={errors.gender?.message} {...register("gender")}>

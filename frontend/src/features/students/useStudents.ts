@@ -5,6 +5,7 @@ import type { LinkGuardianPayload, StudentGuardian } from "@/features/parents/ty
 
 import {
   archiveStudent,
+  bulkUpdateStudentStatus,
   createStudent,
   fetchStudentGuardians,
   getStudent,
@@ -60,6 +61,16 @@ export function useArchiveStudent() {
   const queryClient = useQueryClient();
   return useMutation<void, ApiError, string>({
     mutationFn: archiveStudent,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: STUDENTS_KEY });
+    },
+  });
+}
+
+export function useBulkUpdateStudentStatus() {
+  const queryClient = useQueryClient();
+  return useMutation<{ updated: number }, ApiError, { studentIds: string[]; status: Student["status"] }>({
+    mutationFn: ({ studentIds, status }) => bulkUpdateStudentStatus(studentIds, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: STUDENTS_KEY });
     },
