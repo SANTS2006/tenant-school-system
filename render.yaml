@@ -22,7 +22,7 @@ services:
       - key: DJANGO_DEBUG
         value: "False"
       - key: DJANGO_ALLOWED_HOSTS
-        value: school.ntsdigitalsolutions.com
+        value: school.ntsdigitalsolutions.com,nts-school-system.onrender.com
       - key: CORS_ALLOWED_ORIGINS
         value: https://school.ntsdigitalsolutions.com
       - key: CSRF_TRUSTED_ORIGINS
