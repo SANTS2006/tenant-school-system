@@ -56,6 +56,7 @@ class PlatformAdminViewSet(TenantScopedModelViewSet):
             school=None,
             user_type=User.UserType.PLATFORM_ADMIN,
             invited_by=request.user,
+            request=request,
         )
         message = "Invitation sent." if admin.invite_email_sent else (
             "Account created, but the sign-in email could not be sent."

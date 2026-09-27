@@ -1,6 +1,8 @@
 """Serving the built React app from Django (production, single origin).
 
-In production one web service answers everything on school.ntsdigitalsolutions.com:
+In production one web service answers everything, on whichever of its hostnames is currently
+resolving (the Render-given nts-school-system.onrender.com, and/or the custom
+school.ntsdigitalsolutions.com once its DNS/certificate are in place — see render.yaml):
   /api/*            -> Django REST API
   /assets/*, files  -> WhiteNoise, straight from the frontend build (long-cached, fingerprinted)
   any other path    -> index.html, so client-side routes like /students/123 survive a page reload

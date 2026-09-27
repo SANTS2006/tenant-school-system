@@ -60,6 +60,7 @@ class SchoolViewSet(TenantScopedModelViewSet):
             admin_first_name=admin_fields["admin_first_name"],
             admin_last_name=admin_fields["admin_last_name"],
             created_by=request.user,
+            request=request,
             **data,
         )
         return Response(

@@ -89,6 +89,7 @@ class UserViewSet(TenantScopedModelViewSet):
             school=get_current_school(),
             invited_by=request.user,
             role_label=role.name if role else None,
+            request=request,
         )
         if role:
             assign_role(user=user, role=role, assigned_by=request.user)

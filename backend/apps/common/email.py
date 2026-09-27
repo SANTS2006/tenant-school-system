@@ -9,10 +9,26 @@ PLATFORM_NAME = "NTS School System"
 BRAND_COLOR = "#1565c0"
 
 
-def _absolute_url(url: str) -> str:
+def frontend_base_url(request=None) -> str:
+    """The origin to build emailed links against. In production the backend serves the built
+    frontend from the same origin it's answering API requests on (see apps.common.spa) — the
+    school currently has both a custom domain and Render's own onrender.com address pointed at
+    it, and only one may actually be resolving/certified at a given moment (see
+    deploy/README.md). Building the link from whichever host the request itself came in on means
+    it always matches a domain that's known to be working right now, rather than a fixed setting
+    that could be pointing at the one that isn't. Falls back to `settings.FRONTEND_URL` when
+    there's no request to read (a management command, or local dev where the frontend runs on
+    its own Vite origin rather than being served by Django)."""
+    if request is not None and not settings.DEBUG:
+        scheme = "https" if request.is_secure() else "http"
+        return f"{scheme}://{request.get_host()}"
+    return settings.FRONTEND_URL
+
+
+def _absolute_url(url: str, request=None) -> str:
     if not url or url.startswith(("http://", "https://")):
         return url
-    return f"{settings.FRONTEND_URL.rstrip('/')}/{url.lstrip('/')}"
+    return f"{frontend_base_url(request).rstrip('/')}/{url.lstrip('/')}"
 
 
 def _school_logo_url(school) -> str:

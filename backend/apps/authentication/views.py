@@ -268,7 +268,7 @@ class PasswordResetRequestView(APIView):
     def post(self, request):
         serializer = PasswordResetRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        services.request_password_reset(serializer.validated_data["email"])
+        services.request_password_reset(serializer.validated_data["email"], request=request)
         # Same response whether or not the email exists — avoids user enumeration.
         return _ok("If an account exists with that email, a reset link has been sent.")
 
@@ -302,7 +302,7 @@ class EmailVerificationRequestView(TenantScopedAPIView):
     def post(self, request):
         if request.user.is_email_verified:
             return _ok("Email already verified.")
-        services.request_email_verification(request.user)
+        services.request_email_verification(request.user, request=request)
         return _ok("Verification email sent.")
 
 

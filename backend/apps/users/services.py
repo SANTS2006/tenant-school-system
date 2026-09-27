@@ -15,6 +15,7 @@ def invite_user(
     user_type: str = User.UserType.SCHOOL_USER,
     invited_by=None,
     role_label: str | None = None,
+    request=None,
 ) -> User:
     """
     Every invited account — platform admin or school user — is active immediately with a
@@ -53,6 +54,7 @@ def invite_user(
         user=user,
         password=password,
         role_label=role_label or ("platform administrator" if is_platform_admin else "a school user"),
+        request=request,
     )
 
     log_action(

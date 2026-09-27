@@ -68,6 +68,7 @@ def create_school(
     admin_first_name: str,
     admin_last_name: str,
     created_by=None,
+    request=None,
     **school_fields,
 ) -> School:
     """
@@ -92,6 +93,7 @@ def create_school(
         user_type=User.UserType.SCHOOL_USER,
         invited_by=created_by,
         role_label="School Administrator",
+        request=request,
     )
     admin_role = Role.unscoped_objects.get(school=school, slug="school-administrator")
     assign_role(user=admin_user, role=admin_role, assigned_by=created_by)

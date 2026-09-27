@@ -1,7 +1,6 @@
-from django.conf import settings
 from django.utils.html import escape
 
-from apps.common.email import email_button, send_email
+from apps.common.email import email_button, frontend_base_url, send_email
 
 
 def _send(user, subject: str, body: str) -> bool:
@@ -15,8 +14,8 @@ def _send(user, subject: str, body: str) -> bool:
     )
 
 
-def send_invitation_email(*, user, uidb64: str, token: str) -> bool:
-    url = f"{settings.FRONTEND_URL}/accept-invitation?uid={uidb64}&token={token}"
+def send_invitation_email(*, user, uidb64: str, token: str, request=None) -> bool:
+    url = f"{frontend_base_url(request)}/accept-invitation?uid={uidb64}&token={token}"
     body = f"""
         <p>Hi {escape(user.first_name)},</p>
         <p>You've been invited to join {escape(user.school.name) if user.school else 'the platform'}.
@@ -27,14 +26,14 @@ def send_invitation_email(*, user, uidb64: str, token: str) -> bool:
     return _send(user, "You're invited — set up your account", body)
 
 
-def send_account_created_email(*, user, password: str, role_label: str) -> bool:
+def send_account_created_email(*, user, password: str, role_label: str, request=None) -> bool:
     """Tells a newly-provisioned account holder how to sign in: their email plus the default
     password they were given (a school's default, or the platform-admin default) — both are
     already knowable to whoever created the account, so putting the password in this one email
     isn't disclosing a secret. The account is flagged `must_change_password`, so this password
     only ever works for the first sign-in.
     """
-    url = f"{settings.FRONTEND_URL}/login"
+    url = f"{frontend_base_url(request)}/login"
     school_bit = f" at <strong>{escape(user.school.name)}</strong>" if user.school else ""
     body = f"""
         <p>Hi {escape(user.first_name)},</p>
@@ -53,8 +52,8 @@ def send_account_created_email(*, user, password: str, role_label: str) -> bool:
     return _send(user, "Your account is ready — sign-in details inside", body)
 
 
-def send_verification_email(*, user, uidb64: str, token: str) -> bool:
-    url = f"{settings.FRONTEND_URL}/verify-email?uid={uidb64}&token={token}"
+def send_verification_email(*, user, uidb64: str, token: str, request=None) -> bool:
+    url = f"{frontend_base_url(request)}/verify-email?uid={uidb64}&token={token}"
     body = f"""
         <p>Hi {escape(user.first_name)},</p>
         <p>Please confirm your email address.</p>
@@ -63,8 +62,8 @@ def send_verification_email(*, user, uidb64: str, token: str) -> bool:
     return _send(user, "Verify your email address", body)
 
 
-def send_password_reset_email(*, user, uidb64: str, token: str) -> bool:
-    url = f"{settings.FRONTEND_URL}/reset-password?uid={uidb64}&token={token}"
+def send_password_reset_email(*, user, uidb64: str, token: str, request=None) -> bool:
+    url = f"{frontend_base_url(request)}/reset-password?uid={uidb64}&token={token}"
     body = f"""
         <p>Hi {escape(user.first_name)},</p>
         <p>We received a request to reset your password. This link expires shortly and can

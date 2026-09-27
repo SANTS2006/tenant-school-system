@@ -37,7 +37,7 @@ def _refuse_default_password(user, new_password: str) -> None:
         raise DRFValidationError("Choose a password of your own - the school's default password isn't allowed.")
 
 
-def request_password_reset(email: str) -> None:
+def request_password_reset(email: str, request=None) -> None:
     """
     Always returns normally regardless of whether the email matches an
     account, to avoid leaking which emails are registered (user
@@ -50,7 +50,7 @@ def request_password_reset(email: str) -> None:
 
     uidb64 = encode_uid(user.pk)
     token = password_reset_token.make_token(user)
-    send_password_reset_email(user=user, uidb64=uidb64, token=token)
+    send_password_reset_email(user=user, uidb64=uidb64, token=token, request=request)
     log_action(
         action="auth.password_reset_requested",
         actor=user,
@@ -100,10 +100,10 @@ def change_password(*, user, new_password: str) -> None:
     )
 
 
-def request_email_verification(user) -> None:
+def request_email_verification(user, request=None) -> None:
     uidb64 = encode_uid(user.pk)
     token = email_verification_token.make_token(user)
-    send_verification_email(user=user, uidb64=uidb64, token=token)
+    send_verification_email(user=user, uidb64=uidb64, token=token, request=request)
 
 
 def confirm_email_verification(*, uidb64: str, token: str) -> User:
