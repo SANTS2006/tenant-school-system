@@ -94,9 +94,18 @@ class TestGradeComputation:
         exam_schedule = ExamScheduleFactory(school=school, exam=exam)
         student = StudentFactory(school=school)
 
-        # `score` is derived (CA + exam), never client-written, so exercise the grade lookup on
-        # the model directly: saving a result with a final score assigns the matching grade.
-        result = ResultFactory(school=school, exam_schedule=exam_schedule, student=student, score="72.50")
+        # `score` is derived (CA + exam), never client-written, so exercise the grade lookup
+        # directly on the model. compute_grade() reads the grading scale's boundaries through the
+        # tenant-scoped default manager, which returns nothing without a request's tenant context
+        # (see apps.tenants.context) - set it manually the way apps/authorization/tests.py does
+        # for the same reason, since a bare ResultFactory() call here isn't a real request.
+        from apps.tenants.context import reset_current_school_id, set_current_school_id
+
+        token = set_current_school_id(school.id)
+        try:
+            result = ResultFactory(school=school, exam_schedule=exam_schedule, student=student, score="72.50")
+        finally:
+            reset_current_school_id(token)
         result.refresh_from_db()
         assert result.grade == "B"
 
