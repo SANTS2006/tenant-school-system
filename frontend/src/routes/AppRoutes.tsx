@@ -78,7 +78,6 @@ import { MyDocumentsPage } from "@/features/documents/MyDocumentsPage";
 import { EventDetailPage } from "@/features/events/EventDetailPage";
 import { EventFormPage } from "@/features/events/EventFormPage";
 import { EventsListPage } from "@/features/events/EventsListPage";
-import { EnterMarksPage } from "@/features/examinations/EnterMarksPage";
 import { ExamFormPage } from "@/features/examinations/ExamFormPage";
 import { ExaminationsIndexRedirect } from "@/features/examinations/ExaminationsIndexRedirect";
 import { ExaminationsLayout } from "@/features/examinations/ExaminationsLayout";
@@ -89,10 +88,6 @@ import { GradeBoundariesListPage } from "@/features/examinations/GradeBoundaries
 import { GradeBoundaryFormPage } from "@/features/examinations/GradeBoundaryFormPage";
 import { GradingScaleFormPage } from "@/features/examinations/GradingScaleFormPage";
 import { GradingScalesListPage } from "@/features/examinations/GradingScalesListPage";
-import { ReportCardPage } from "@/features/examinations/ReportCardPage";
-import { ResultCorrectPage } from "@/features/examinations/ResultCorrectPage";
-import { ResultEditPage } from "@/features/examinations/ResultEditPage";
-import { ResultsListPage } from "@/features/examinations/ResultsListPage";
 import { TranscriptPage } from "@/features/examinations/TranscriptPage";
 import { FeeCategoriesListPage } from "@/features/finance/FeeCategoriesListPage";
 import { FeeCategoryFormPage } from "@/features/finance/FeeCategoryFormPage";
@@ -477,11 +472,6 @@ export function AppRoutes() {
             <Route path="scales/:scaleId/boundaries" element={<GradeBoundariesListPage />} />
             <Route path="scales/:scaleId/boundaries/new" element={<GradeBoundaryFormPage />} />
             <Route path="scales/:scaleId/boundaries/:id/edit" element={<GradeBoundaryFormPage />} />
-            <Route path="enter-marks" element={<EnterMarksPage />} />
-            <Route path="results" element={<ResultsListPage />} />
-            <Route path="results/:id/edit" element={<ResultEditPage />} />
-            <Route path="results/:id/correct" element={<ResultCorrectPage />} />
-            <Route path="report-card" element={<ReportCardPage />} />
           </Route>
 
           <Route path="/finance" element={<FinanceLayout />}>

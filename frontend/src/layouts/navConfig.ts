@@ -116,9 +116,6 @@ export const NAV_CONFIG: NavItem[] = [
     children: [
       { to: "/examinations/exams", label: "Exams", permission: "examinations.view" },
       { to: "/examinations/scales", label: "Grading scales", permission: "examinations.view" },
-      { to: "/examinations/enter-marks", label: "Enter marks", permission: "results.create" },
-      { to: "/examinations/results", label: "Results", permission: "results.view" },
-      { to: "/examinations/report-card", label: "Report card", permission: "results.view" },
       // Exams Director / School Administrator don't otherwise have the Academics module in their
       // sidebar (see its own hideForRoles), so they need a direct path here into the newer
       // Subjects & Results engine's own grade-entry and publish workflow, alongside the classic

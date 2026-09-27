@@ -50,9 +50,10 @@ class LiveSessionViewSet(TenantScopedModelViewSet):
         return [require_permission(code)()]
 
     def get_queryset(self):
-        return LiveSession.objects.select_related(
-            "subject", "school_class", "section", "lesson", "teacher__user"
-        ).all()
+        qs = LiveSession.objects.select_related("subject", "school_class", "section", "lesson", "teacher__user").all()
+        if getattr(self.request.user, "student_profile", None) is not None:
+            return services.scope_for_student(qs, self.request.user)
+        return qs
 
     def perform_create(self, serializer):
         staff_profile = getattr(self.request.user, "staff_profile", None)

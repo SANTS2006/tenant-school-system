@@ -2,9 +2,6 @@ import { apiClient } from "@/lib/api-client";
 import type { PaginatedResponse } from "@/types/pagination";
 
 import type {
-  BulkEnterPayload,
-  BulkEnterResponse,
-  CorrectResultPayload,
   Exam,
   ExamListParams,
   ExamPayload,
@@ -15,11 +12,6 @@ import type {
   GradeBoundaryPayload,
   GradingScale,
   GradingScalePayload,
-  ReportCard,
-  Result,
-  ResultEditPayload,
-  ResultListParams,
-  ResultPayload,
   Transcript,
 } from "./types";
 
@@ -130,70 +122,6 @@ export async function updateExamSchedule(id: string, values: ExamSchedulePayload
 
 export async function deleteExamSchedule(id: string): Promise<void> {
   await apiClient.delete(`/examinations/schedules/${id}/`);
-}
-
-/** Live CA figures (0-100 scale) for every active student in this schedule's class, from
- * whatever the teacher has submitted so far for that subject/term — available even before an
- * exam score exists, unlike `Result.ca_score` which only snapshots once both exist together. */
-export async function fetchExamScheduleCaPreview(scheduleId: string): Promise<Record<string, number | null>> {
-  const { data } = await apiClient.get<{ ca_scores: Record<string, number | null> }>(
-    `/examinations/schedules/${scheduleId}/ca-preview/`,
-  );
-  return data.ca_scores;
-}
-
-export async function fetchResults(params: PageParams & ResultListParams): Promise<PaginatedResponse<Result>> {
-  const { data } = await apiClient.get<PaginatedResponse<Result>>("/results/", { params });
-  return data;
-}
-
-export async function getResult(id: string): Promise<Result> {
-  const { data } = await apiClient.get<Result>(`/results/${id}/`);
-  return data;
-}
-
-export async function createResult(values: ResultPayload): Promise<Result> {
-  const { data } = await apiClient.post<Result>("/results/", values);
-  return data;
-}
-
-export async function updateResult(id: string, values: ResultEditPayload): Promise<Result> {
-  const { data } = await apiClient.patch<Result>(`/results/${id}/`, values);
-  return data;
-}
-
-async function transition(id: string, action: string): Promise<Result> {
-  const { data } = await apiClient.post<{ result: Result }>(`/results/${id}/${action}/`);
-  return data.result;
-}
-
-export const submitResult = (id: string) => transition(id, "submit");
-export const reviewResult = (id: string) => transition(id, "review");
-export const approveResult = (id: string) => transition(id, "approve");
-export const publishResult = (id: string) => transition(id, "publish");
-export const lockResult = (id: string) => transition(id, "lock");
-
-export async function setResultStatus(id: string, status: string): Promise<Result> {
-  const { data } = await apiClient.post<{ result: Result }>(`/results/${id}/set-status/`, { status });
-  return data.result;
-}
-
-export async function correctResult(id: string, values: CorrectResultPayload): Promise<Result> {
-  const { data } = await apiClient.post<{ result: Result }>(`/results/${id}/correct/`, values);
-  return data.result;
-}
-
-export async function bulkEnterResults(payload: BulkEnterPayload): Promise<BulkEnterResponse> {
-  const { data } = await apiClient.post<BulkEnterResponse>("/results/bulk-enter/", payload);
-  return data;
-}
-
-export async function fetchReportCard(params: { student: string; term?: string }): Promise<ReportCard> {
-  const { data } = await apiClient.get<{ student: ReportCard["student"]; results: ReportCard["results"]; average: number | null }>(
-    "/results/report-card/",
-    { params },
-  );
-  return data;
 }
 
 export async function fetchMyTranscript(): Promise<Transcript> {

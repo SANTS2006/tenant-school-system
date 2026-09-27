@@ -11,7 +11,6 @@ import {
   deleteExamSchedule,
   deleteGradeBoundary,
   deleteGradingScale,
-  fetchExamScheduleCaPreview,
   fetchExamSchedules,
   fetchExams,
   fetchGradeBoundaries,
@@ -189,13 +188,6 @@ export function useExamScheduleList(params: PageParams & ExamScheduleListParams)
   });
 }
 
-export function useExamScheduleCaPreview(scheduleId: string | undefined) {
-  return useQuery({
-    queryKey: [...SCHEDULES_KEY, "ca-preview", scheduleId],
-    queryFn: () => fetchExamScheduleCaPreview(scheduleId as string),
-    enabled: !!scheduleId,
-  });
-}
 
 export function useExamSchedule(id: string | undefined) {
   return useQuery<ExamSchedule, ApiError>({

@@ -7,7 +7,6 @@ from .views import (
     GradeBoundaryViewSet,
     GradingScaleViewSet,
     MyTranscriptView,
-    ResultViewSet,
 )
 
 router = DefaultRouter()
@@ -20,10 +19,9 @@ app_name = "examinations"
 
 urlpatterns = router.urls
 
-results_router = DefaultRouter()
-results_router.register("", ResultViewSet, basename="result")
-# The static "transcript/me/" path is listed BEFORE the router's bare ""-registered {pk} detail
-# route so it always matches first, avoiding the routing collision documented in Phase G.
+# Everything that used to live under "/api/v1/results/" (Enter Marks, the Results list, the
+# admin Report Card lookup) was retired — see config/urls.py's import of `result_urlpatterns` for
+# where this is mounted. Only the student's own self-service transcript remains at that prefix.
 result_urlpatterns = [
     path("transcript/me/", MyTranscriptView.as_view(), name="my-transcript"),
-] + results_router.urls
+]

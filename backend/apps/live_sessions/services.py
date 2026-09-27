@@ -1,6 +1,27 @@
+from django.db.models import Q
+
 from apps.notifications.services import notify
 
 from .models import LiveSession
+
+
+def scope_for_student(queryset, user):
+    """A student may only see sessions actually meant for them: a class/section broadcast to
+    their own class (and, when the session also targets a section, their own section), or a
+    specific-students session that explicitly names them — never the whole school's live
+    sessions. A user with no student profile at all sees nothing (this is only ever called once
+    the caller already knows the viewer is a student)."""
+    student_profile = getattr(user, "student_profile", None)
+    if student_profile is None:
+        return queryset.none()
+
+    class_section_match = Q(
+        target_type=LiveSession.TargetType.CLASS_SECTION, school_class_id=student_profile.current_class_id
+    ) & (Q(section__isnull=True) | Q(section_id=student_profile.current_section_id))
+    specific_match = Q(
+        target_type=LiveSession.TargetType.SPECIFIC_STUDENTS, recipients__student=student_profile
+    )
+    return queryset.filter(class_section_match | specific_match).distinct()
 
 
 def _class_student_users(session: LiveSession):

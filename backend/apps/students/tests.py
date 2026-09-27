@@ -178,9 +178,9 @@ class TestStudentGuardianLinking:
 
 
 class TestStudentDefaultAccount:
-    def test_new_student_gets_initials_email_and_school_default_password(self, api_client):
+    def test_new_student_gets_initials_admission_number_email_and_school_default_password(self, api_client):
+        from apps.authorization.models import Role, UserRole
         from apps.tenants.services import generate_default_password
-        from apps.users.models import User
 
         school, school_admin = _school_admin()
         school.name = "Government Secondary School Kenema"
@@ -191,11 +191,14 @@ class TestStudentDefaultAccount:
         response = api_client.post("/api/v1/students/", payload, format="json")
         assert response.status_code == 201, response.data
         student = Student.unscoped_objects.get(admission_number="A1")
-        assert student.user.email == "fsk@gssk.edu.sl"
+        assert student.user.email == "fska1@gssk.edu.sl"
         assert student.user.check_password(generate_default_password(school))
+        assert UserRole.unscoped_objects.filter(
+            user=student.user, role=Role.unscoped_objects.get(school=school, slug="student")
+        ).exists()
 
-        # Same initials again: numbered rather than colliding.
+        # Same initials, different admission number: no collision, since the admission number
+        # (already unique per school) disambiguates instead of a name-based counter.
         payload.update(admission_number="A2", first_name="Fatu", middle_name="Sam", last_name="Koroma")
         api_client.post("/api/v1/students/", payload, format="json")
-        assert Student.unscoped_objects.get(admission_number="A2").user.email == "fsk2@gssk.edu.sl"
-        assert User.objects.filter(email="fsk@gssk.edu.sl").count() == 1
+        assert Student.unscoped_objects.get(admission_number="A2").user.email == "fska2@gssk.edu.sl"

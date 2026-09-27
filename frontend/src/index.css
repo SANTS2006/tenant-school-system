@@ -168,6 +168,18 @@ body {
     position: absolute;
     inset: 0;
     width: 100%;
+    /* Printed pages are white regardless of the app's own theme — a viewer in dark mode would
+     * otherwise print near-white text that's invisible on paper. Re-declaring the light values
+     * of every color token used inside a printable page means everything under this element
+     * (via var(--color-text) etc.) renders legibly no matter which theme was active on screen. */
+    --color-bg: #ffffff;
+    --color-bg-subtle: #f0f6ff;
+    --color-surface: #ffffff;
+    --color-border: #dbe6f5;
+    --color-text: #0a1a3f;
+    --color-text-muted: #5b6b8c;
+    background: #ffffff;
+    color: #0a1a3f;
   }
   [data-print-hidden] {
     display: none !important;

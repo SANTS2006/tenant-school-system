@@ -26,8 +26,7 @@ from apps.discipline.models import DisciplineIncident
 from apps.documents.models import Document, DocumentCategory
 from apps.education.models import Lesson
 from apps.events.models import Event
-from apps.examinations import services as exam_services
-from apps.examinations.models import Exam, ExamSchedule, GradeBoundary, GradingScale, Result
+from apps.examinations.models import Exam, ExamSchedule, GradeBoundary, GradingScale
 from apps.finance import services as finance_services
 from apps.finance.models import FeeCategory, FeeStructure, FeeStructureItem, Invoice
 from apps.hostel import services as hostel_services
@@ -417,24 +416,6 @@ class Command(BaseCommand):
 
         self.top_up(ExamSchedule, 15, build_schedule)
         self.exam_schedules = list(ExamSchedule.objects.filter(school=self.school, exam__term=self.current_term))
-
-        def build_result():
-            for _ in range(80):
-                schedule = self.rand.choice(self.exam_schedules)
-                candidates = [s for s in self.students if s.current_class_id == schedule.school_class_id]
-                if not candidates:
-                    continue
-                student = self.rand.choice(candidates)
-                if Result.objects.filter(exam_schedule=schedule, student=student).exists():
-                    continue
-                exam_services.enter_exam_score(
-                    exam_schedule=schedule, student=student,
-                    exam_score=Decimal(str(self.rand.randint(40, 98))),
-                )
-                return
-            raise StopIteration
-
-        self.top_up(Result, TARGET, build_result)
 
     # ---------------------------------------------------------------- finance
     def seed_finance(self):

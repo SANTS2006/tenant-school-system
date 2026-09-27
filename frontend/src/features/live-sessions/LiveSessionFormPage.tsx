@@ -9,6 +9,7 @@ import { z } from "zod";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { useToast } from "@/components/ui/Toast";
@@ -22,8 +23,6 @@ import { useCreateLiveSession, useCreateLiveSessionRecipient } from "./useLiveSe
 const schema = z.object({
   title: z.string().min(1, "Title is required"),
   subject: z.string().min(1, "Subject is required"),
-  school_class: z.string().min(1, "Class is required"),
-  section: z.string(),
   scheduled_start: z.string().min(1, "Start time is required"),
   target_type: z.enum(["class_section", "specific_students"]),
 });
@@ -44,6 +43,22 @@ export function LiveSessionFormPage() {
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
   const [invitingIndex, setInvitingIndex] = useState<number | null>(null);
+
+  // Several classes and/or several sections can be picked at once — one session per selected
+  // section (that section only), or, for a selected class with no section of its own picked,
+  // one whole-class session. Mirrors the single class/section a LiveSession actually has; this
+  // is just several of them created together rather than a combinatorial class-by-section grid.
+  const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
+  const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([]);
+  const [targetsTouched, setTargetsTouched] = useState(false);
+  const toggleClass = (id: string) => {
+    setTargetsTouched(true);
+    setSelectedClassIds((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]));
+  };
+  const toggleSection = (id: string) => {
+    setTargetsTouched(true);
+    setSelectedSectionIds((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]));
+  };
 
   const toggleStudent = (studentId: string) => {
     setSelectedStudentIds((prev) => {
@@ -68,15 +83,15 @@ export function LiveSessionFormPage() {
     defaultValues: {
       title: "",
       subject: "",
-      school_class: "",
-      section: "",
       scheduled_start: "",
       target_type: "class_section",
     },
   });
 
   const targetType = watch("target_type");
-  const rosterClassId = watch("school_class");
+  // The roster picker (specific-students mode) only makes sense for one class at a time —
+  // it's the first one selected.
+  const rosterClassId = selectedClassIds[0];
 
   const { data: roster } = useQuery({
     queryKey: ["students", "roster-for-live-session", rosterClassId],
@@ -84,53 +99,77 @@ export function LiveSessionFormPage() {
     enabled: !!rosterClassId && targetType === "specific_students",
   });
 
-  const onSubmit = (values: FormValues) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const onSubmit = async (values: FormValues) => {
+    if (selectedClassIds.length === 0 && selectedSectionIds.length === 0) {
+      setTargetsTouched(true);
+      return;
+    }
     setGeneralError(null);
-    createSession.mutate(
-      {
-        title: values.title,
-        subject: values.subject,
-        school_class: values.school_class,
-        section: values.section || undefined,
-        scheduled_start: values.scheduled_start,
-        target_type: values.target_type,
-      },
-      {
-        onSuccess: async (saved) => {
-          if (values.target_type === "specific_students" && selectedStudentIds.size > 0) {
-            const studentIds = [...selectedStudentIds];
-            let inviteFailures = 0;
-            for (let i = 0; i < studentIds.length; i++) {
-              setInvitingIndex(i);
-              try {
-                await createRecipient.mutateAsync({ session: saved.id, student: studentIds[i] });
-              } catch {
-                inviteFailures += 1;
-              }
-            }
-            setInvitingIndex(null);
-            if (inviteFailures > 0) {
-              showToast({
-                title: "Live session scheduled",
-                description: `${inviteFailures} of ${studentIds.length} invite(s) failed — you can retry from the session page.`,
-                tone: "danger",
-              });
-              navigate("/live-sessions");
-              return;
-            }
+
+    // One session per selected section (that section only); a selected class with none of its
+    // own sections picked gets one whole-class session instead.
+    const chosenSections = sections?.filter((s) => selectedSectionIds.includes(s.id)) ?? [];
+    const classesCoveredBySection = new Set(chosenSections.map((s) => s.school_class));
+    const targets: { school_class: string; section?: string }[] =
+      values.target_type === "specific_students"
+        ? [{ school_class: selectedClassIds[0] }]
+        : [
+            ...chosenSections.map((s) => ({ school_class: s.school_class, section: s.id })),
+            ...selectedClassIds.filter((id) => !classesCoveredBySection.has(id)).map((id) => ({ school_class: id })),
+          ];
+
+    setIsSubmitting(true);
+    try {
+      const savedSessions = await Promise.all(
+        targets.map((target) =>
+          createSession.mutateAsync({
+            title: values.title,
+            subject: values.subject,
+            school_class: target.school_class,
+            section: target.section,
+            scheduled_start: values.scheduled_start,
+            target_type: values.target_type,
+          }),
+        ),
+      );
+
+      if (values.target_type === "specific_students" && selectedStudentIds.size > 0) {
+        const studentIds = [...selectedStudentIds];
+        let inviteFailures = 0;
+        for (let i = 0; i < studentIds.length; i++) {
+          setInvitingIndex(i);
+          try {
+            await createRecipient.mutateAsync({ session: savedSessions[0].id, student: studentIds[i] });
+          } catch {
+            inviteFailures += 1;
           }
-          showToast({ title: "Live session scheduled" });
+        }
+        setInvitingIndex(null);
+        if (inviteFailures > 0) {
+          showToast({
+            title: "Live session scheduled",
+            description: `${inviteFailures} of ${studentIds.length} invite(s) failed — you can retry from the session page.`,
+            tone: "danger",
+          });
           navigate("/live-sessions");
-        },
-        onError: (err: ApiError) => {
-          if (!applyFieldErrors(err, setError, FIELD_KEYS)) {
-            const message = generalErrorMessage(err);
-            setGeneralError(message);
-            showToast({ title: "Could not schedule session", description: message, tone: "danger" });
-          }
-        },
-      },
-    );
+          return;
+        }
+      }
+      showToast({
+        title: targets.length > 1 ? `${targets.length} live sessions scheduled` : "Live session scheduled",
+      });
+      navigate("/live-sessions");
+    } catch (err) {
+      if (!applyFieldErrors(err as ApiError, setError, FIELD_KEYS)) {
+        const message = generalErrorMessage(err as ApiError);
+        setGeneralError(message);
+        showToast({ title: "Could not schedule session", description: message, tone: "danger" });
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -158,23 +197,55 @@ export function LiveSessionFormPage() {
               ))}
             </Select>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Select label="Class" error={errors.school_class?.message} {...register("school_class")}>
-                <option value="">Select a class</option>
-                {classes?.map((schoolClass) => (
-                  <option key={schoolClass.id} value={schoolClass.id}>
-                    {schoolClass.name}
-                  </option>
-                ))}
-              </Select>
-              <Select label="Section" error={errors.section?.message} {...register("section")}>
-                <option value="">Not set (whole class)</option>
-                {sections?.map((section) => (
-                  <option key={section.id} value={section.id}>
-                    {section.school_class_name} — {section.name}
-                  </option>
-                ))}
-              </Select>
+              <div className="flex flex-col gap-2">
+                <span className="text-sm font-medium text-[var(--color-text)]">Classes</span>
+                <p className="text-xs text-[var(--color-text-muted)]">
+                  {targetType === "specific_students"
+                    ? "Pick one class to choose recipients from."
+                    : "Select every class to broadcast to — pick sections below for a narrower audience."}
+                </p>
+                <div className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-[var(--radius-md)] border border-[var(--color-border)] p-2">
+                  {classes?.map((schoolClass) => (
+                    <Checkbox
+                      key={schoolClass.id}
+                      label={schoolClass.name}
+                      checked={selectedClassIds.includes(schoolClass.id)}
+                      onChange={() => {
+                        if (targetType === "specific_students") {
+                          setTargetsTouched(true);
+                          setSelectedClassIds(
+                            selectedClassIds.includes(schoolClass.id) ? [] : [schoolClass.id],
+                          );
+                        } else {
+                          toggleClass(schoolClass.id);
+                        }
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+              {targetType !== "specific_students" && (
+                <div className="flex flex-col gap-2">
+                  <span className="text-sm font-medium text-[var(--color-text)]">Sections</span>
+                  <p className="text-xs text-[var(--color-text-muted)]">
+                    Optional. Picking a class's section reaches just that section instead of the whole class.
+                  </p>
+                  <div className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-[var(--radius-md)] border border-[var(--color-border)] p-2">
+                    {sections?.map((section) => (
+                      <Checkbox
+                        key={section.id}
+                        label={`${section.school_class_name} — ${section.name}`}
+                        checked={selectedSectionIds.includes(section.id)}
+                        onChange={() => toggleSection(section.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
+            {targetsTouched && selectedClassIds.length === 0 && selectedSectionIds.length === 0 && (
+              <p className="text-sm text-[var(--color-danger)]">Select at least one class or section.</p>
+            )}
             <Input
               type="datetime-local"
               label="Scheduled start"
@@ -226,8 +297,8 @@ export function LiveSessionFormPage() {
               <Button type="button" variant="secondary" onClick={() => navigate("/live-sessions")}>
                 Cancel
               </Button>
-              <Button type="submit" isLoading={createSession.isPending || invitingIndex !== null}>
-                {!createSession.isPending && invitingIndex === null && <Save className="size-4" aria-hidden="true" />}
+              <Button type="submit" isLoading={isSubmitting}>
+                {!isSubmitting && invitingIndex === null && <Save className="size-4" aria-hidden="true" />}
                 {invitingIndex !== null ? `Inviting student ${invitingIndex + 1} of ${selectedStudentIds.size}…` : "Schedule"}
               </Button>
             </div>

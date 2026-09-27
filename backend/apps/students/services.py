@@ -1,29 +1,29 @@
-from django.db.models import Q, QuerySet
-
 import re
 
-from apps.authorization.models import UserRole
+from django.db.models import Q, QuerySet
+
+from apps.authorization.models import Role, UserRole
+from apps.authorization.services import assign_role
 
 
-def student_default_email(student, *, taken=lambda email: False) -> str:
-    """Initials of the first, middle (if any) and last names + "@" + the school's short domain:
-    "Fatmata Sia Kamara" at Government Secondary School Kenema -> "fsk@gssk.edu.sl". Initials
-    collide constantly, so a number is appended (fsk2, fsk3, ...) until the address is free."""
+def student_default_email(student) -> str:
+    """Initials of the first, middle (if any) and last names, followed by the student's own
+    admission number (already unique per school — see Student's `unique_admission_number_per_school`
+    constraint, so no collision handling is needed here the way a name-only address would),
+    followed by "@" and the school's short domain: "Fatmata Sia Kamara", admission #009, at
+    Government Secondary School Kenema -> "fsk009@gssk.edu.sl"."""
     school = student.school
     initials = "".join(name[0] for name in (student.first_name, student.middle_name, student.last_name) if name)
-    school_code = "".join(word[0] for word in re.findall(r"[A-Za-z0-9]+", school.name)).lower()
     local = re.sub(r"[^a-z0-9]", "", initials.lower()) or "student"
-    domain = f"{school_code}.edu.sl"
-    candidate, counter = f"{local}@{domain}", 1
-    while taken(candidate):
-        counter += 1
-        candidate = f"{local}{counter}@{domain}"
-    return candidate
+    admission = re.sub(r"[^a-z0-9]", "", student.admission_number.lower())
+    school_code = "".join(word[0] for word in re.findall(r"[A-Za-z0-9]+", school.name)).lower()
+    return f"{local}{admission}@{school_code}.edu.sl"
 
 
 def provision_student_account(student):
-    """Gives a student without a login one: default email (see student_default_email) and the
-    school's default password (e.g. "GSSK@2026"), flagged so they must choose their own at first
+    """Gives a student without a login one: default email (see student_default_email), the
+    school's default password (e.g. "GSSK@2026"), the "student" role (see
+    apps.authorization.catalog), and `must_change_password` so they choose their own at first
     sign-in. No email is sent — the address is a school-issued one, not a real inbox. Returns the
     new user, or None if the student already has one."""
     from apps.tenants.services import generate_default_password
@@ -31,9 +31,8 @@ def provision_student_account(student):
 
     if student.user_id:
         return None
-    email = student_default_email(student, taken=lambda e: User.objects.filter(email__iexact=e).exists())
     user = User.objects.create(
-        email=email,
+        email=student_default_email(student),
         first_name=student.first_name,
         last_name=student.last_name,
         school=student.school,
@@ -45,8 +44,11 @@ def provision_student_account(student):
     user.save(update_fields=["password", "must_change_password"])
     student.user = user
     student.save(update_fields=["user"])
-    return user
 
+    student_role = Role.unscoped_objects.filter(school=student.school, slug="student").first()
+    if student_role is not None:
+        assign_role(user=user, role=student_role)
+    return user
 
 
 def scope_students_for_teacher(queryset: QuerySet, user) -> QuerySet:

@@ -1,9 +1,11 @@
 import { Download, Printer } from "lucide-react";
+import { useEffect } from "react";
 
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
+import { useToast } from "@/components/ui/Toast";
 import { usePrintableSection } from "@/hooks/usePrintableSection";
 import { LogoBadge } from "@/layouts/AppShell";
 import type { School } from "@/features/schools/types";
@@ -38,9 +40,16 @@ interface TermReportViewProps {
 }
 
 export function TermReportView({ report, studentName, school, showPrintButton = true }: TermReportViewProps) {
-  const { printableRef, print, download, isDownloading } = usePrintableSection(
+  const { showToast } = useToast();
+  const { printableRef, print, download, isDownloading, downloadError } = usePrintableSection(
     `${studentName} - ${report.term_name} report.pdf`,
   );
+
+  useEffect(() => {
+    if (downloadError) {
+      showToast({ title: "Could not download the report", description: downloadError, tone: "danger" });
+    }
+  }, [downloadError, showToast]);
 
   return (
     <div className="flex flex-col gap-6">

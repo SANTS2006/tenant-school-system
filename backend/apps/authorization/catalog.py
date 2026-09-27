@@ -184,6 +184,22 @@ DEFAULT_ROLE_PERMISSION_PREFIXES = {
         ],
         "exclude": [],
     },
+    # Every student's own account carries this role from creation (see
+    # apps.students.services.provision_student_account). Most of a student's own pages (their
+    # subjects, results, transcript, complaints, documents...) are self-service views keyed off
+    # `request.user.student_profile` with no permission gate at all (see e.g. ComplaintViewSet's
+    # docstring), so this role only needs to cover the shared, permission-gated resources a
+    # student legitimately reaches: joining a live session (LiveSessionViewSet.retrieve, scoped
+    # to their own class/section/invitations — see apps.live_sessions.services.scope_for_student)
+    # and viewing the timetable. Deliberately NOT discipline./medical./transport. — those
+    # ViewSets have no per-student scoping in get_queryset yet (they return the whole school's
+    # records to anyone holding the `.view` code), so granting them here would let a student
+    # browse every other student's disciplinary/medical/transport records. Add student-scoped
+    # querysets for those first if student access to them is ever wanted.
+    "student": {
+        "include": ["live_sessions.view", "timetable.view"],
+        "exclude": [],
+    },
 }
 
 DEFAULT_ROLE_NAMES = {
@@ -192,4 +208,5 @@ DEFAULT_ROLE_NAMES = {
     "teacher": "Teacher",
     "accountant": "Accountant",
     "exams-director": "Exams Director",
+    "student": "Student",
 }
