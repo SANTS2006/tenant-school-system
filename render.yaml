@@ -15,7 +15,7 @@ services:
     autoDeploy: true
     # (Migrations run in deploy/start.sh - Render's pre-deploy hook isn't available on the free plan.)
     domains:
-      - nts-school-system.onrender.com, school.ntsdigitalsolutions.com
+      - school.ntsdigitalsolutions.com
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: config.settings.prod
