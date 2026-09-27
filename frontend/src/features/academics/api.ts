@@ -571,6 +571,13 @@ export async function fetchMySubjectMessages(subjectOfferingId: string): Promise
   return data.messages;
 }
 
+export async function sendMySubjectMessage(subjectOfferingId: string, body: string): Promise<SubjectMessage> {
+  const { data } = await apiClient.post<SubjectMessage>(`/academics/my-subjects/${subjectOfferingId}/messages/`, {
+    body,
+  });
+  return data;
+}
+
 export async function fetchMySubjectPrivateMessages(subjectOfferingId: string): Promise<SubjectPrivateMessage[]> {
   const { data } = await apiClient.get<{ messages: SubjectPrivateMessage[] }>(
     `/academics/my-subjects/${subjectOfferingId}/private-messages/`,

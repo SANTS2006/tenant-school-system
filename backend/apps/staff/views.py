@@ -1,7 +1,11 @@
+from django.db.models import ProtectedError
+from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.audit.services import log_action
+from apps.authentication.emails import send_staff_terminated_email
+from apps.authentication.services import blacklist_all_outstanding_tokens
 from apps.authorization.permissions import require_permission
 from apps.common.views import TenantScopedModelViewSet
 from apps.tenants.services import get_current_school
@@ -17,6 +21,7 @@ _ACTION_SUFFIX = {
     "partial_update": "update",
     "destroy": "delete",
     "enable": "update",
+    "delete_permanently": "delete",
 }
 
 
@@ -54,8 +59,20 @@ class StaffViewSet(TenantScopedModelViewSet):
         return Staff.objects.select_related("user", "department").all()
 
     def perform_destroy(self, instance):
+        """Terminates (never a hard delete on its own — see `delete_permanently` for that): marks
+        the employment record, deactivates the login and revokes every outstanding session/token
+        immediately (not just "blocked on next attempt"), and emails the person before their
+        account loses access. Excluded from `staff.` dropdowns everywhere the same way — see
+        StaffSerializer/the staff lookup endpoints' `employment_status` filter."""
         instance.employment_status = Staff.EmploymentStatus.TERMINATED
         instance.save(update_fields=["employment_status"])
+
+        user = instance.user
+        send_staff_terminated_email(user=user)
+        user.is_active = False
+        user.save(update_fields=["is_active"])
+        blacklist_all_outstanding_tokens(user)
+
         log_action(
             action="staff.terminated",
             actor=self.request.user,
@@ -64,6 +81,55 @@ class StaffViewSet(TenantScopedModelViewSet):
             entity_id=str(instance.pk),
             severity="warning",
         )
+
+    @action(detail=True, methods=["post"], url_path="delete-permanently")
+    def delete_permanently(self, request, pk=None):
+        """Erases this staff member's account and profile entirely — only ever available once
+        already terminated (a live employee is terminated first, never deleted outright), and
+        only when nothing still depends on them in a way the database can't silently drop (a
+        SubjectOffering.main_teacher is a real teaching assignment on record, not incidental
+        metadata — see that field's on_delete=PROTECT). Cascades to remove everything else this
+        staff member owns (assignments, attendance, lessons, live sessions, salary records,
+        documents, ...), which is the point: "all information removed" means removed, not merely
+        hidden.
+        """
+        staff = self.get_object()
+        if staff.employment_status != Staff.EmploymentStatus.TERMINATED:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Terminate this staff member before deleting them permanently.",
+                    "code": "MUST_TERMINATE_FIRST",
+                    "errors": [],
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        name = staff.user.full_name
+        try:
+            staff.user.delete()  # cascades: Staff -> assignments/attendance/lessons/salary/...
+        except ProtectedError:
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "This staff member is still the main teacher on one or more subject "
+                        "offerings. Reassign those to another teacher first, then delete."
+                    ),
+                    "code": "STILL_REFERENCED",
+                    "errors": [],
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+        log_action(
+            action="staff.deleted_permanently",
+            actor=request.user,
+            school=get_current_school(),
+            entity_type="Staff",
+            entity_id=str(pk),
+            after={"name": name},
+            severity="warning",
+        )
+        return _ok(f"{name} has been permanently deleted.")
 
     @action(detail=True, methods=["post"], url_path="reset-password")
     def reset_password(self, request, pk=None):
@@ -93,6 +159,9 @@ class StaffViewSet(TenantScopedModelViewSet):
         staff = self.get_object()
         staff.employment_status = Staff.EmploymentStatus.ACTIVE
         staff.save(update_fields=["employment_status"])
+        if not staff.user.is_active:
+            staff.user.is_active = True
+            staff.user.save(update_fields=["is_active"])
         log_action(
             action="staff.reactivated",
             actor=request.user,

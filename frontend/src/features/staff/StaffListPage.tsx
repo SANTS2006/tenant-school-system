@@ -1,4 +1,4 @@
-import { CheckCircle2, KeyRound, Plus, RotateCcw, Search, Trash2, Users } from "lucide-react";
+import { CheckCircle2, KeyRound, Plus, RotateCcw, Search, Trash2, Users, UserX } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -32,7 +32,13 @@ import type { ApiError } from "@/lib/api-client";
 
 import { employmentStatusTone } from "./employmentStatusTone";
 import type { EmploymentStatus } from "./types";
-import { useReactivateStaff, useResetStaffPassword, useStaffList, useTerminateStaff } from "./useStaffCrud";
+import {
+  useDeleteStaffPermanently,
+  useReactivateStaff,
+  useResetStaffPassword,
+  useStaffList,
+  useTerminateStaff,
+} from "./useStaffCrud";
 
 const PAGE_SIZE = 25;
 
@@ -69,6 +75,7 @@ export function StaffListPage() {
   const terminateStaff = useTerminateStaff();
   const reactivateStaff = useReactivateStaff();
   const resetPassword = useResetStaffPassword();
+  const deletePermanently = useDeleteStaffPermanently();
 
   const handleTerminate = async (id: string, name: string) => {
     const ok = await confirm({
@@ -80,6 +87,20 @@ export function StaffListPage() {
     terminateStaff.mutate(id, {
       onSuccess: () => showToast({ title: `${name} terminated` }),
       onError: (err) => showToast({ title: "Failed to terminate", description: err.message, tone: "danger" }),
+    });
+  };
+
+  const handleDeletePermanently = async (id: string, name: string) => {
+    const ok = await confirm({
+      title: `Permanently delete ${name}?`,
+      description:
+        "This removes their account and every record tied to them (assignments, attendance, lessons, salary records, ...) and cannot be undone.",
+      tone: "danger",
+    });
+    if (!ok) return;
+    deletePermanently.mutate(id, {
+      onSuccess: () => showToast({ title: `${name} was permanently deleted` }),
+      onError: (err) => showToast({ title: "Could not delete", description: err.message, tone: "danger" }),
     });
   };
 
@@ -234,17 +255,33 @@ export function StaffListPage() {
                         )}
                         {member.employment_status === "terminated"
                           ? canUpdate && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleReactivate(member.id, member.full_name);
-                                }}
-                                aria-label={`Reactivate ${member.full_name}`}
-                                className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-success)]"
-                              >
-                                <RotateCcw className="size-4" aria-hidden="true" />
-                              </button>
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleReactivate(member.id, member.full_name);
+                                  }}
+                                  aria-label={`Reactivate ${member.full_name}`}
+                                  className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-success)]"
+                                >
+                                  <RotateCcw className="size-4" aria-hidden="true" />
+                                </button>
+                                {canDelete && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeletePermanently(member.id, member.full_name);
+                                    }}
+                                    aria-label={`Permanently delete ${member.full_name}`}
+                                    title="Delete permanently"
+                                    className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-danger)]"
+                                  >
+                                    <UserX className="size-4" aria-hidden="true" />
+                                  </button>
+                                )}
+                              </>
                             )
                           : canDelete && (
                               <button

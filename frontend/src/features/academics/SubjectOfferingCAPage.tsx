@@ -21,6 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/Table";
 import { useToast } from "@/components/ui/Toast";
+import { useHasPermission, useHasRole } from "@/features/auth/useAuth";
 import type { ApiError } from "@/lib/api-client";
 
 import { useSubjectsHomePath } from "./useSubjectsHomePath";
@@ -40,6 +41,8 @@ export function SubjectOfferingCAPage() {
   const subjectsHome = useSubjectsHomePath();
   const { showToast } = useToast();
   const confirm = useConfirm();
+  const isTeacher = useHasRole("teacher");
+  const canManageCA = useHasPermission("academics.update");
 
   const { data: offering, isLoading: isLoadingOffering } = useSubjectOffering(id);
   const { data: assessments, isLoading: isLoadingAssessments } = useAssessmentList({
@@ -171,6 +174,7 @@ export function SubjectOfferingCAPage() {
             />
           </div>
 
+          {canManageCA && (
           <div className="mt-2 flex items-center gap-3">
             {!isClosed ? (
               <Button variant="secondary" size="sm" onClick={handleClose} isLoading={closeCA.isPending}>
@@ -200,6 +204,7 @@ export function SubjectOfferingCAPage() {
               </div>
             )}
           </div>
+          )}
           {offering.ca_closed_at && isClosed && (
             <p className="text-xs text-[var(--color-text-muted)]">
               Closed on {new Date(offering.ca_closed_at).toLocaleString()}
@@ -208,7 +213,7 @@ export function SubjectOfferingCAPage() {
         </CardContent>
       </Card>
 
-      {!isClosed && (
+      {!isClosed && isTeacher && (
         <Card>
           <CardHeader>
             <CardTitle>Add an assessment</CardTitle>
@@ -251,7 +256,7 @@ export function SubjectOfferingCAPage() {
                     <TableHeaderCell>Weight</TableHeaderCell>
                     <TableHeaderCell>Max score</TableHeaderCell>
                     <TableHeaderCell>Status</TableHeaderCell>
-                    <TableHeaderCell className="text-right">Actions</TableHeaderCell>
+                    {isTeacher && <TableHeaderCell className="text-right">Actions</TableHeaderCell>}
                   </tr>
                 </TableHead>
                 <TableBody>
@@ -265,25 +270,27 @@ export function SubjectOfferingCAPage() {
                           {assessment.status === "active" ? "Active" : "Inactive"}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => navigate(`/academics/assessments/${assessment.id}/scores`)}
-                          >
-                            Grade entry
-                          </Button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(assessment.id, assessment.name)}
-                            aria-label={`Delete ${assessment.name}`}
-                            className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-danger)]"
-                          >
-                            <Trash2 className="size-4" aria-hidden="true" />
-                          </button>
-                        </div>
-                      </TableCell>
+                      {isTeacher && (
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => navigate(`/academics/assessments/${assessment.id}/scores`)}
+                            >
+                              Grade entry
+                            </Button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(assessment.id, assessment.name)}
+                              aria-label={`Delete ${assessment.name}`}
+                              className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-danger)]"
+                            >
+                              <Trash2 className="size-4" aria-hidden="true" />
+                            </button>
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>

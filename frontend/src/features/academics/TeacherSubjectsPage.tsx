@@ -130,7 +130,7 @@ function SubjectOfferingCard({ offering }: { offering: SubjectOffering }) {
             onClick={() => navigate(`${base}/communications`)}
           >
             <MessageSquare className="size-5" aria-hidden="true" />
-            Materials & messages
+            Messages
           </button>
         </div>
       </div>

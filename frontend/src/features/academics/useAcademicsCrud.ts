@@ -41,6 +41,7 @@ import {
   fetchMySubjectCA,
   fetchMySubjectMaterials,
   fetchMySubjectMessages,
+  sendMySubjectMessage,
   fetchMySubjectPrivateMessages,
   fetchMySubjects,
   fetchPromotionRecords,
@@ -773,6 +774,15 @@ export function useMySubjectMessages(subjectOfferingId: string | undefined) {
     queryKey: ["academics", "my-subjects", subjectOfferingId, "messages"],
     queryFn: () => fetchMySubjectMessages(subjectOfferingId as string),
     enabled: !!subjectOfferingId,
+  });
+}
+
+export function useSendMySubjectMessage(subjectOfferingId: string) {
+  const queryClient = useQueryClient();
+  return useMutation<SubjectMessage, ApiError, string>({
+    mutationFn: (body) => sendMySubjectMessage(subjectOfferingId, body),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["academics", "my-subjects", subjectOfferingId, "messages"] }),
   });
 }
 

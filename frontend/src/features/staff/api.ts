@@ -64,6 +64,13 @@ export async function reactivateStaff(id: string): Promise<Staff> {
   return data.staff;
 }
 
+/** A real, irreversible delete — only allowed once already terminated (see
+ * apps.staff.views.StaffViewSet.delete_permanently). Removes the account and everything else
+ * this staff member owns (assignments, attendance, lessons, salary records, ...). */
+export async function deleteStaffPermanently(id: string): Promise<void> {
+  await apiClient.post(`/staff/${id}/delete-permanently/`);
+}
+
 /** Resets the linked account's password back to the school's default (initials + creation
  * year) — returns the resulting password so the admin can relay it to the staff member. */
 export async function resetStaffPassword(id: string): Promise<string> {

@@ -97,12 +97,73 @@ class TestStaffTermination:
         staff.refresh_from_db()
         assert staff.employment_status == Staff.EmploymentStatus.TERMINATED
 
+    def test_delete_deactivates_the_account_and_revokes_sessions(self, api_client):
+        school, principal = _principal()
+        staff = StaffFactory(school=school)
+        _login(api_client, principal)
+        staff_login = _login(api_client, staff.user)
+        assert staff_login.status_code == 200
+        refresh_cookie = api_client.cookies.get("refresh_token")
+
+        _login(api_client, principal)
+        response = api_client.delete(f"/api/v1/staff/{staff.id}/")
+        assert response.status_code == 204
+        staff.user.refresh_from_db()
+        assert staff.user.is_active is False
+
+        # The account can no longer sign in, and its existing refresh token no longer works.
+        assert _login(api_client, staff.user).status_code in (400, 401)
+        if refresh_cookie is not None:
+            api_client.cookies["refresh_token"] = refresh_cookie
+            refresh_response = api_client.post("/api/v1/auth/refresh/")
+            assert refresh_response.status_code == 401
+
     def test_enable_reactivates(self, api_client):
         school, principal = _principal()
         staff = StaffFactory(school=school, employment_status=Staff.EmploymentStatus.TERMINATED)
+        staff.user.is_active = False
+        staff.user.save(update_fields=["is_active"])
         _login(api_client, principal)
 
         response = api_client.post(f"/api/v1/staff/{staff.id}/enable/")
         assert response.status_code == 200
         staff.refresh_from_db()
         assert staff.employment_status == Staff.EmploymentStatus.ACTIVE
+        assert staff.user.is_active is True
+
+
+class TestStaffPermanentDelete:
+    def test_cannot_delete_permanently_before_terminating(self, api_client):
+        school, principal = _principal()
+        staff = StaffFactory(school=school)
+        _login(api_client, principal)
+
+        response = api_client.post(f"/api/v1/staff/{staff.id}/delete-permanently/")
+        assert response.status_code == 400
+        assert Staff.objects.filter(pk=staff.pk).exists()
+
+    def test_deletes_the_account_and_profile_once_terminated(self, api_client):
+        from apps.users.models import User
+
+        school, principal = _principal()
+        staff = StaffFactory(school=school, employment_status=Staff.EmploymentStatus.TERMINATED)
+        user_id = staff.user_id
+        _login(api_client, principal)
+
+        response = api_client.post(f"/api/v1/staff/{staff.id}/delete-permanently/")
+        assert response.status_code == 200, response.data
+        assert not Staff.objects.filter(pk=staff.pk).exists()
+        assert not User.objects.filter(pk=user_id).exists()
+
+    def test_blocked_while_still_the_main_teacher_of_an_offering(self, api_client):
+        from tests.factories import SubjectFactory, SubjectOfferingFactory
+
+        school, principal = _principal()
+        staff = StaffFactory(school=school, employment_status=Staff.EmploymentStatus.TERMINATED)
+        subject = SubjectFactory(school=school)
+        SubjectOfferingFactory(school=school, subject=subject, main_teacher=staff)
+        _login(api_client, principal)
+
+        response = api_client.post(f"/api/v1/staff/{staff.id}/delete-permanently/")
+        assert response.status_code == 409
+        assert Staff.objects.filter(pk=staff.pk).exists()

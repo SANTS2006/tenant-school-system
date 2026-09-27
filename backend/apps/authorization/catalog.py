@@ -124,6 +124,14 @@ PERMISSION_CATALOG = [
     ("live_sessions.create", "Schedule live video lesson sessions", "live_sessions"),
     ("live_sessions.update", "Start, end, and update live sessions", "live_sessions"),
     ("live_sessions.delete", "Delete live sessions", "live_sessions"),
+    ("roles.view", "View roles", "roles"),
+    ("roles.create", "Create custom roles", "roles"),
+    ("roles.update", "Rename roles and edit which permissions they grant", "roles"),
+    ("roles.delete", "Delete custom (non-system) roles", "roles"),
+    ("permissions.view", "View the permission catalog", "permissions"),
+    ("permissions.create", "Create custom permissions", "permissions"),
+    ("permissions.update", "Edit permissions", "permissions"),
+    ("permissions.delete", "Delete custom (uncatalogued) permissions", "permissions"),
     ("salary.view", "View salary structures and payments", "salary"),
     ("salary.create", "Create salary structures and process salary payments", "salary"),
     ("salary.update", "Update salary structures and staff salary assignments", "salary"),
@@ -155,6 +163,7 @@ DEFAULT_ROLE_PERMISSION_PREFIXES = {
             "staff.", "parents.", "academics.", "transport.", "hostel.", "medical.",
             "discipline.", "communications.", "documents.", "inventory.", "procurement.",
             "events.", "complaints.", "salary.", "reports.", "audit.", "examinations.", "records.",
+            "roles.", "permissions.",
             # view-only:
             "fees.view", "payments.view", "library.view",
             # timetable, education, assignments, live_sessions: no access — simply never

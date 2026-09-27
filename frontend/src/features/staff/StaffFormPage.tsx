@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Camera, FileText, Save, User as UserIcon, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { z } from "zod";
 
 import { Alert } from "@/components/ui/Alert";
@@ -265,6 +265,9 @@ export function StaffFormPage() {
                 </option>
               ))}
             </Select>
+            <Link to="/roles/new" className="self-start text-xs font-medium text-[var(--color-primary)] hover:underline">
+              + Add a new role
+            </Link>
 
             <hr className="my-2 border-[var(--color-border)]" />
 

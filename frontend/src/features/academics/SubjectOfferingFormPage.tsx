@@ -65,7 +65,7 @@ export function SubjectOfferingFormPage() {
   const { data: subjects } = useSubjects();
   const { data: academicYears } = useAcademicYears();
   const { data: classes } = useSchoolClasses();
-  const { data: staff } = useStaffList({ page_size: 200 });
+  const { data: staff } = useStaffList({ page_size: 200, employment_status: "active" });
   const createOffering = useCreateSubjectOffering();
   const updateOffering = useUpdateSubjectOffering(id ?? "");
   const mutation = isEditMode ? updateOffering : createOffering;

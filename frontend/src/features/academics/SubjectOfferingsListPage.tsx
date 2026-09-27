@@ -21,7 +21,7 @@ import {
   TableRowLink,
 } from "@/components/ui/Table";
 import { useToast } from "@/components/ui/Toast";
-import { useHasPermission } from "@/features/auth/useAuth";
+import { useHasPermission, useHasRole } from "@/features/auth/useAuth";
 import { useSummaryStats } from "@/hooks/useSummaryStats";
 import type { ApiError } from "@/lib/api-client";
 
@@ -35,6 +35,7 @@ export function SubjectOfferingsListPage() {
   const canCreate = useHasPermission("academics.create");
   const canDelete = useHasPermission("academics.delete");
   const canViewResults = useHasPermission("examinations.view");
+  const isTeacher = useHasRole("teacher");
 
   const [academicYear, setAcademicYear] = useState("");
   const [term, setTerm] = useState("");
@@ -204,18 +205,20 @@ export function SubjectOfferingsListPage() {
                       >
                         <ClipboardCheck className="size-4" aria-hidden="true" />
                       </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/academics/subject-offerings/${offering.id}/communications`);
-                        }}
-                        aria-label={`Materials and messages for ${offering.subject_name}`}
-                        title="Materials & messages"
-                        className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-primary)]"
-                      >
-                        <MessageSquare className="size-4" aria-hidden="true" />
-                      </button>
+                      {isTeacher && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/academics/subject-offerings/${offering.id}/communications`);
+                          }}
+                          aria-label={`Messages for ${offering.subject_name}`}
+                          title="Messages"
+                          className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-primary)]"
+                        >
+                          <MessageSquare className="size-4" aria-hidden="true" />
+                        </button>
+                      )}
                       {canViewResults && (
                         <button
                           type="button"

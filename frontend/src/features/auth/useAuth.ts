@@ -174,6 +174,15 @@ export function useHasPermission(code: string | string[]): boolean {
   return userHasPermission(user, code);
 }
 
+/** Checks the signed-in user's own role slugs directly, for the handful of things gated by
+ * "are you a teacher" rather than by a permission code — e.g. a subject's private-message button,
+ * which only the teacher (not a school-administrator or principal who can also reach the same
+ * page) should see. */
+export function useHasRole(slug: string): boolean {
+  const { data: user } = useCurrentUser();
+  return !!user?.roles.some((role) => role.slug === slug);
+}
+
 /** Layers a self-service identity check on top of `userHasPermission` — some nav items (My
  * Transcript, My Lessons, etc.) are meant only for student portal accounts, which hold zero RBAC
  * permissions and so can't be gated by a permission code at all (see `is_student` on

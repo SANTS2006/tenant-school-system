@@ -2,7 +2,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type { ApiError } from "@/lib/api-client";
 
-import { createStaff, fetchStaff, getStaff, reactivateStaff, resetStaffPassword, terminateStaff, updateStaff } from "./api";
+import {
+  createStaff,
+  deleteStaffPermanently,
+  fetchStaff,
+  getStaff,
+  reactivateStaff,
+  resetStaffPassword,
+  terminateStaff,
+  updateStaff,
+} from "./api";
 import type { Staff, StaffListParams, StaffPayload } from "./types";
 
 const STAFF_KEY = ["staff", "records"] as const;
@@ -58,6 +67,16 @@ export function useReactivateStaff() {
   const queryClient = useQueryClient();
   return useMutation<Staff, ApiError, string>({
     mutationFn: reactivateStaff,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["staff"] });
+    },
+  });
+}
+
+export function useDeleteStaffPermanently() {
+  const queryClient = useQueryClient();
+  return useMutation<void, ApiError, string>({
+    mutationFn: deleteStaffPermanently,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["staff"] });
     },

@@ -1,4 +1,4 @@
-import { FileText, Send } from "lucide-react";
+import { Send } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
@@ -12,9 +12,9 @@ import { useCurrentUser } from "@/features/auth/useAuth";
 import type { ApiError } from "@/lib/api-client";
 
 import {
-  useMySubjectMaterials,
   useMySubjectMessages,
   useMySubjectPrivateMessages,
+  useSendMySubjectMessage,
   useSendMySubjectPrivateMessage,
 } from "./useAcademicsCrud";
 
@@ -25,14 +25,17 @@ export function MySubjectCommunicationsPage() {
   const { showToast } = useToast();
   const { data: user } = useCurrentUser();
 
-  const { data: materials, isLoading: isLoadingMaterials } = useMySubjectMaterials(id);
   const { data: messages, isLoading: isLoadingMessages } = useMySubjectMessages(id);
   const { data: privateMessages, isLoading: isLoadingPrivate } = useMySubjectPrivateMessages(id);
   const sendPrivateMessage = useSendMySubjectPrivateMessage(id ?? "");
+  const sendMessage = useSendMySubjectMessage(id ?? "");
   const [reply, setReply] = useState("");
-  const isLoaded = !isLoadingMaterials && !isLoadingMessages && !isLoadingPrivate;
+  const [announcement, setAnnouncement] = useState("");
+  const isLoaded = !isLoadingMessages && !isLoadingPrivate;
 
-  // Deep links from the subject cards ("#materials" / "#messages") land on the matching section.
+  // A deep link from the subject card ("#messages") lands on this page directly (there's only
+  // one section now that materials moved to the Lessons page), so nothing to scroll to besides
+  // the top — kept for any old bookmarked links with a hash.
   useEffect(() => {
     if (hash && isLoaded) document.getElementById(hash.slice(1))?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [hash, isLoaded]);
@@ -41,6 +44,14 @@ export function MySubjectCommunicationsPage() {
     if (!reply.trim()) return;
     sendPrivateMessage.mutate(reply.trim(), {
       onSuccess: () => setReply(""),
+      onError: (err: ApiError) => showToast({ title: "Could not send", description: err.message, tone: "danger" }),
+    });
+  };
+
+  const handleSendMessage = () => {
+    if (!announcement.trim()) return;
+    sendMessage.mutate(announcement.trim(), {
+      onSuccess: () => setAnnouncement(""),
       onError: (err: ApiError) => showToast({ title: "Could not send", description: err.message, tone: "danger" }),
     });
   };
@@ -56,47 +67,17 @@ export function MySubjectCommunicationsPage() {
         Back to subjects
       </button>
 
-      <Card id="materials" className="scroll-mt-20">
-        <CardHeader>
-          <CardTitle>Materials</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoadingMaterials ? (
-            <div className="flex justify-center py-4">
-              <Spinner />
-            </div>
-          ) : !materials || materials.length === 0 ? (
-            <EmptyState icon={FileText} title="No materials yet" description="Your teacher hasn't posted anything yet." />
-          ) : (
-            <div className="flex flex-col gap-2">
-              {materials.map((material) => (
-                <a
-                  key={material.id}
-                  href={material.file}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-3 text-sm font-medium text-[var(--color-text)] hover:text-[var(--color-primary)]"
-                >
-                  <FileText className="size-4 shrink-0" aria-hidden="true" />
-                  <span className="truncate">{material.title}</span>
-                </a>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       <Card id="announcements" className="scroll-mt-20">
         <CardHeader>
-          <CardTitle>Announcements</CardTitle>
+          <CardTitle>Class messages</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col gap-4">
           {isLoadingMessages ? (
             <div className="flex justify-center py-4">
               <Spinner />
             </div>
           ) : !messages || messages.length === 0 ? (
-            <EmptyState title="No announcements yet" />
+            <EmptyState title="No messages yet" description="Be the first to say something to the class." />
           ) : (
             <div className="flex flex-col gap-2">
               {messages.map((message) => (
@@ -109,6 +90,20 @@ export function MySubjectCommunicationsPage() {
               ))}
             </div>
           )}
+
+          <div className="flex gap-2 border-t border-[var(--color-border)] pt-4">
+            <textarea
+              value={announcement}
+              onChange={(e) => setAnnouncement(e.target.value)}
+              rows={2}
+              placeholder="Write a message to your class..."
+              className="flex-1 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-sm text-[var(--color-text)]"
+            />
+            <Button onClick={handleSendMessage} disabled={!announcement.trim()} isLoading={sendMessage.isPending}>
+              <Send className="size-4" aria-hidden="true" />
+              Send
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

@@ -75,6 +75,19 @@ def send_password_reset_email(*, user, uidb64: str, token: str, request=None) ->
     return _send(user, "Reset your password", body)
 
 
+def send_staff_terminated_email(*, user) -> bool:
+    """Tells a just-terminated staff member their employment has ended and their account no
+    longer has access — sent before the account is deactivated so the email itself still goes
+    through the normal (branded, school-identified) channel."""
+    body = f"""
+        <p>Hi {escape(user.first_name)},</p>
+        <p>This is to inform you that your employment{f" at {escape(user.school.name)}" if user.school else ""}
+        has ended. Your account no longer has access to the system.</p>
+        <p>If you believe this is a mistake, please contact your school administrator.</p>
+    """
+    return _send(user, "Your employment has ended", body)
+
+
 def send_password_changed_email(*, user) -> bool:
     body = f"""
         <p>Hi {escape(user.first_name)},</p>

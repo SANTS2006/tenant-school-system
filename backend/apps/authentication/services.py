@@ -25,7 +25,7 @@ def _get_user_from_uid(uidb64: str) -> User:
         raise InvalidTokenError("This link is invalid.")
 
 
-def _blacklist_all_outstanding_tokens(user) -> None:
+def blacklist_all_outstanding_tokens(user) -> None:
     for outstanding in OutstandingToken.objects.filter(user=user):
         BlacklistedToken.objects.get_or_create(token=outstanding)
 
@@ -70,7 +70,7 @@ def confirm_password_reset(*, uidb64: str, token: str, new_password: str) -> Use
     user.password_changed_at = timezone.now()
     user.must_change_password = False
     user.save(update_fields=["password", "password_changed_at", "must_change_password"])
-    _blacklist_all_outstanding_tokens(user)
+    blacklist_all_outstanding_tokens(user)
     send_password_changed_email(user=user)
     log_action(
         action="auth.password_reset_completed",
@@ -89,7 +89,7 @@ def change_password(*, user, new_password: str) -> None:
     user.password_changed_at = timezone.now()
     user.must_change_password = False
     user.save(update_fields=["password", "password_changed_at", "must_change_password"])
-    _blacklist_all_outstanding_tokens(user)
+    blacklist_all_outstanding_tokens(user)
     send_password_changed_email(user=user)
     log_action(
         action="auth.password_changed",

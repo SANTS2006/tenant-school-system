@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from apps.authorization.permissions import require_permission
 from apps.authorization.services import user_has_permission
 from apps.common.views import TenantScopedAPIView, TenantScopedModelViewSet, TenantScopedReadOnlyViewSet
+from apps.notifications.services import notify_bulk
 from apps.students.models import Student
 from apps.tenants.services import get_current_school
 
@@ -464,19 +465,19 @@ class AssessmentViewSet(TenantScopedModelViewSet):
 
     def perform_create(self, serializer):
         subject_offering = serializer.validated_data["subject_offering"]
-        if not self._is_admin() and not self._teaches(subject_offering):
-            raise PermissionDenied("You can only create assessments for subjects you teach.")
+        if not self._teaches(subject_offering):
+            raise PermissionDenied("Only the subject's own teacher can create assessments.")
         serializer.save(school=get_current_school())
 
     def perform_update(self, serializer):
         subject_offering = serializer.instance.subject_offering
-        if not self._is_admin() and not self._teaches(subject_offering):
-            raise PermissionDenied("You can only edit assessments for subjects you teach.")
+        if not self._teaches(subject_offering):
+            raise PermissionDenied("Only the subject's own teacher can edit assessments.")
         serializer.save()
 
     def perform_destroy(self, instance):
-        if not self._is_admin() and not self._teaches(instance.subject_offering):
-            raise PermissionDenied("You can only delete assessments for subjects you teach.")
+        if not self._teaches(instance.subject_offering):
+            raise PermissionDenied("Only the subject's own teacher can delete assessments.")
         instance.delete()
 
     @action(detail=True, methods=["get", "post"])
@@ -488,8 +489,11 @@ class AssessmentViewSet(TenantScopedModelViewSet):
         services.save_assessment_scores, which enforces the CA-closed lock and score bounds."""
         assessment = self.get_object()
         offering = assessment.subject_offering
-        if not self._is_admin() and not self._teaches(offering):
+        can_view = self._is_admin() or self._teaches(offering)
+        if not can_view:
             raise PermissionDenied("You can only manage scores for subjects you teach.")
+        if request.method == "POST" and not self._teaches(offering):
+            raise PermissionDenied("Only the subject's own teacher can enter grades.")
 
         if request.method == "GET":
             enrollments = StudentSubjectEnrollment.objects.filter(subject_offering=offering).select_related(
@@ -1021,9 +1025,10 @@ class SubjectMaterialViewSet(TenantScopedModelViewSet):
         )
 
     def get_queryset(self):
+        # Deliberately no admin bypass: materials are private to the subject's own teacher and
+        # its enrolled students (who read them through MySubjectMaterialsView instead), not
+        # visible to a Principal/School Administrator just because they hold academics.update.
         qs = SubjectMaterial.objects.select_related("subject_offering__subject", "uploaded_by").all()
-        if self._is_admin():
-            return qs
         staff_profile = getattr(self.request.user, "staff_profile", None)
         if staff_profile is None:
             return qs.none()
@@ -1033,14 +1038,14 @@ class SubjectMaterialViewSet(TenantScopedModelViewSet):
 
     def perform_create(self, serializer):
         subject_offering = serializer.validated_data["subject_offering"]
-        if not self._is_admin() and not self._teaches(subject_offering):
-            raise PermissionDenied("You can only upload materials for subjects you teach.")
+        if not self._teaches(subject_offering):
+            raise PermissionDenied("Only the subject's own teacher can upload materials.")
         material = serializer.save(school=get_current_school(), uploaded_by=self.request.user)
         services.notify_material_uploaded(material)
 
     def perform_destroy(self, instance):
-        if not self._is_admin() and not self._teaches(instance.subject_offering):
-            raise PermissionDenied("You can only delete materials for subjects you teach.")
+        if not self._teaches(instance.subject_offering):
+            raise PermissionDenied("Only the subject's own teacher can delete materials.")
         instance.delete()
 
 
@@ -1069,9 +1074,9 @@ class SubjectMessageViewSet(TenantScopedModelViewSet):
         )
 
     def get_queryset(self):
+        # No admin bypass — the general class thread is private to the subject's own teacher and
+        # its enrolled students (see MySubjectMessagesView for the student side).
         qs = SubjectMessage.objects.select_related("subject_offering__subject", "sender").all()
-        if self._is_admin():
-            return qs
         staff_profile = getattr(self.request.user, "staff_profile", None)
         if staff_profile is None:
             return qs.none()
@@ -1081,8 +1086,8 @@ class SubjectMessageViewSet(TenantScopedModelViewSet):
 
     def perform_create(self, serializer):
         subject_offering = serializer.validated_data["subject_offering"]
-        if not self._is_admin() and not self._teaches(subject_offering):
-            raise PermissionDenied("You can only message students in subjects you teach.")
+        if not self._teaches(subject_offering):
+            raise PermissionDenied("Only the subject's own teacher can message this class here.")
         message = serializer.save(school=get_current_school(), sender=self.request.user)
         services.notify_subject_message(message)
 
@@ -1114,9 +1119,9 @@ class SubjectPrivateMessageViewSet(TenantScopedModelViewSet):
         )
 
     def get_queryset(self):
+        # No admin bypass — a private thread is only ever the subject's own teacher and the one
+        # student it's with (the student's own side is MySubjectPrivateMessagesView).
         qs = SubjectPrivateMessage.objects.select_related("subject_offering__subject", "student", "sender").all()
-        if self._is_admin():
-            return qs
         staff_profile = getattr(self.request.user, "staff_profile", None)
         if staff_profile is None:
             return qs.none()
@@ -1127,8 +1132,8 @@ class SubjectPrivateMessageViewSet(TenantScopedModelViewSet):
     def perform_create(self, serializer):
         subject_offering = serializer.validated_data["subject_offering"]
         student = serializer.validated_data["student"]
-        if not self._is_admin() and not self._teaches(subject_offering):
-            raise PermissionDenied("You can only message students in subjects you teach.")
+        if not self._teaches(subject_offering):
+            raise PermissionDenied("Only the subject's own teacher can send a private message here.")
         enrolled = StudentSubjectEnrollment.objects.filter(
             subject_offering=subject_offering, student=student
         ).exists()
@@ -1160,7 +1165,10 @@ class MySubjectMaterialsView(TenantScopedAPIView):
 
 
 class MySubjectMessagesView(TenantScopedAPIView):
-    """Student self-service: general (broadcast) messages for one enrolled subject."""
+    """Student self-service: general (broadcast) messages for one enrolled subject. GET lists the
+    thread; POST lets the student post into it too — the class message thread is a two-way space
+    for the teacher and every enrolled student, not just a teacher broadcast (see
+    apps.academics.views.SubjectMessageViewSet for the teacher's own side of the same thread)."""
 
     def get(self, request, subject_offering_id):
         student_profile = getattr(request.user, "student_profile", None)
@@ -1174,6 +1182,36 @@ class MySubjectMessagesView(TenantScopedAPIView):
         messages = SubjectMessage.objects.filter(subject_offering_id=subject_offering_id).select_related("sender")
         data = SubjectMessageSerializer(messages, many=True, context={"request": request}).data
         return _ok(messages=data)
+
+    def post(self, request, subject_offering_id):
+        student_profile = getattr(request.user, "student_profile", None)
+        if student_profile is None:
+            return _error("Only students can send this.", "FORBIDDEN", status.HTTP_403_FORBIDDEN)
+        offering = SubjectOffering.objects.filter(
+            id=subject_offering_id,
+            enrollments__student=student_profile,
+        ).select_related("main_teacher__user", "assistant_teacher__user", "subject").first()
+        if offering is None:
+            return _error("Subject not found.", "NOT_FOUND", status.HTTP_404_NOT_FOUND)
+
+        body = (request.data.get("body") or "").strip()
+        if not body:
+            return _error("A message body is required.", "VALIDATION_ERROR", status.HTTP_400_BAD_REQUEST)
+
+        message = SubjectMessage.objects.create(
+            school=get_current_school(), subject_offering=offering, sender=request.user, body=body,
+        )
+        teachers = [t.user for t in (offering.main_teacher, offering.assistant_teacher) if t is not None]
+        if teachers:
+            notify_bulk(
+                recipients=teachers,
+                category="subject_message",
+                title=f"New message in {offering.subject.name}",
+                message=body[:200],
+                link=f"/academics/subject-offerings/{offering.id}/communications",
+            )
+        data = SubjectMessageSerializer(message, context={"request": request}).data
+        return _ok("Message sent.", **data)
 
 
 class MySubjectPrivateMessagesView(TenantScopedAPIView):

@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/Input";
 import { FullPageSpinner, Spinner } from "@/components/ui/Spinner";
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
 import { useToast } from "@/components/ui/Toast";
+import { useHasRole } from "@/features/auth/useAuth";
 import { useStudents } from "@/features/students/useStudents";
 import type { ApiError } from "@/lib/api-client";
 
@@ -29,6 +30,7 @@ export function SubjectOfferingRosterPage() {
   const subjectsHome = useSubjectsHomePath();
   const { showToast } = useToast();
   const confirm = useConfirm();
+  const isTeacher = useHasRole("teacher");
 
   const { data: offering, isLoading: isLoadingOffering } = useSubjectOffering(id);
   const { data: enrollments, isLoading: isLoadingEnrollments } = useSubjectEnrollmentList({
@@ -44,6 +46,7 @@ export function SubjectOfferingRosterPage() {
   const deleteEnrollment = useDeleteSubjectEnrollment();
 
   const [search, setSearch] = useState("");
+  const [enrolledSearch, setEnrolledSearch] = useState("");
   const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
   const [isEnrolling, setIsEnrolling] = useState(false);
 
@@ -63,6 +66,14 @@ export function SubjectOfferingRosterPage() {
     );
   }, [availableStudents, search]);
   const allVisibleSelected = visibleStudents.length > 0 && visibleStudents.every((s) => selectedStudentIds.has(s.id));
+  const visibleEnrollments = useMemo(() => {
+    const q = enrolledSearch.trim().toLowerCase();
+    const rows = enrollments?.results ?? [];
+    if (!q) return rows;
+    return rows.filter(
+      (row) => row.student_name.toLowerCase().includes(q) || row.student_admission_number.toLowerCase().includes(q),
+    );
+  }, [enrollments, enrolledSearch]);
 
   const toggleStudent = (studentId: string) => {
     setSelectedStudentIds((prev) => {
@@ -228,7 +239,7 @@ export function SubjectOfferingRosterPage() {
         <CardHeader>
           <CardTitle>Enrolled students</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col gap-3">
           {isLoadingEnrollments ? (
             <div className="flex justify-center py-4">
               <Spinner />
@@ -240,6 +251,16 @@ export function SubjectOfferingRosterPage() {
               description="Add students to this subject using the picker above."
             />
           ) : (
+            <>
+            <div className="max-w-sm">
+              <Input
+                icon={Search}
+                placeholder="Search by name or admission number"
+                value={enrolledSearch}
+                onChange={(e) => setEnrolledSearch(e.target.value)}
+                aria-label="Search enrolled students"
+              />
+            </div>
             <TableContainer>
               <Table>
                 <TableHead>
@@ -250,21 +271,23 @@ export function SubjectOfferingRosterPage() {
                   </tr>
                 </TableHead>
                 <TableBody>
-                  {enrollments.results.map((enrollment) => (
+                  {visibleEnrollments.map((enrollment) => (
                     <TableRow key={enrollment.id}>
                       <TableCell className="font-medium">{enrollment.student_name}</TableCell>
                       <TableCell>{enrollment.student_admission_number}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/academics/subject-offerings/${id}/students/${enrollment.student}/messages`)}
-                            aria-label={`Message ${enrollment.student_name}`}
-                            title="Private message"
-                            className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-primary)]"
-                          >
-                            <MessageCircle className="size-4" aria-hidden="true" />
-                          </button>
+                          {isTeacher && (
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/academics/subject-offerings/${id}/students/${enrollment.student}/messages`)}
+                              aria-label={`Message ${enrollment.student_name}`}
+                              title="Private message"
+                              className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-primary)]"
+                            >
+                              <MessageCircle className="size-4" aria-hidden="true" />
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => handleRemove(enrollment.id, enrollment.student_name)}
@@ -280,6 +303,7 @@ export function SubjectOfferingRosterPage() {
                 </TableBody>
               </Table>
             </TableContainer>
+            </>
           )}
         </CardContent>
       </Card>

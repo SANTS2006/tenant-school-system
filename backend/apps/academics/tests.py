@@ -2103,7 +2103,10 @@ class TestSubjectMaterialsAndMessaging:
         assert len(list_response.data["materials"]) == 1
         assert list_response.data["materials"][0]["title"] == "Chapter 1 Notes"
 
-    def test_admin_can_upload_material_for_any_subject(self, api_client):
+    def test_admin_cannot_upload_or_see_material_for_a_subject_they_dont_teach(self, api_client):
+        """Materials are private to the subject's own teacher and its enrolled students, not
+        visible to a Principal/School Administrator just because they hold academics.update -
+        see SubjectMaterialViewSet.get_queryset's docstring."""
         from django.core.files.uploadedfile import SimpleUploadedFile
 
         school, principal = _principal()
@@ -2116,7 +2119,11 @@ class TestSubjectMaterialsAndMessaging:
             {"subject_offering": str(offering.id), "title": "Admin notes", "file": file},
             format="multipart",
         )
-        assert response.status_code == 201, response.data
+        assert response.status_code == 403
+
+        listing = api_client.get("/api/v1/academics/subject-materials/", {"subject_offering": str(offering.id)})
+        assert listing.status_code == 200
+        assert listing.data["results"] == []
 
     def test_teacher_not_teaching_subject_cannot_upload_material(self, api_client):
         from django.core.files.uploadedfile import SimpleUploadedFile

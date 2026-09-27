@@ -40,7 +40,7 @@ export function StaffSalaryAssignmentFormPage() {
   const { showToast } = useToast();
 
   const { data: assignment, isLoading: isLoadingAssignment } = useStaffSalaryAssignment(id);
-  const { data: staffMembers } = useStaffList({ page_size: 200 });
+  const { data: staffMembers } = useStaffList({ page_size: 200, employment_status: "active" });
   const { data: structures } = useSalaryStructureList({ page_size: 100 });
   const createAssignment = useCreateStaffSalaryAssignment();
   const updateAssignment = useUpdateStaffSalaryAssignment(id ?? "");

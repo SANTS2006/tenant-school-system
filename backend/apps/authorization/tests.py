@@ -6,9 +6,9 @@ from apps.tenants.context import (
     set_current_school_id,
     set_platform_admin_context,
 )
-from tests.factories import PlatformAdminFactory, SchoolFactory, UserFactory
+from tests.factories import DEFAULT_TEST_PASSWORD, PlatformAdminFactory, SchoolFactory, UserFactory
 
-from .models import Role
+from .models import Permission, Role
 from .services import (
     ALL_PERMISSIONS_SENTINEL,
     assign_role,
@@ -18,6 +18,137 @@ from .services import (
 )
 
 pytestmark = pytest.mark.django_db
+
+
+def _login(api_client, user):
+    return api_client.post(
+        "/api/v1/auth/login/", {"email": user.email, "password": DEFAULT_TEST_PASSWORD}, format="json"
+    )
+
+
+def _school_admin():
+    seed_permission_catalog()
+    school = SchoolFactory()
+    seed_default_roles_for_school(school)
+    admin = UserFactory(school=school)
+    assign_role(user=admin, role=Role.unscoped_objects.get(school=school, slug="school-administrator"))
+    return school, admin
+
+
+def _teacher(school):
+    teacher = UserFactory(school=school)
+    assign_role(user=teacher, role=Role.unscoped_objects.get(school=school, slug="teacher"))
+    return teacher
+
+
+class TestRoleManagement:
+    def test_admin_can_create_and_list_custom_role(self, api_client):
+        school, admin = _school_admin()
+        _login(api_client, admin)
+
+        response = api_client.post("/api/v1/roles/", {"name": "Librarian Assistant"}, format="json")
+        assert response.status_code == 201, response.data
+        assert response.data["is_system"] is False
+
+        listing = api_client.get("/api/v1/roles/")
+        names = {row["name"] for row in listing.data["results"]}
+        assert "Librarian Assistant" in names
+
+    def test_teacher_cannot_create_role(self, api_client):
+        school, _ = _school_admin()
+        teacher = _teacher(school)
+        _login(api_client, teacher)
+
+        response = api_client.post("/api/v1/roles/", {"name": "Sneaky Role"}, format="json")
+        assert response.status_code == 403
+
+    def test_cannot_delete_a_system_role(self, api_client):
+        school, admin = _school_admin()
+        _login(api_client, admin)
+        teacher_role = Role.unscoped_objects.get(school=school, slug="teacher")
+
+        response = api_client.delete(f"/api/v1/roles/{teacher_role.id}/")
+        assert response.status_code == 403
+        assert Role.unscoped_objects.filter(pk=teacher_role.pk).exists()
+
+    def test_can_delete_a_custom_role(self, api_client):
+        school, admin = _school_admin()
+        _login(api_client, admin)
+        custom_role = Role.objects.create(school=school, name="Temp Role", slug="temp-role")
+
+        response = api_client.delete(f"/api/v1/roles/{custom_role.id}/")
+        assert response.status_code == 204
+        assert not Role.unscoped_objects.filter(pk=custom_role.pk).exists()
+
+    def test_permissions_action_lists_the_whole_catalog_flagged_by_membership(self, api_client):
+        school, admin = _school_admin()
+        _login(api_client, admin)
+        teacher_role = Role.unscoped_objects.get(school=school, slug="teacher")
+
+        response = api_client.get(f"/api/v1/roles/{teacher_role.id}/permissions/")
+        assert response.status_code == 200
+        rows = {row["code"]: row["granted"] for row in response.data["permissions"]}
+        assert rows["academics.view"] is True
+        assert rows["staff.delete"] is False
+
+    def test_set_permissions_replaces_the_role_and_demotes_it_from_system(self, api_client):
+        school, admin = _school_admin()
+        _login(api_client, admin)
+        teacher_role = Role.unscoped_objects.get(school=school, slug="teacher")
+        assert teacher_role.is_system is True
+        library_view = Permission.objects.get(code="library.view")
+
+        response = api_client.post(
+            f"/api/v1/roles/{teacher_role.id}/set-permissions/",
+            {"permission_ids": [str(library_view.id)]},
+            format="json",
+        )
+        assert response.status_code == 200, response.data
+
+        teacher_role.refresh_from_db()
+        assert teacher_role.is_system is False
+        assert set(teacher_role.permissions.values_list("code", flat=True)) == {"library.view"}
+
+    def test_cannot_manage_another_schools_role(self, api_client):
+        school_a, admin_a = _school_admin()
+        school_b, _ = _school_admin()
+        _login(api_client, admin_a)
+        role_b = Role.unscoped_objects.get(school=school_b, slug="teacher")
+
+        response = api_client.get(f"/api/v1/roles/{role_b.id}/permissions/")
+        assert response.status_code == 404
+
+
+class TestPermissionManagement:
+    def test_admin_can_create_a_custom_permission(self, api_client):
+        _, admin = _school_admin()
+        _login(api_client, admin)
+
+        response = api_client.post(
+            "/api/v1/roles/permissions/",
+            {"code": "library.custom_action", "name": "Custom action", "module": "library"},
+            format="json",
+        )
+        assert response.status_code == 201, response.data
+
+    def test_duplicate_permission_code_rejected(self, api_client):
+        _, admin = _school_admin()
+        _login(api_client, admin)
+
+        response = api_client.post(
+            "/api/v1/roles/permissions/",
+            {"code": "library.view", "name": "Duplicate", "module": "library"},
+            format="json",
+        )
+        assert response.status_code == 400
+
+    def test_teacher_cannot_manage_permissions(self, api_client):
+        school, _ = _school_admin()
+        teacher = _teacher(school)
+        _login(api_client, teacher)
+
+        response = api_client.get("/api/v1/roles/permissions/")
+        assert response.status_code == 403
 
 
 class TestPermissionScoping:

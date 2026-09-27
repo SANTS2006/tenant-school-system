@@ -17,6 +17,7 @@ import { SubjectsListPage } from "@/features/academics/SubjectsListPage";
 import { AssessmentGradeEntryPage } from "@/features/academics/AssessmentGradeEntryPage";
 import { MySubjectCAPage } from "@/features/academics/MySubjectCAPage";
 import { MySubjectCommunicationsPage } from "@/features/academics/MySubjectCommunicationsPage";
+import { MySubjectLessonsPage } from "@/features/academics/MySubjectLessonsPage";
 import { MyResultDetailPage } from "@/features/academics/MyResultDetailPage";
 import { MyGraduationStatusPage } from "@/features/academics/MyGraduationStatusPage";
 import { MyResultsPage } from "@/features/academics/MyResultsPage";
@@ -44,6 +45,11 @@ import { AttendanceStatsPage } from "@/features/attendance/AttendanceStatsPage";
 import { StaffAttendanceFormPage } from "@/features/attendance/StaffAttendanceFormPage";
 import { StaffAttendanceListPage } from "@/features/attendance/StaffAttendanceListPage";
 import { TakeAttendancePage } from "@/features/attendance/TakeAttendancePage";
+import { PermissionFormPage } from "@/features/authorization/PermissionFormPage";
+import { PermissionsListPage } from "@/features/authorization/PermissionsListPage";
+import { RoleDetailPage } from "@/features/authorization/RoleDetailPage";
+import { RoleFormPage } from "@/features/authorization/RoleFormPage";
+import { RolesListPage } from "@/features/authorization/RolesListPage";
 import { AuditLogDetailPage } from "@/features/audit/AuditLogDetailPage";
 import { AuditLogsListPage } from "@/features/audit/AuditLogsListPage";
 import { BrandedLoginPage } from "@/features/auth/BrandedLoginPage";
@@ -279,6 +285,11 @@ export function AppRoutes() {
 
           <Route path="/audit" element={<AuditLogsListPage />} />
           <Route path="/audit/:id" element={<AuditLogDetailPage />} />
+          <Route path="/roles" element={<RolesListPage />} />
+          <Route path="/roles/new" element={<RoleFormPage />} />
+          <Route path="/roles/:id" element={<RoleDetailPage />} />
+          <Route path="/permissions" element={<PermissionsListPage />} />
+          <Route path="/permissions/new" element={<PermissionFormPage />} />
 
           <Route path="/reports" element={<ReportsLayout />}>
             <Route index element={<Navigate to="enrollment" replace />} />
@@ -337,6 +348,7 @@ export function AppRoutes() {
           <Route path="/subjects/:id/lessons" element={<TeacherSubjectLessonsPage />} />
           <Route path="/my-subjects" element={<MySubjectsPage />} />
           <Route path="/my-subjects/:id/ca" element={<MySubjectCAPage />} />
+          <Route path="/my-subjects/:id/lessons" element={<MySubjectLessonsPage />} />
           <Route path="/my-subjects/:id/communications" element={<MySubjectCommunicationsPage />} />
           <Route path="/my-results" element={<MyResultsPage />} />
           <Route path="/my-results/:schoolClassId/:termId" element={<MyResultDetailPage />} />
