@@ -56,7 +56,15 @@ class StaffViewSet(TenantScopedModelViewSet):
         # A method, not a class-level `queryset =` attribute — see the note
         # on apps.academics.views.AcademicsModelViewSet for why that matters
         # for a TenantScopedModel.
-        return Staff.objects.select_related("user", "department").all()
+        qs = Staff.objects.select_related("user", "department").all()
+        # `role` isn't a Staff field (a role is held by the linked User, via UserRole) — a plain
+        # filterset_fields entry can't reach through that relation, so it's handled by hand. Lets
+        # a role-specific picker (e.g. "who can be a subject's main teacher?") show only staff who
+        # actually hold that role, instead of every staff member in the school.
+        role = self.request.query_params.get("role")
+        if role:
+            qs = qs.filter(user__user_roles__role__slug=role).distinct()
+        return qs
 
     def perform_destroy(self, instance):
         """Terminates (never a hard delete on its own — see `delete_permanently` for that): marks

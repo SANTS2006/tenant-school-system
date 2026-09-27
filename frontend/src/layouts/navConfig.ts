@@ -64,6 +64,10 @@ export interface NavItem {
  * trip the react-refresh only-export-components rule. */
 export const NAV_CONFIG: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/my-subjects", label: "Subjects", icon: BookOpen, selfServiceFor: "student" },
+  { to: "/my-live-sessions", label: "Live Sessions", icon: Video, selfServiceFor: "student" },
+  { to: "/my-results", label: "Results", icon: Award, selfServiceFor: "student" },
+  { to: "/my-graduation-status", label: "Graduation Status", icon: GraduationCap, selfServiceFor: "student" },
   { to: "/students", label: "Students", icon: GraduationCap, permission: "students.view" },
   { to: "/staff", label: "Staff", icon: Users, permission: "staff.view" },
   {
@@ -215,13 +219,9 @@ export const NAV_CONFIG: NavItem[] = [
   // students, who hold zero RBAC permissions), same as Complaints above. Only the "Add record"/
   // edit/delete actions inside RecordsListPage are gated, on records.create/update/delete.
   { to: "/records", label: "Records", icon: Archive },
-  { to: "/my-subjects", label: "Subjects", icon: BookOpen, selfServiceFor: "student" },
-  { to: "/my-results", label: "Results", icon: Award, selfServiceFor: "student" },
-  { to: "/my-graduation-status", label: "Graduation Status", icon: GraduationCap, selfServiceFor: "student" },
   { to: "/assignments", label: "Assignments", icon: ClipboardList, permission: "assignments.view", hideForRoles: ["teacher"] },
   { to: "/education/lessons", label: "Lessons", icon: NotebookText, permission: "education.view", hideForRoles: ["teacher"] },
   { to: "/live-sessions", label: "Live Sessions", icon: Video, permission: "live_sessions.view" },
-  { to: "/my-live-sessions", label: "Live Sessions", icon: Video, selfServiceFor: "student" },
   { to: "/my-medical", label: "Medical", icon: HeartPulse, selfServiceFor: "student" },
   { to: "/my-transport", label: "Transport", icon: Truck, selfServiceFor: "student" },
   { to: "/my-timetable", label: "Timetable", icon: CalendarClock, selfServiceFor: "student-or-staff", hideForRoles: ["principal", "exams-director"] },

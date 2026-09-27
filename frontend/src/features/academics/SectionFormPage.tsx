@@ -45,7 +45,7 @@ export function SectionFormPage() {
   const { data: section, isLoading: isLoadingSection } = useSection(id);
   const { data: schoolClasses } = useSchoolClasses();
   const { data: academicYears } = useAcademicYears();
-  const { data: staff } = useStaffLookup();
+  const { data: staff } = useStaffLookup("teacher");
   const createSection = useCreateSection();
   const updateSection = useUpdateSection(id ?? "");
   const mutation = isEditMode ? updateSection : createSection;

@@ -32,6 +32,9 @@ export interface StaffListParams {
   search?: string;
   department?: string;
   employment_status?: EmploymentStatus;
+  /** RBAC role slug (e.g. "teacher") — narrows to staff holding that role. Not a Staff field
+   * itself (roles live on the linked User), handled server-side. */
+  role?: string;
   ordering?: string;
 }
 

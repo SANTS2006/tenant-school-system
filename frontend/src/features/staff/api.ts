@@ -7,9 +7,9 @@ import type { Staff, StaffListParams, StaffLookup, StaffPayload } from "./types"
 // to populate a dropdown; no pagination UI needed here.
 const LOOKUP_PAGE_SIZE = { page_size: 100 };
 
-export async function listStaff(): Promise<StaffLookup[]> {
+export async function listStaff(role?: string): Promise<StaffLookup[]> {
   const { data } = await apiClient.get<PaginatedResponse<StaffLookup>>("/staff/", {
-    params: LOOKUP_PAGE_SIZE,
+    params: { ...LOOKUP_PAGE_SIZE, employment_status: "active", role },
   });
   return data.results;
 }

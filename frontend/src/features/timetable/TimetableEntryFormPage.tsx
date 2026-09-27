@@ -65,7 +65,7 @@ export function TimetableEntryFormPage() {
   const { data: sections } = useAllSections();
   const { data: periods } = usePeriodList({ page_size: 100, ordering: "order" });
   const { data: subjects } = useSubjectList({ page_size: 100 });
-  const { data: staff } = useStaffLookup();
+  const { data: staff } = useStaffLookup("teacher");
   const { data: rooms } = useRoomList({ page_size: 100 });
   const createEntry = useCreateEntry();
   const updateEntry = useUpdateEntry(id ?? "");
