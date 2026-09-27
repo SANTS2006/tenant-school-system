@@ -7,11 +7,12 @@ interface InviteResponse {
   success: boolean;
   message: string;
   user: InvitedUser;
+  email_sent?: boolean;
 }
 
 export async function inviteUser(payload: InviteUserPayload): Promise<InvitedUser> {
   const { data } = await apiClient.post<InviteResponse>("/users/invite/", payload);
-  return data.user;
+  return { ...data.user, email_sent: data.email_sent };
 }
 
 // A generous page_size — schools have a modest number of user accounts, so one request is

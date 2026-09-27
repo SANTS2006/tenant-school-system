@@ -5,11 +5,12 @@ from rest_framework.response import Response
 from apps.audit.services import log_action
 from apps.authorization.permissions import require_permission
 from apps.common.views import TenantScopedModelViewSet
+from apps.tenants.context import get_current_school_id
 from apps.tenants.services import get_current_school
 
 from .models import Student
 from .serializers import StudentSerializer
-from .services import scope_students_for_teacher
+from .services import provision_student_account, scope_students_for_teacher
 
 _ACTION_SUFFIX = {
     "list": "view",
@@ -53,6 +54,10 @@ class StudentViewSet(TenantScopedModelViewSet):
         else:
             code = f"students.{_ACTION_SUFFIX.get(self.action, 'view')}"
         return [require_permission(code)()]
+
+    def perform_create(self, serializer):
+        student = serializer.save(school_id=get_current_school_id())
+        provision_student_account(student)
 
     def perform_destroy(self, instance):
         instance.status = Student.Status.ARCHIVED

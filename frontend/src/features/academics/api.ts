@@ -211,6 +211,33 @@ export async function updateSubjectOffering(id: string, values: SubjectOfferingP
   return data;
 }
 
+export interface CaBreakdownRow {
+  assessment: string;
+  name: string;
+  weight: number;
+  max_score: string;
+  raw_score: string | null;
+  weighted_score: string | null;
+  status: "draft" | "submitted" | null;
+}
+
+export interface CaStudentSummary {
+  student: string;
+  student_name: string;
+  admission_number: string;
+  total_ca: string | null;
+  breakdown: CaBreakdownRow[];
+}
+
+export async function fetchSubjectOfferingCaSummary(
+  id: string,
+): Promise<{ ca_weight_percent: number; students: CaStudentSummary[] }> {
+  const { data } = await apiClient.get<{ ca_weight_percent: number; students: CaStudentSummary[] }>(
+    `/academics/subject-offerings/${id}/ca-summary/`,
+  );
+  return data;
+}
+
 export async function deleteSubjectOffering(id: string): Promise<void> {
   await apiClient.delete(`/academics/subject-offerings/${id}/`);
 }

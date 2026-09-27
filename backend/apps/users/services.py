@@ -49,7 +49,7 @@ def invite_user(
     user.must_change_password = True
     user.save(update_fields=["password", "must_change_password"])
 
-    send_account_created_email(
+    user.invite_email_sent = send_account_created_email(
         user=user,
         password=password,
         role_label=role_label or ("platform administrator" if is_platform_admin else "a school user"),

@@ -88,6 +88,9 @@ def publish_announcement(announcement: Announcement) -> int:
     )
 
     if announcement.send_email:
+        from django.utils.html import escape
+        from django.utils.text import linebreaks
+
         from apps.common.email import send_email
 
         for user in recipients:
@@ -96,7 +99,8 @@ def publish_announcement(announcement: Announcement) -> int:
                     to_email=user.email,
                     to_name=user.full_name,
                     subject=announcement.title,
-                    html_content=f"<p>{announcement.body}</p>",
+                    html_content=linebreaks(escape(announcement.body)),
+                    school=user.school,
                 )
 
     announcement.published_at = timezone.now()

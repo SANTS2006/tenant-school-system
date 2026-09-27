@@ -173,6 +173,11 @@ export const approveResult = (id: string) => transition(id, "approve");
 export const publishResult = (id: string) => transition(id, "publish");
 export const lockResult = (id: string) => transition(id, "lock");
 
+export async function setResultStatus(id: string, status: string): Promise<Result> {
+  const { data } = await apiClient.post<{ result: Result }>(`/results/${id}/set-status/`, { status });
+  return data.result;
+}
+
 export async function correctResult(id: string, values: CorrectResultPayload): Promise<Result> {
   const { data } = await apiClient.post<{ result: Result }>(`/results/${id}/correct/`, values);
   return data.result;

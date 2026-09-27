@@ -14,6 +14,7 @@ import {
   lockResult,
   publishResult,
   reviewResult,
+  setResultStatus,
   submitResult,
   updateResult,
 } from "./api";
@@ -26,6 +27,7 @@ import type {
   ResultEditPayload,
   ResultListParams,
   ResultPayload,
+  ResultStatus,
   Transcript,
 } from "./types";
 
@@ -86,6 +88,14 @@ export const useReviewResult = () => useTransition(reviewResult);
 export const useApproveResult = () => useTransition(approveResult);
 export const usePublishResult = () => useTransition(publishResult);
 export const useLockResult = () => useTransition(lockResult);
+
+export function useSetResultStatus() {
+  const queryClient = useQueryClient();
+  return useMutation<Result, ApiError, { id: string; status: ResultStatus }>({
+    mutationFn: ({ id, status }) => setResultStatus(id, status),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: RESULTS_KEY }),
+  });
+}
 
 export function useCorrectResult(id: string) {
   const queryClient = useQueryClient();

@@ -119,3 +119,41 @@ class TestSingleOriginSpaServing:
     def test_non_get_requests_to_spa_paths_are_rejected(self, api_client, tmp_path, settings):
         self._dist(tmp_path, settings)
         assert api_client.post("/students/123", {}, format="json").status_code == 404
+
+
+class TestBrandedEmail:
+    def test_template_carries_the_schools_details_and_escapes_them(self):
+        from types import SimpleNamespace
+
+        from apps.common.email import render_email
+
+        school = SimpleNamespace(
+            name="Riverside <Academy>", motto="Learn", logo_url="https://cdn.example/logo.png", logo=None,
+            address="1 Main St", phone_number="123", email="office@riverside.test",
+        )
+        html = render_email(school=school, title="Welcome", body_html="<p>Hello</p>")
+        assert "Riverside &lt;Academy&gt;" in html
+        assert "https://cdn.example/logo.png" in html
+        assert "1 Main St · 123 · office@riverside.test" in html
+        assert "<p>Hello</p>" in html
+
+    def test_falls_back_to_platform_name_without_a_school(self):
+        from apps.common.email import PLATFORM_NAME, render_email
+
+        assert PLATFORM_NAME in render_email(school=None, title="Hi", body_html="<p>x</p>")
+
+    def test_provider_failure_returns_false_instead_of_raising(self, settings, monkeypatch):
+        import sys
+        import types
+
+        from apps.common.email import send_email
+
+        settings.BREVO_API_KEY = "test-key"
+        fake = types.ModuleType("sib_api_v3_sdk")
+
+        def boom(*args, **kwargs):
+            raise RuntimeError("network down")
+
+        fake.Configuration = boom
+        monkeypatch.setitem(sys.modules, "sib_api_v3_sdk", fake)
+        assert send_email(to_email="a@b.test", to_name="A", subject="s", html_content="<p>x</p>") is False

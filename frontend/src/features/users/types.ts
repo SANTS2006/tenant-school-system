@@ -13,6 +13,8 @@ export interface InvitedUser {
   id: string;
   email: string;
   full_name: string;
+  /** False when the account was created but the sign-in email could not be delivered. */
+  email_sent?: boolean;
 }
 
 export interface UserLookup {

@@ -93,7 +93,10 @@ class UserViewSet(TenantScopedModelViewSet):
         if role:
             assign_role(user=user, role=role, assigned_by=request.user)
 
-        return _ok("Account created with the school's default password.", user=UserSerializer(user).data)
+        message = "Account created with the school's default password."
+        if not user.invite_email_sent:
+            message += " The sign-in email could not be sent — please share the details with them directly."
+        return _ok(message, user=UserSerializer(user).data, email_sent=user.invite_email_sent)
 
     @action(detail=True, methods=["post"])
     def disable(self, request, pk=None):

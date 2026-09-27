@@ -57,7 +57,10 @@ class PlatformAdminViewSet(TenantScopedModelViewSet):
             user_type=User.UserType.PLATFORM_ADMIN,
             invited_by=request.user,
         )
-        return _ok("Invitation sent.", admin=PlatformAdminSerializer(admin).data)
+        message = "Invitation sent." if admin.invite_email_sent else (
+            "Account created, but the sign-in email could not be sent."
+        )
+        return _ok(message, admin=PlatformAdminSerializer(admin).data, email_sent=admin.invite_email_sent)
 
     @action(detail=True, methods=["post"])
     def disable(self, request, pk=None):

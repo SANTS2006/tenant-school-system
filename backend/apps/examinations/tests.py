@@ -93,15 +93,12 @@ class TestGradeComputation:
         exam = ExamFactory(school=school, grading_scale=scale)
         exam_schedule = ExamScheduleFactory(school=school, exam=exam)
         student = StudentFactory(school=school)
-        _login(api_client, principal)
 
-        response = api_client.post(
-            "/api/v1/results/",
-            {"exam_schedule": str(exam_schedule.id), "student": str(student.id), "score": "72.50"},
-            format="json",
-        )
-        assert response.status_code == 201
-        assert response.data["grade"] == "B"
+        # `score` is derived (CA + exam), never client-written, so exercise the grade lookup on
+        # the model directly: saving a result with a final score assigns the matching grade.
+        result = ResultFactory(school=school, exam_schedule=exam_schedule, student=student, score="72.50")
+        result.refresh_from_db()
+        assert result.grade == "B"
 
 
 class TestResultLifecycle:
@@ -144,12 +141,12 @@ class TestResultLifecycle:
 
     def test_can_edit_while_draft(self, api_client):
         school, principal = _principal()
-        result = ResultFactory(school=school, score=50)
+        result = ResultFactory(school=school, exam_score=50)
         _login(api_client, principal)
 
-        response = api_client.patch(f"/api/v1/results/{result.id}/", {"score": "60"}, format="json")
+        response = api_client.patch(f"/api/v1/results/{result.id}/", {"exam_score": "60"}, format="json")
         assert response.status_code == 200
-        assert response.data["score"] == "60.00"
+        assert response.data["exam_score"] == "60.00"
 
     def test_correct_requires_locked_status(self, api_client):
         school, principal = _principal()

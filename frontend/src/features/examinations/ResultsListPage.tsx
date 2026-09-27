@@ -1,6 +1,5 @@
-import { ClipboardCheck, Lock, Pencil, Send, ThumbsUp, Upload } from "lucide-react";
+import { ClipboardCheck } from "lucide-react";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
@@ -25,121 +24,40 @@ import type { ApiError } from "@/lib/api-client";
 import { resultStatusLabel, resultStatusTone } from "./resultStatusTone";
 import type { Result, ResultStatus } from "./types";
 import { useAllExamSchedules } from "./useExaminationsCrud";
-import {
-  useApproveResult,
-  useLockResult,
-  usePublishResult,
-  useResultList,
-  useReviewResult,
-  useSubmitResult,
-} from "./useResultsCrud";
+import { useResultList, useSetResultStatus } from "./useResultsCrud";
 
 const STATUS_OPTIONS: ResultStatus[] = ["draft", "submitted", "reviewed", "approved", "published", "locked"];
 
-function ResultActions({ result }: { result: Result }) {
-  const navigate = useNavigate();
+function ResultStatusCell({ result }: { result: Result }) {
   const { showToast } = useToast();
-  const canUpdate = useHasPermission("results.update");
-  const canApprove = useHasPermission("results.approve");
-  const canPublish = useHasPermission("results.publish");
-  const canLock = useHasPermission("results.lock");
+  const canChange = useHasPermission("results.lock");
+  const setStatus = useSetResultStatus();
 
-  const submit = useSubmitResult();
-  const review = useReviewResult();
-  const approve = useApproveResult();
-  const publish = usePublishResult();
-  const lock = useLockResult();
-
-  const runTransition = (
-    mutation: ReturnType<typeof useSubmitResult>,
-    label: string,
-  ) => {
-    mutation.mutate(result.id, {
-      onSuccess: () => showToast({ title: `${label} for ${result.student_name}` }),
-      onError: (err: ApiError) => showToast({ title: `Could not ${label.toLowerCase()}`, description: err.message, tone: "danger" }),
-    });
-  };
-
-  const isPending = submit.isPending || review.isPending || approve.isPending || publish.isPending || lock.isPending;
-
+  if (!canChange) {
+    return <Badge tone={resultStatusTone(result.status)}>{resultStatusLabel(result.status)}</Badge>;
+  }
   return (
-    <div className="flex justify-end gap-1">
-      {canUpdate && (result.status === "draft" || result.status === "submitted" || result.status === "reviewed") && (
-        <button
-          type="button"
-          onClick={() => navigate(`/examinations/results/${result.id}/edit`)}
-          aria-label={`Edit result for ${result.student_name}`}
-          className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-primary)]"
-        >
-          <Pencil className="size-4" aria-hidden="true" />
-        </button>
-      )}
-      {canUpdate && result.status === "draft" && (
-        <button
-          type="button"
-          disabled={isPending}
-          onClick={() => runTransition(submit, "Submitted")}
-          aria-label={`Submit result for ${result.student_name}`}
-          className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-primary)] disabled:opacity-40"
-        >
-          <Send className="size-4" aria-hidden="true" />
-        </button>
-      )}
-      {canUpdate && result.status === "submitted" && (
-        <button
-          type="button"
-          disabled={isPending}
-          onClick={() => runTransition(review, "Reviewed")}
-          aria-label={`Review result for ${result.student_name}`}
-          className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-primary)] disabled:opacity-40"
-        >
-          <ClipboardCheck className="size-4" aria-hidden="true" />
-        </button>
-      )}
-      {canApprove && result.status === "reviewed" && (
-        <button
-          type="button"
-          disabled={isPending}
-          onClick={() => runTransition(approve, "Approved")}
-          aria-label={`Approve result for ${result.student_name}`}
-          className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-success)] disabled:opacity-40"
-        >
-          <ThumbsUp className="size-4" aria-hidden="true" />
-        </button>
-      )}
-      {canPublish && result.status === "approved" && (
-        <button
-          type="button"
-          disabled={isPending}
-          onClick={() => runTransition(publish, "Published")}
-          aria-label={`Publish result for ${result.student_name}`}
-          className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-success)] disabled:opacity-40"
-        >
-          <Upload className="size-4" aria-hidden="true" />
-        </button>
-      )}
-      {canLock && result.status === "published" && (
-        <button
-          type="button"
-          disabled={isPending}
-          onClick={() => runTransition(lock, "Locked")}
-          aria-label={`Lock result for ${result.student_name}`}
-          className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-danger)] disabled:opacity-40"
-        >
-          <Lock className="size-4" aria-hidden="true" />
-        </button>
-      )}
-      {canLock && result.status === "locked" && (
-        <button
-          type="button"
-          onClick={() => navigate(`/examinations/results/${result.id}/correct`)}
-          aria-label={`Correct result for ${result.student_name}`}
-          className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-primary)]"
-        >
-          <Pencil className="size-4" aria-hidden="true" />
-        </button>
-      )}
-    </div>
+    <Select
+      aria-label={`Status for ${result.student_name}`}
+      value={result.status}
+      disabled={setStatus.isPending}
+      onChange={(e) =>
+        setStatus.mutate(
+          { id: result.id, status: e.target.value as ResultStatus },
+          {
+            onSuccess: () => showToast({ title: `Status updated for ${result.student_name}` }),
+            onError: (err: ApiError) =>
+              showToast({ title: "Could not update status", description: err.message, tone: "danger" }),
+          },
+        )
+      }
+    >
+      {STATUS_OPTIONS.map((option) => (
+        <option key={option} value={option}>
+          {resultStatusLabel(option)}
+        </option>
+      ))}
+    </Select>
   );
 }
 
@@ -206,7 +124,6 @@ export function ResultsListPage() {
                 <TableHeaderCell>Final score</TableHeaderCell>
                 <TableHeaderCell>Grade</TableHeaderCell>
                 <TableHeaderCell>Status</TableHeaderCell>
-                <TableHeaderCell className="text-right">Actions</TableHeaderCell>
               </tr>
             </TableHead>
             <TableBody>
@@ -218,11 +135,8 @@ export function ResultsListPage() {
                   <TableCell>{result.ca_score ?? <span className="text-[var(--color-text-muted)]">—</span>}</TableCell>
                   <TableCell>{result.score ?? <span className="text-[var(--color-text-muted)]">—</span>}</TableCell>
                   <TableCell>{result.grade || <span className="text-[var(--color-text-muted)]">—</span>}</TableCell>
-                  <TableCell>
-                    <Badge tone={resultStatusTone(result.status)}>{resultStatusLabel(result.status)}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <ResultActions result={result} />
+                  <TableCell className="min-w-[150px]">
+                    <ResultStatusCell result={result} />
                   </TableCell>
                 </TableRow>
               ))}

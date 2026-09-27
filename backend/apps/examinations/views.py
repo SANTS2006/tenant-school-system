@@ -139,6 +139,7 @@ _RESULT_ACTION_PERMISSION = {
     "lock": "results.lock",
     "correct": "results.lock",
     "bulk_enter": "results.create",
+    "set_status": "results.lock",
     "report_card": "results.view",
 }
 
@@ -167,6 +168,11 @@ class ResultViewSet(TenantScopedModelViewSet):
         return Result.objects.select_related(
             "student", "exam_schedule__exam", "exam_schedule__subject"
         ).all()
+
+    def list(self, request, *args, **kwargs):
+        pending = self.filter_queryset(self.get_queryset()).filter(ca_score__isnull=True, exam_score__isnull=False)
+        services.backfill_missing_ca(pending)
+        return super().list(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         """See perform_update — same "recompute ca_score/score whenever exam_score is present"
@@ -233,6 +239,36 @@ class ResultViewSet(TenantScopedModelViewSet):
                 after={"status": to_status},
             )
         return _ok(f"Result {_PAST_TENSE[action_name]}.", result=ResultSerializer(result).data)
+
+    @action(detail=True, methods=["post"], url_path="set-status")
+    def set_status(self, request, pk=None):
+        """Move a result to any status directly (the Results table's status dropdown) — for
+        administrators holding `results.lock`, the same permission as `correct`, since this can
+        also pull a locked result back open. Audited with before/after."""
+        new_status = request.data.get("status")
+        if new_status not in {choice for choice, _label in Result.Status.choices}:
+            return Response(
+                {"success": False, "message": "A valid status is required.", "code": "VALIDATION_ERROR", "errors": []},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        obj = self.get_object()
+        with transaction.atomic():
+            result = Result.unscoped_objects.select_for_update().get(pk=obj.pk)
+            before_status = result.status
+            result.status = new_status
+            result.locked_at = timezone.now() if new_status == Result.Status.LOCKED else None
+            result.save(update_fields=["status", "locked_at", "updated_at"])
+            log_action(
+                action="results.status_set",
+                actor=request.user,
+                school=get_current_school(),
+                entity_type="Result",
+                entity_id=str(result.pk),
+                before={"status": before_status},
+                after={"status": new_status},
+                severity="warning",
+            )
+        return _ok("Status updated.", result=ResultSerializer(result).data)
 
     @action(detail=True, methods=["post"])
     def submit(self, request, pk=None):
@@ -397,6 +433,8 @@ class ResultViewSet(TenantScopedModelViewSet):
         if term_id:
             qs = qs.filter(exam_schedule__exam__term_id=term_id)
 
+        services.backfill_missing_ca(qs.filter(ca_score__isnull=True, exam_score__isnull=False))
+        qs = Result.objects.filter(pk__in=qs.values("pk")).select_related("exam_schedule__exam", "exam_schedule__subject")
         rows = [
             {
                 "subject": r.exam_schedule.subject.name,

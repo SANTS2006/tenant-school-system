@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from apps.authorization.permissions import require_permission
 from apps.authorization.services import user_has_permission
 from apps.common.views import TenantScopedAPIView, TenantScopedModelViewSet, TenantScopedReadOnlyViewSet
+from apps.students.models import Student
 from apps.tenants.services import get_current_school
 
 from . import services
@@ -189,6 +190,56 @@ class SubjectOfferingViewSet(AcademicsModelViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return _ok("Cover image updated.", subject_offering=serializer.data)
+
+    @action(detail=True, methods=["get"], url_path="ca-summary")
+    def ca_summary(self, request, pk=None):
+        """Every student taking this offering with their Total CA and the per-assessment
+        breakdown behind it (teacher-facing; a student's own view is MySubjectCAView). Uses the
+        enrolled students, or the class's active students when nobody is explicitly enrolled.
+        `total_ca` counts SUBMITTED scores only (services.compute_total_ca); draft scores still
+        appear in the breakdown, flagged by `status`, so the teacher can see what's outstanding."""
+        offering = self.get_object()
+        assessments = list(offering.assessments.filter(status=Assessment.Status.ACTIVE).order_by("created_at"))
+
+        enrolled_ids = list(offering.enrollments.values_list("student_id", flat=True))
+        students = Student.objects.filter(pk__in=enrolled_ids) if enrolled_ids else Student.objects.filter(
+            current_class=offering.school_class, status=Student.Status.ACTIVE
+        )
+        students = list(students.order_by("last_name", "first_name"))
+
+        scores = {}
+        for score in AssessmentScore.objects.filter(assessment__in=assessments, student__in=students):
+            scores[(score.student_id, score.assessment_id)] = score
+
+        rows = []
+        for student in students:
+            breakdown = []
+            for assessment in assessments:
+                score = scores.get((student.pk, assessment.pk))
+                breakdown.append(
+                    {
+                        "assessment": str(assessment.pk),
+                        "name": assessment.name,
+                        "weight": assessment.weight,
+                        "max_score": str(assessment.max_score),
+                        "raw_score": str(score.raw_score) if score and score.raw_score is not None else None,
+                        "weighted_score": (
+                            str(score.weighted_score) if score and score.weighted_score is not None else None
+                        ),
+                        "status": score.status if score else None,
+                    }
+                )
+            total = services.compute_total_ca(offering, student)
+            rows.append(
+                {
+                    "student": str(student.pk),
+                    "student_name": student.full_name,
+                    "admission_number": student.admission_number,
+                    "total_ca": str(total) if total is not None else None,
+                    "breakdown": breakdown,
+                }
+            )
+        return _ok(ca_weight_percent=offering.ca_weight_percent, students=rows)
 
     @action(detail=True, methods=["post"], url_path="close-ca")
     def close_ca(self, request, pk=None):

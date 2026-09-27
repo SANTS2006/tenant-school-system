@@ -175,3 +175,27 @@ class TestStudentGuardianLinking:
 
         listing = api_client.get(f"/api/v1/students/{student.id}/guardians/")
         assert listing.data["guardians"] == []
+
+
+class TestStudentDefaultAccount:
+    def test_new_student_gets_initials_email_and_school_default_password(self, api_client):
+        from apps.tenants.services import generate_default_password
+        from apps.users.models import User
+
+        school, school_admin = _school_admin()
+        school.name = "Government Secondary School Kenema"
+        school.save(update_fields=["name"])
+        _login(api_client, school_admin)
+
+        payload = {"admission_number": "A1", "first_name": "Fatmata", "middle_name": "Sia", "last_name": "Kamara"}
+        response = api_client.post("/api/v1/students/", payload, format="json")
+        assert response.status_code == 201, response.data
+        student = Student.unscoped_objects.get(admission_number="A1")
+        assert student.user.email == "fsk@gssk.edu.sl"
+        assert student.user.check_password(generate_default_password(school))
+
+        # Same initials again: numbered rather than colliding.
+        payload.update(admission_number="A2", first_name="Fatu", middle_name="Sam", last_name="Koroma")
+        api_client.post("/api/v1/students/", payload, format="json")
+        assert Student.unscoped_objects.get(admission_number="A2").user.email == "fsk2@gssk.edu.sl"
+        assert User.objects.filter(email="fsk@gssk.edu.sl").count() == 1

@@ -1,30 +1,17 @@
 from django.conf import settings
 from django.utils.html import escape
 
-from apps.common.email import send_email
+from apps.common.email import email_button, send_email
 
 
-def _wrap(preheader: str, body_html: str) -> str:
-    return f"""
-    <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px;
-                margin:0 auto;padding:32px 24px;color:#0f172a;">
-      <p style="display:none;font-size:1px;color:#f8fafc;">{preheader}</p>
-      <h2 style="margin:0 0 8px;font-size:18px;">School Management Platform</h2>
-      <div style="margin-top:16px;font-size:14px;line-height:1.6;color:#334155;">
-        {body_html}
-      </div>
-      <p style="margin-top:32px;font-size:12px;color:#94a3b8;">
-        If you didn't expect this email, you can safely ignore it.
-      </p>
-    </div>
-    """
-
-
-def _button(url: str, label: str) -> str:
-    return (
-        f'<a href="{url}" style="display:inline-block;margin-top:16px;padding:10px 20px;'
-        f'background:#4f46e5;color:#ffffff;text-decoration:none;border-radius:6px;'
-        f'font-size:14px;">{label}</a>'
+def _send(user, subject: str, body: str) -> bool:
+    """Every account email goes out in the school-branded template (see apps.common.email)."""
+    return send_email(
+        to_email=user.email,
+        to_name=user.full_name,
+        subject=subject,
+        html_content=body,
+        school=user.school,
     )
 
 
@@ -32,17 +19,12 @@ def send_invitation_email(*, user, uidb64: str, token: str) -> bool:
     url = f"{settings.FRONTEND_URL}/accept-invitation?uid={uidb64}&token={token}"
     body = f"""
         <p>Hi {escape(user.first_name)},</p>
-        <p>You've been invited to join {escape(user.school.name) if user.school else 'the platform'} on the
-        School Management Platform. Set your password to activate your account.</p>
-        {_button(url, "Accept invitation")}
+        <p>You've been invited to join {escape(user.school.name) if user.school else 'the platform'}.
+        Set your password to activate your account.</p>
+        {email_button(url, "Accept invitation")}
         <p style="margin-top:16px;">This link expires in 3 days.</p>
     """
-    return send_email(
-        to_email=user.email,
-        to_name=user.full_name,
-        subject="You're invited — set up your account",
-        html_content=_wrap("You've been invited to the platform", body),
-    )
+    return _send(user, "You're invited — set up your account", body)
 
 
 def send_account_created_email(*, user, password: str, role_label: str) -> bool:
@@ -53,23 +35,22 @@ def send_account_created_email(*, user, password: str, role_label: str) -> bool:
     only ever works for the first sign-in.
     """
     url = f"{settings.FRONTEND_URL}/login"
+    school_bit = f" at <strong>{escape(user.school.name)}</strong>" if user.school else ""
     body = f"""
         <p>Hi {escape(user.first_name)},</p>
-        <p>An account was created for you on the School Management Platform
-        {f"for {escape(user.school.name)} " if user.school else ""}as {escape(role_label)}.</p>
-        <p style="margin-top:12px;">
-          <strong>Email:</strong> {escape(user.email)}<br>
-          <strong>Temporary password:</strong> {escape(password)}
-        </p>
-        <p style="margin-top:12px;">You'll be asked to choose your own password the first time you sign in.</p>
-        {_button(url, "Sign in")}
+        <p>An account has been created for you{school_bit} as <strong>{escape(role_label)}</strong>.
+        Use the details below to sign in.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" style="margin:14px 0;background:#f1f5f9;
+               border-radius:10px;padding:14px 18px;width:100%;">
+          <tr><td style="padding:3px 0;color:#64748b;">Email</td>
+              <td style="padding:3px 0;text-align:right;font-weight:600;color:#0f172a;">{escape(user.email)}</td></tr>
+          <tr><td style="padding:3px 0;color:#64748b;">Temporary password</td>
+              <td style="padding:3px 0;text-align:right;font-weight:600;color:#0f172a;">{escape(password)}</td></tr>
+        </table>
+        <p>You'll be asked to choose your own password the first time you sign in.</p>
+        {email_button(url, "Sign in")}
     """
-    return send_email(
-        to_email=user.email,
-        to_name=user.full_name,
-        subject="Your account is ready — sign-in details inside",
-        html_content=_wrap("Your account is ready", body),
-    )
+    return _send(user, "Your account is ready — sign-in details inside", body)
 
 
 def send_verification_email(*, user, uidb64: str, token: str) -> bool:
@@ -77,14 +58,9 @@ def send_verification_email(*, user, uidb64: str, token: str) -> bool:
     body = f"""
         <p>Hi {escape(user.first_name)},</p>
         <p>Please confirm your email address.</p>
-        {_button(url, "Verify email")}
+        {email_button(url, "Verify email")}
     """
-    return send_email(
-        to_email=user.email,
-        to_name=user.full_name,
-        subject="Verify your email address",
-        html_content=_wrap("Please verify your email address", body),
-    )
+    return _send(user, "Verify your email address", body)
 
 
 def send_password_reset_email(*, user, uidb64: str, token: str) -> bool:
@@ -93,16 +69,11 @@ def send_password_reset_email(*, user, uidb64: str, token: str) -> bool:
         <p>Hi {escape(user.first_name)},</p>
         <p>We received a request to reset your password. This link expires shortly and can
         only be used once.</p>
-        {_button(url, "Reset password")}
+        {email_button(url, "Reset password")}
         <p style="margin-top:16px;">If you didn't request this, your password is still safe —
         no changes have been made.</p>
     """
-    return send_email(
-        to_email=user.email,
-        to_name=user.full_name,
-        subject="Reset your password",
-        html_content=_wrap("Reset your password", body),
-    )
+    return _send(user, "Reset your password", body)
 
 
 def send_password_changed_email(*, user) -> bool:
@@ -111,12 +82,7 @@ def send_password_changed_email(*, user) -> bool:
         <p>Your password was just changed. If this wasn't you, contact your school
         administrator immediately.</p>
     """
-    return send_email(
-        to_email=user.email,
-        to_name=user.full_name,
-        subject="Your password was changed",
-        html_content=_wrap("Your password was changed", body),
-    )
+    return _send(user, "Your password was changed", body)
 
 
 def send_account_locked_email(*, user, minutes: int) -> bool:
@@ -127,12 +93,7 @@ def send_account_locked_email(*, user, minutes: int) -> bool:
         <p>If this was you, wait and try again. If it wasn't, someone may be guessing your
         password &mdash; we recommend resetting it once the lock ends.</p>
     """
-    return send_email(
-        to_email=user.email,
-        to_name=user.full_name,
-        subject="Your account was temporarily locked",
-        html_content=_wrap("Too many failed sign-in attempts", body),
-    )
+    return _send(user, "Your account was temporarily locked", body)
 
 
 def send_security_notice_email(*, user, subject: str, message: str) -> bool:
@@ -142,9 +103,4 @@ def send_security_notice_email(*, user, subject: str, message: str) -> bool:
         <p>{escape(message)}</p>
         <p>If you did not do this, contact your administrator straight away and change your password.</p>
     """
-    return send_email(
-        to_email=user.email,
-        to_name=user.full_name,
-        subject=subject,
-        html_content=_wrap(subject, body),
-    )
+    return _send(user, subject, body)

@@ -1,5 +1,5 @@
 import { Lock, LockOpen, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { Alert } from "@/components/ui/Alert";
@@ -31,6 +31,7 @@ import {
   useDeleteAssessment,
   useReopenSubjectOfferingCA,
   useSubjectOffering,
+  useSubjectOfferingCaSummary,
 } from "./useAcademicsCrud";
 
 export function SubjectOfferingCAPage() {
@@ -45,6 +46,8 @@ export function SubjectOfferingCAPage() {
     page_size: 100,
     subject_offering: id,
   });
+  const { data: caSummary, isLoading: isLoadingSummary } = useSubjectOfferingCaSummary(id);
+  const [openStudentId, setOpenStudentId] = useState<string | null>(null);
   const createAssessment = useCreateAssessment();
   const deleteAssessment = useDeleteAssessment();
   const closeCA = useCloseSubjectOfferingCA();
@@ -283,6 +286,97 @@ export function SubjectOfferingCAPage() {
                       </TableCell>
                     </TableRow>
                   ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Students&apos; CA</CardTitle>
+          <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+            Each student&apos;s total so far (submitted scores only, out of {offering?.ca_weight_percent ?? "—"}). Select a
+            student to see the full breakdown.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {isLoadingSummary ? (
+            <Spinner />
+          ) : !caSummary || caSummary.students.length === 0 ? (
+            <EmptyState title="No students yet" description="No students are registered for this subject." />
+          ) : (
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <tr>
+                    <TableHeaderCell>Student</TableHeaderCell>
+                    <TableHeaderCell>Admission #</TableHeaderCell>
+                    <TableHeaderCell className="text-right">Total CA</TableHeaderCell>
+                  </tr>
+                </TableHead>
+                <TableBody>
+                  {caSummary.students.map((student) => {
+                    const isOpen = openStudentId === student.student;
+                    return (
+                      <Fragment key={student.student}>
+                        <TableRow
+                          className="cursor-pointer hover:bg-[var(--color-bg-subtle)]"
+                          onClick={() => setOpenStudentId(isOpen ? null : student.student)}
+                          aria-expanded={isOpen}
+                        >
+                          <TableCell className="font-medium">{student.student_name}</TableCell>
+                          <TableCell>{student.admission_number}</TableCell>
+                          <TableCell className="text-right font-semibold">
+                            {student.total_ca ?? <span className="text-[var(--color-text-muted)]">—</span>}
+                          </TableCell>
+                        </TableRow>
+                        {isOpen && (
+                          <TableRow>
+                            <TableCell colSpan={3} className="bg-[var(--color-bg-subtle)]">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="text-left text-xs text-[var(--color-text-muted)]">
+                                    <th className="py-1 pr-3 font-medium">Assessment</th>
+                                    <th className="py-1 pr-3 font-medium">Weight</th>
+                                    <th className="py-1 pr-3 font-medium">Score</th>
+                                    <th className="py-1 pr-3 font-medium">Counts as</th>
+                                    <th className="py-1 font-medium">Status</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {student.breakdown.map((row) => (
+                                    <tr key={row.assessment}>
+                                      <td className="py-1 pr-3">{row.name}</td>
+                                      <td className="py-1 pr-3">{row.weight}%</td>
+                                      <td className="py-1 pr-3">
+                                        {row.raw_score !== null ? `${row.raw_score} / ${row.max_score}` : "—"}
+                                      </td>
+                                      <td className="py-1 pr-3">{row.weighted_score ?? "—"}</td>
+                                      <td className="py-1">
+                                        {row.status === "submitted" ? (
+                                          <Badge tone="success">Submitted</Badge>
+                                        ) : row.status === "draft" ? (
+                                          <Badge tone="warning">Draft</Badge>
+                                        ) : (
+                                          <Badge tone="neutral">Not graded</Badge>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                  <tr className="border-t border-[var(--color-border)] font-semibold">
+                                    <td className="pt-2" colSpan={3}>Total CA</td>
+                                    <td className="pt-2" colSpan={2}>{student.total_ca ?? "—"}</td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </Fragment>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </TableContainer>

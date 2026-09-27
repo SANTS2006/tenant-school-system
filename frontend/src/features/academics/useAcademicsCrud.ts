@@ -15,6 +15,7 @@ import {
   createSubjectMaterial,
   createSubjectMessage,
   createSubjectOffering,
+  fetchSubjectOfferingCaSummary,
   uploadSubjectOfferingCoverImage,
   createSubjectPrivateMessage,
   createTerm,
@@ -361,6 +362,14 @@ export function useDeleteSubjectOffering() {
   return useMutation<void, ApiError, string>({
     mutationFn: deleteSubjectOffering,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["academics"] }),
+  });
+}
+
+export function useSubjectOfferingCaSummary(id: string | undefined) {
+  return useQuery({
+    queryKey: [...SUBJECT_OFFERINGS_KEY, "ca-summary", id],
+    queryFn: () => fetchSubjectOfferingCaSummary(id as string),
+    enabled: !!id,
   });
 }
 

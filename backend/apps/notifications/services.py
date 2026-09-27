@@ -34,7 +34,13 @@ def notify(
         link=link,
     )
     if email_subject and email_html and recipient.email:
-        send_email(to_email=recipient.email, to_name=recipient.full_name, subject=email_subject, html_content=email_html)
+        send_email(
+            to_email=recipient.email,
+            to_name=recipient.full_name,
+            subject=email_subject,
+            html_content=email_html,
+            school=recipient.school,
+        )
     return notification
 
 

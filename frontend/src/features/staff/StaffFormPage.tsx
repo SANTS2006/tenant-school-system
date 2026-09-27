@@ -174,7 +174,15 @@ export function StaffFormPage() {
             {
               onSuccess: async (staff) => {
                 await uploadStaffDocuments(staff.id);
-                showToast({ title: "Staff member added", description: `${staff.email} can sign in now with the school's default password.` });
+                showToast(
+                  invited.email_sent === false
+                    ? {
+                        title: "Staff member added — email not sent",
+                        description: `${staff.email} can sign in with the school's default password, but the sign-in email could not be delivered. Please share the details with them directly.`,
+                        tone: "danger",
+                      }
+                    : { title: "Staff member added", description: `A sign-in email was sent to ${staff.email}.` },
+                );
                 navigate(`/staff/${staff.id}`);
               },
               onError: (err: ApiError) => {

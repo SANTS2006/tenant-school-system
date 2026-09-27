@@ -370,7 +370,7 @@ class TestSubjectOffering:
         assert response.status_code == 403
 
     def test_teacher_role_can_view_offerings(self, api_client):
-        from tests.factories import SubjectOfferingFactory
+        from tests.factories import StaffFactory, SubjectOfferingFactory
 
         school, principal = _principal()
         year, term, subject, school_class, teacher = self._setup(school)
@@ -378,15 +378,20 @@ class TestSubjectOffering:
             school=school, subject=subject, academic_year=year, term=term,
             school_class=school_class, main_teacher=teacher,
         )
-        from tests.factories import UserFactory as _UserFactory
-
-        teacher_user = _UserFactory(school=school)
+        # A teacher sees the offerings they teach (as main or assistant teacher) - and only those.
+        other_offering = SubjectOfferingFactory(
+            school=school, academic_year=year, term=term, school_class=school_class,
+            main_teacher=StaffFactory(school=school),
+        )
+        teacher_user = teacher.user
         assign_role(user=teacher_user, role=Role.unscoped_objects.get(school=school, slug="teacher"))
         _login(api_client, teacher_user)
 
-        response = api_client.get(f"/api/v1/academics/subject-offerings/?main_teacher={teacher.id}")
+        response = api_client.get("/api/v1/academics/subject-offerings/")
         assert response.status_code == 200
-        assert any(row["id"] == str(offering.id) for row in response.data["results"])
+        ids = {row["id"] for row in response.data["results"]}
+        assert str(offering.id) in ids
+        assert str(other_offering.id) not in ids
 
     def test_cross_tenant_teacher_assignment_rejected(self, api_client):
         school_a, principal_a = _principal()

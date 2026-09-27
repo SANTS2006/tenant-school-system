@@ -120,6 +120,26 @@ def combine_score(*, exam_score, exam_schedule: ExamSchedule, student):
     return ca_avg_pct, final_score
 
 
+def backfill_missing_ca(results) -> int:
+    """Fills in `ca_score`/`score`/`grade` on results that have an exam score but no CA snapshot
+    — typically because the exam marks were entered before the teacher had submitted any CA (the
+    snapshot is only taken once both exist, see `combine_score`). Only ever fills a NULL, so an
+    already-recorded (published/locked) figure is never changed. Returns how many were filled."""
+    filled = 0
+    for result in results:
+        if result.ca_score is not None or result.exam_score is None:
+            continue
+        ca_score, final_score = combine_score(
+            exam_score=result.exam_score, exam_schedule=result.exam_schedule, student=result.student
+        )
+        if ca_score is None:
+            continue
+        result.ca_score, result.score = ca_score, final_score
+        result.save(update_fields=["ca_score", "score", "grade", "updated_at"])
+        filled += 1
+    return filled
+
+
 @transaction.atomic
 def enter_exam_score(*, exam_schedule: ExamSchedule, student, exam_score, teacher_comment: str = "") -> Result:
     """
