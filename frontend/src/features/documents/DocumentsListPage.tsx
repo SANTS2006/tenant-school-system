@@ -1,4 +1,4 @@
-import { FileText, Lock, Plus, Search, Trash2 } from "lucide-react";
+import { Download, Eye, FileText, Lock, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -27,6 +27,7 @@ import { useHasPermission } from "@/features/auth/useAuth";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useSummaryStats } from "@/hooks/useSummaryStats";
 import type { ApiError } from "@/lib/api-client";
+import { triggerFileDownload } from "@/lib/fileDownload";
 
 import { ownerTypeLabel, ownerTypeTone } from "./statusTone";
 import type { OwnerType } from "./types";
@@ -159,7 +160,7 @@ export function DocumentsListPage() {
                 <TableHeaderCell>Category</TableHeaderCell>
                 <TableHeaderCell>Confidential</TableHeaderCell>
                 <TableHeaderCell>Uploaded by</TableHeaderCell>
-                {canDelete && <TableHeaderCell className="text-right">Actions</TableHeaderCell>}
+                <TableHeaderCell className="text-right">Actions</TableHeaderCell>
               </tr>
             </TableHead>
             <TableBody>
@@ -184,21 +185,47 @@ export function DocumentsListPage() {
                   <TableCell>
                     {document.uploaded_by_name ?? <span className="text-[var(--color-text-muted)]">—</span>}
                   </TableCell>
-                  {canDelete && (
-                    <TableCell className="text-right">
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <a
+                        href={document.file}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label={`View ${document.title}`}
+                        title="View"
+                        className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-primary)]"
+                      >
+                        <Eye className="size-4" aria-hidden="true" />
+                      </a>
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleDelete(document.id, document.title);
+                          triggerFileDownload(document.file, document.title);
                         }}
-                        aria-label={`Delete ${document.title}`}
-                        className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-danger)]"
+                        aria-label={`Download ${document.title}`}
+                        title="Download"
+                        className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-primary)]"
                       >
-                        <Trash2 className="size-4" aria-hidden="true" />
+                        <Download className="size-4" aria-hidden="true" />
                       </button>
-                    </TableCell>
-                  )}
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(document.id, document.title);
+                          }}
+                          aria-label={`Delete ${document.title}`}
+                          title="Delete"
+                          className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-danger)]"
+                        >
+                          <Trash2 className="size-4" aria-hidden="true" />
+                        </button>
+                      )}
+                    </div>
+                  </TableCell>
                 </TableRowLink>
               ))}
             </TableBody>

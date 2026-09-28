@@ -1,4 +1,4 @@
-import { FileText, NotebookText, Plus, Trash2, Upload } from "lucide-react";
+import { Download, FileText, NotebookText, Plus, Trash2, Upload } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -15,6 +15,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useHasPermission } from "@/features/auth/useAuth";
 import { useLessonList } from "@/features/education/useEducationCrud";
 import type { ApiError } from "@/lib/api-client";
+import { triggerFileDownload } from "@/lib/fileDownload";
 
 import { useCreateSubjectMaterial, useDeleteSubjectMaterial, useSubjectMaterials, useSubjectOffering } from "./useAcademicsCrud";
 
@@ -218,8 +219,18 @@ export function TeacherSubjectLessonsPage() {
                   </div>
                   <button
                     type="button"
+                    onClick={() => triggerFileDownload(material.file, material.title)}
+                    aria-label={`Download ${material.title}`}
+                    title="Download"
+                    className="shrink-0 rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-surface)] hover:text-[var(--color-primary)]"
+                  >
+                    <Download className="size-4" aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => handleDeleteMaterial(material.id, material.title)}
                     aria-label={`Delete ${material.title}`}
+                    title="Delete"
                     className="shrink-0 rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-surface)] hover:text-[var(--color-danger)]"
                   >
                     <Trash2 className="size-4" aria-hidden="true" />

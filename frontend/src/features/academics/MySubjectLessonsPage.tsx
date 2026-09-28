@@ -1,4 +1,4 @@
-import { FileText, NotebookText } from "lucide-react";
+import { NotebookText } from "lucide-react";
 import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -7,6 +7,7 @@ import { BackArrowIcon } from "@/components/ui/BackArrowIcon";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { FileLink } from "@/components/ui/FileLink";
 import { FullPageSpinner, Spinner } from "@/components/ui/Spinner";
 import { useMyLessons } from "@/features/education/useEducationCrud";
 import type { ApiError } from "@/lib/api-client";
@@ -90,16 +91,7 @@ export function MySubjectLessonsPage() {
                 {lesson.materials.length > 0 && (
                   <div className="flex flex-col gap-2">
                     {lesson.materials.map((material) => (
-                      <a
-                        key={material.id}
-                        href={material.file}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-3 text-sm font-medium text-[var(--color-text)] hover:text-[var(--color-primary)]"
-                      >
-                        <FileText className="size-4 shrink-0" aria-hidden="true" />
-                        <span className="truncate">{material.title}</span>
-                      </a>
+                      <FileLink key={material.id} url={material.file} label={material.title} />
                     ))}
                   </div>
                 )}
@@ -114,16 +106,7 @@ export function MySubjectLessonsPage() {
               </CardHeader>
               <CardContent className="flex flex-col gap-2">
                 {materials.map((material) => (
-                  <a
-                    key={material.id}
-                    href={material.file}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-3 text-sm font-medium text-[var(--color-text)] hover:text-[var(--color-primary)]"
-                  >
-                    <FileText className="size-4 shrink-0" aria-hidden="true" />
-                    <span className="truncate">{material.title}</span>
-                  </a>
+                  <FileLink key={material.id} url={material.file} label={material.title} />
                 ))}
               </CardContent>
             </Card>

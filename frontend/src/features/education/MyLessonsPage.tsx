@@ -1,10 +1,12 @@
-import { BookOpen, FileText, Video } from "lucide-react";
+import { BookOpen, Download, Video } from "lucide-react";
 
 import { Alert } from "@/components/ui/Alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { FileLink } from "@/components/ui/FileLink";
 import { FullPageSpinner } from "@/components/ui/Spinner";
 import type { ApiError } from "@/lib/api-client";
+import { triggerFileDownload } from "@/lib/fileDownload";
 
 import { useMyLessons } from "./useEducationCrud";
 
@@ -53,24 +55,26 @@ export function MyLessonsPage() {
                     {lesson.materials.map((material) =>
                       material.material_type === "video" ? (
                         <div key={material.id} className="flex flex-col gap-2">
-                          <p className="flex items-center gap-1.5 text-sm font-medium text-[var(--color-text)]">
-                            <Video className="size-4 shrink-0 text-[var(--color-primary)]" aria-hidden="true" />
-                            <span className="truncate">{material.title}</span>
-                          </p>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-[var(--color-text)]">
+                              <Video className="size-4 shrink-0 text-[var(--color-primary)]" aria-hidden="true" />
+                              <span className="truncate">{material.title}</span>
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => triggerFileDownload(material.file, material.title)}
+                              aria-label={`Download ${material.title}`}
+                              title="Download"
+                              className="shrink-0 rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-primary)]"
+                            >
+                              <Download className="size-4" aria-hidden="true" />
+                            </button>
+                          </div>
                           {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                           <video src={material.file} controls className="w-full rounded-[var(--radius-md)]" />
                         </div>
                       ) : (
-                        <a
-                          key={material.id}
-                          href={material.file}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-3 text-sm font-medium text-[var(--color-text)] hover:text-[var(--color-primary)]"
-                        >
-                          <FileText className="size-4 shrink-0" aria-hidden="true" />
-                          <span className="truncate">{material.title}</span>
-                        </a>
+                        <FileLink key={material.id} url={material.file} label={material.title} />
                       ),
                     )}
                   </div>

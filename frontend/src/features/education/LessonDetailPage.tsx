@@ -1,4 +1,4 @@
-import { FileText, Trash2, Upload, Video } from "lucide-react";
+import { Download, FileText, Trash2, Upload, Video } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -16,6 +16,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useHasPermission } from "@/features/auth/useAuth";
 import { useCurrentUser } from "@/features/auth/useAuth";
 import type { ApiError } from "@/lib/api-client";
+import { triggerFileDownload } from "@/lib/fileDownload";
 
 import type { MaterialType } from "./types";
 import { useCreateMaterial, useDeleteMaterial, useLesson, useMaterialList } from "./useEducationCrud";
@@ -200,11 +201,21 @@ export function LessonDetailPage() {
                       Uploaded by {material.uploaded_by_name} · {new Date(material.created_at).toLocaleDateString()}
                     </p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => triggerFileDownload(material.file, material.title)}
+                    aria-label={`Download ${material.title}`}
+                    title="Download"
+                    className="shrink-0 rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-surface)] hover:text-[var(--color-primary)]"
+                  >
+                    <Download className="size-4" aria-hidden="true" />
+                  </button>
                   {canDelete && (
                     <button
                       type="button"
                       onClick={() => handleDeleteMaterial(material.id, material.title)}
                       aria-label={`Delete ${material.title}`}
+                      title="Delete"
                       className="shrink-0 rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-surface)] hover:text-[var(--color-danger)]"
                     >
                       <Trash2 className="size-4" aria-hidden="true" />

@@ -11,6 +11,7 @@ import { FullPageSpinner } from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/Toast";
 import { useHasPermission } from "@/features/auth/useAuth";
 import type { ApiError } from "@/lib/api-client";
+import { triggerFileDownload } from "@/lib/fileDownload";
 
 import { isImageFile } from "./recordUtils";
 import { useDeleteRecord, useRecord } from "./useRecordsCrud";
@@ -101,8 +102,17 @@ export function RecordDetailPage() {
 
       {record.file && (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex-row items-center justify-between">
             <CardTitle>Attachment</CardTitle>
+            <button
+              type="button"
+              onClick={() => triggerFileDownload(record.file!, record.title)}
+              aria-label={`Download ${record.title}`}
+              title="Download"
+              className="shrink-0 rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-primary)]"
+            >
+              <Download className="size-4" aria-hidden="true" />
+            </button>
           </CardHeader>
           <CardContent>
             {isImageFile(record.file) ? (
@@ -122,7 +132,6 @@ export function RecordDetailPage() {
               >
                 <FileText className="size-5" aria-hidden="true" />
                 Open attachment
-                <Download className="ml-auto size-4" aria-hidden="true" />
               </a>
             )}
           </CardContent>
