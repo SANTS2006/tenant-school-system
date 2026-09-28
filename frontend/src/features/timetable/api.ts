@@ -2,11 +2,14 @@ import { apiClient } from "@/lib/api-client";
 import type { PaginatedResponse } from "@/types/pagination";
 
 import type {
+  CopySectionPayload,
+  CopySectionResult,
   Period,
   PeriodPayload,
   Room,
   RoomPayload,
   TimetableEntry,
+  TimetableEntryDraft,
   TimetableEntryListParams,
   TimetableEntryPayload,
 } from "./types";
@@ -95,4 +98,18 @@ export async function deleteEntry(id: string): Promise<void> {
 export async function fetchMyTimetable(): Promise<TimetableEntry[]> {
   const { data } = await apiClient.get<{ results: TimetableEntry[] }>("/timetable/me/");
   return data.results;
+}
+
+/** Saves a whole draft timetable in one request — see TimetableEntryViewSet.bulk_create.
+ * All-or-nothing: nothing is saved unless every row passes validation. */
+export async function bulkCreateEntries(section: string, entries: TimetableEntryDraft[]): Promise<TimetableEntry[]> {
+  const { data } = await apiClient.post<TimetableEntry[]>("/timetable/entries/bulk-create/", {
+    entries: entries.map((entry) => ({ ...entry, section })),
+  });
+  return data;
+}
+
+export async function copySection(payload: CopySectionPayload): Promise<CopySectionResult> {
+  const { data } = await apiClient.post<CopySectionResult>("/timetable/entries/copy/", payload);
+  return data;
 }

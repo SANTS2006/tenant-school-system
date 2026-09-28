@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ApiError } from "@/lib/api-client";
 
 import {
+  bulkCreateEntries,
+  copySection,
   createEntry,
   createPeriod,
   createRoom,
@@ -21,11 +23,14 @@ import {
   updateRoom,
 } from "./api";
 import type {
+  CopySectionPayload,
+  CopySectionResult,
   Period,
   PeriodPayload,
   Room,
   RoomPayload,
   TimetableEntry,
+  TimetableEntryDraft,
   TimetableEntryListParams,
   TimetableEntryPayload,
 } from "./types";
@@ -175,5 +180,21 @@ export function useMyTimetable() {
   return useQuery<TimetableEntry[], ApiError>({
     queryKey: ["timetable", "my-timetable"],
     queryFn: fetchMyTimetable,
+  });
+}
+
+export function useBulkCreateEntries() {
+  const queryClient = useQueryClient();
+  return useMutation<TimetableEntry[], ApiError, { section: string; entries: TimetableEntryDraft[] }>({
+    mutationFn: ({ section, entries }) => bulkCreateEntries(section, entries),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["timetable"] }),
+  });
+}
+
+export function useCopySection() {
+  const queryClient = useQueryClient();
+  return useMutation<CopySectionResult, ApiError, CopySectionPayload>({
+    mutationFn: copySection,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["timetable"] }),
   });
 }

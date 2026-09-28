@@ -64,3 +64,31 @@ export interface TimetableEntryListParams {
   teacher?: string;
   room?: string;
 }
+
+/** One row of a draft timetable being built in BuildTimetablePage — the same shape as
+ * TimetableEntryPayload minus `section`, since every row in one bulk-create request shares the
+ * section currently being built. */
+export interface TimetableEntryDraft {
+  day_of_week: DayOfWeek;
+  period: string;
+  subject?: string;
+  teacher?: string;
+  room?: string;
+}
+
+export interface CopySectionPayload {
+  from_section: string;
+  to_section: string;
+  replace?: boolean;
+}
+
+export interface CopySectionSkip {
+  day_of_week: DayOfWeek;
+  period_name: string;
+  subject_name: string | null;
+}
+
+export interface CopySectionResult {
+  created: TimetableEntry[];
+  skipped: CopySectionSkip[];
+}

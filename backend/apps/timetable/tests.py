@@ -210,6 +210,161 @@ class TestTimetableTenantIsolation:
         assert response.status_code == 400
 
 
+class TestBulkCreate:
+    def test_creates_every_entry_in_one_request(self, api_client):
+        school, principal = _principal()
+        section = SectionFactory(school=school)
+        period_a = PeriodFactory(school=school, order=1)
+        period_b = PeriodFactory(school=school, order=2)
+        _login(api_client, principal)
+
+        response = api_client.post(
+            "/api/v1/timetable/entries/bulk-create/",
+            {
+                "entries": [
+                    {"section": str(section.id), "day_of_week": "monday", "period": str(period_a.id)},
+                    {"section": str(section.id), "day_of_week": "monday", "period": str(period_b.id)},
+                ]
+            },
+            format="json",
+        )
+        assert response.status_code == 201
+        assert len(response.data) == 2
+        assert TimetableEntry.objects.filter(section=section).count() == 2
+
+    def test_rejects_whole_batch_if_any_row_conflicts_with_existing_entry(self, api_client):
+        school, principal = _principal()
+        section = SectionFactory(school=school)
+        period_a = PeriodFactory(school=school, order=1)
+        period_b = PeriodFactory(school=school, order=2)
+        TimetableEntryFactory(school=school, section=section, period=period_a, day_of_week="monday")
+        _login(api_client, principal)
+
+        response = api_client.post(
+            "/api/v1/timetable/entries/bulk-create/",
+            {
+                "entries": [
+                    {"section": str(section.id), "day_of_week": "monday", "period": str(period_a.id)},
+                    {"section": str(section.id), "day_of_week": "monday", "period": str(period_b.id)},
+                ]
+            },
+            format="json",
+        )
+        assert response.status_code == 400
+        assert any(e["field"] == "entries[0].section" for e in response.data["errors"])
+        # Nothing committed — the second (otherwise-valid) row must not have been saved either.
+        assert TimetableEntry.objects.filter(section=section, period=period_b).count() == 0
+
+    def test_rejects_two_rows_in_the_same_batch_double_booking_a_teacher(self, api_client):
+        school, principal = _principal()
+        section_a = SectionFactory(school=school)
+        section_b = SectionFactory(school=school)
+        period = PeriodFactory(school=school)
+        teacher = StaffFactory(school=school)
+        _login(api_client, principal)
+
+        response = api_client.post(
+            "/api/v1/timetable/entries/bulk-create/",
+            {
+                "entries": [
+                    {
+                        "section": str(section_a.id),
+                        "day_of_week": "monday",
+                        "period": str(period.id),
+                        "teacher": str(teacher.id),
+                    },
+                    {
+                        "section": str(section_b.id),
+                        "day_of_week": "monday",
+                        "period": str(period.id),
+                        "teacher": str(teacher.id),
+                    },
+                ]
+            },
+            format="json",
+        )
+        assert response.status_code == 400
+        assert TimetableEntry.objects.filter(teacher=teacher).count() == 0
+
+    def test_teacher_without_permission_cannot_bulk_create(self, api_client):
+        school, _ = _principal()
+        section = SectionFactory(school=school)
+        period = PeriodFactory(school=school)
+        teacher_user = UserFactory(school=school)
+        assign_role(user=teacher_user, role=Role.unscoped_objects.get(school=school, slug="teacher"))
+        _login(api_client, teacher_user)
+
+        response = api_client.post(
+            "/api/v1/timetable/entries/bulk-create/",
+            {"entries": [{"section": str(section.id), "day_of_week": "monday", "period": str(period.id)}]},
+            format="json",
+        )
+        assert response.status_code == 403
+
+
+class TestCopySection:
+    def test_copies_entries_to_target_section(self, api_client):
+        school, principal = _principal()
+        from_section = SectionFactory(school=school)
+        to_section = SectionFactory(school=school)
+        TimetableEntryFactory(school=school, section=from_section, day_of_week="monday")
+        _login(api_client, principal)
+
+        response = api_client.post(
+            "/api/v1/timetable/entries/copy/",
+            {"from_section": str(from_section.id), "to_section": str(to_section.id)},
+            format="json",
+        )
+        assert response.status_code == 201
+        assert len(response.data["created"]) == 1
+        assert response.data["skipped"] == []
+        assert TimetableEntry.objects.filter(section=to_section).count() == 1
+
+    def test_skips_rows_that_would_double_book_a_shared_teacher(self, api_client):
+        school, principal = _principal()
+        from_section = SectionFactory(school=school)
+        to_section = SectionFactory(school=school)
+        period = PeriodFactory(school=school)
+        teacher = StaffFactory(school=school)
+        TimetableEntryFactory(
+            school=school, section=from_section, period=period, day_of_week="monday", teacher=teacher
+        )
+        # The target section's own class already has this same teacher booked in the same slot
+        # for a different section — copying must skip that row rather than double-book them.
+        other_target_section = SectionFactory(school=school)
+        TimetableEntryFactory(
+            school=school, section=other_target_section, period=period, day_of_week="monday", teacher=teacher
+        )
+        _login(api_client, principal)
+
+        response = api_client.post(
+            "/api/v1/timetable/entries/copy/",
+            {"from_section": str(from_section.id), "to_section": str(to_section.id)},
+            format="json",
+        )
+        assert response.status_code == 201
+        assert response.data["created"] == []
+        assert len(response.data["skipped"]) == 1
+        assert TimetableEntry.objects.filter(section=to_section).count() == 0
+
+    def test_replace_clears_target_section_first(self, api_client):
+        school, principal = _principal()
+        from_section = SectionFactory(school=school)
+        to_section = SectionFactory(school=school)
+        TimetableEntryFactory(school=school, section=from_section, day_of_week="monday")
+        stale_entry = TimetableEntryFactory(school=school, section=to_section, day_of_week="tuesday")
+        _login(api_client, principal)
+
+        response = api_client.post(
+            "/api/v1/timetable/entries/copy/",
+            {"from_section": str(from_section.id), "to_section": str(to_section.id), "replace": True},
+            format="json",
+        )
+        assert response.status_code == 201
+        assert not TimetableEntry.objects.filter(pk=stale_entry.pk).exists()
+        assert TimetableEntry.objects.filter(section=to_section).count() == 1
+
+
 class TestMyTimetable:
     def test_teacher_sees_own_lessons_only(self, api_client):
         school, _ = _principal()
