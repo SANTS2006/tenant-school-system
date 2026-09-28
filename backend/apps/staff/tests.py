@@ -140,7 +140,11 @@ class TestStaffPermanentDelete:
 
         response = api_client.post(f"/api/v1/staff/{staff.id}/delete-permanently/")
         assert response.status_code == 400
-        assert Staff.objects.filter(pk=staff.pk).exists()
+        # Staff.objects is tenant-scoped by request context, which this assertion (outside any
+        # request) doesn't have — see apps.tenants.context; unscoped_objects is the correct way
+        # to check existence here, the same reasoning apps/examinations/tests.py's grade test
+        # documents for the same shape of problem.
+        assert Staff.unscoped_objects.filter(pk=staff.pk).exists()
 
     def test_deletes_the_account_and_profile_once_terminated(self, api_client):
         from apps.users.models import User
@@ -166,4 +170,4 @@ class TestStaffPermanentDelete:
 
         response = api_client.post(f"/api/v1/staff/{staff.id}/delete-permanently/")
         assert response.status_code == 409
-        assert Staff.objects.filter(pk=staff.pk).exists()
+        assert Staff.unscoped_objects.filter(pk=staff.pk).exists()

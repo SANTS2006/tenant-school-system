@@ -9,6 +9,8 @@ import {
   deleteStaffAttendance,
   deleteStudentAttendance,
   fetchAttendanceStats,
+  fetchMyAttendance,
+  fetchMyStaffAttendance,
   fetchStaffAttendance,
   fetchStudentAttendance,
   getStaffAttendance,
@@ -130,4 +132,12 @@ export function useDeleteStaffAttendance() {
     mutationFn: deleteStaffAttendance,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: STAFF_ATTENDANCE_KEY }),
   });
+}
+
+export function useMyAttendance() {
+  return useQuery({ queryKey: ["attendance", "my-attendance"], queryFn: fetchMyAttendance });
+}
+
+export function useMyStaffAttendance() {
+  return useQuery({ queryKey: ["attendance", "my-staff-attendance"], queryFn: fetchMyStaffAttendance });
 }

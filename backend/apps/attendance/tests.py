@@ -10,6 +10,7 @@ from tests.factories import (
     StaffFactory,
     StudentAttendanceFactory,
     StudentFactory,
+    SubjectFactory,
     UserFactory,
 )
 
@@ -81,6 +82,7 @@ class TestBulkMark:
     def test_bulk_mark_creates_and_updates(self, api_client):
         school, teacher = _teacher()
         section = SectionFactory(school=school)
+        subject = SubjectFactory(school=school)
         s1 = StudentFactory(school=school, current_section=section)
         s2 = StudentFactory(school=school, current_section=section)
         _login(api_client, teacher)
@@ -90,6 +92,7 @@ class TestBulkMark:
             {
                 "date": "2026-01-15",
                 "section": str(section.id),
+                "subject": str(subject.id),
                 "entries": [
                     {"student_id": str(s1.id), "status": "present"},
                     {"student_id": str(s2.id), "status": "absent", "notes": "sick"},
@@ -107,6 +110,7 @@ class TestBulkMark:
             {
                 "date": "2026-01-15",
                 "section": str(section.id),
+                "subject": str(subject.id),
                 "entries": [{"student_id": str(s1.id), "status": "late"}],
             },
             format="json",
@@ -120,6 +124,7 @@ class TestBulkMark:
         school_a, teacher_a = _teacher()
         school_b, _ = _teacher()
         section_a = SectionFactory(school=school_a)
+        subject_a = SubjectFactory(school=school_a)
         student_b = StudentFactory(school=school_b)
 
         _login(api_client, teacher_a)
@@ -128,6 +133,7 @@ class TestBulkMark:
             {
                 "date": "2026-01-15",
                 "section": str(section_a.id),
+                "subject": str(subject_a.id),
                 "entries": [{"student_id": str(student_b.id), "status": "present"}],
             },
             format="json",
@@ -204,3 +210,73 @@ class TestStaffAttendancePermissionSeparation:
             format="json",
         )
         assert response.status_code == 400
+
+
+class TestBulkMarkRequiresSubject:
+    def test_bulk_mark_without_a_subject_is_rejected(self, api_client):
+        school, teacher = _teacher()
+        section = SectionFactory(school=school)
+        student = StudentFactory(school=school, current_section=section)
+        _login(api_client, teacher)
+
+        response = api_client.post(
+            "/api/v1/attendance/students/bulk-mark/",
+            {"date": "2026-01-15", "section": str(section.id), "entries": [{"student_id": str(student.id), "status": "present"}]},
+            format="json",
+        )
+        assert response.status_code == 400
+
+
+class TestStudentAttendanceAdminIsViewOnly:
+    def test_school_administrator_cannot_record_student_attendance(self, api_client):
+        school, _ = _teacher()
+        admin = UserFactory(school=school)
+        assign_role(user=admin, role=Role.unscoped_objects.get(school=school, slug="school-administrator"))
+        student = StudentFactory(school=school)
+        _login(api_client, admin)
+
+        response = api_client.post(
+            "/api/v1/attendance/students/",
+            {"student": str(student.id), "date": "2026-01-15", "status": "present"},
+            format="json",
+        )
+        assert response.status_code == 403
+
+    def test_school_administrator_can_view_student_attendance(self, api_client):
+        school, _ = _teacher()
+        admin = UserFactory(school=school)
+        assign_role(user=admin, role=Role.unscoped_objects.get(school=school, slug="school-administrator"))
+        StudentAttendanceFactory(school=school)
+        _login(api_client, admin)
+
+        response = api_client.get("/api/v1/attendance/students/")
+        assert response.status_code == 200
+
+
+class TestSelfServiceAttendance:
+    def test_student_sees_only_their_own_attendance(self, api_client):
+        school, _ = _teacher()
+        seed_default_roles_for_school(school)
+        student = StudentFactory(school=school, user=UserFactory(school=school))
+        other_student = StudentFactory(school=school, user=UserFactory(school=school))
+        StudentAttendanceFactory(school=school, student=student, date="2026-01-15")
+        StudentAttendanceFactory(school=school, student=other_student, date="2026-01-15")
+        _login(api_client, student.user)
+
+        response = api_client.get("/api/v1/attendance/my-attendance/")
+        assert response.status_code == 200
+        assert len(response.data["records"]) == 1
+        assert response.data["records"][0]["student"] == student.id
+
+    def test_staff_sees_only_their_own_attendance(self, api_client):
+        school, _ = _principal()
+        staff = StaffFactory(school=school)
+        other_staff = StaffFactory(school=school)
+        StaffAttendanceFactory(school=school, staff=staff, date="2026-01-15")
+        StaffAttendanceFactory(school=school, staff=other_staff, date="2026-01-15")
+        _login(api_client, staff.user)
+
+        response = api_client.get("/api/v1/attendance/my-staff-attendance/")
+        assert response.status_code == 200
+        assert len(response.data["records"]) == 1
+        assert response.data["records"][0]["staff"] == staff.id

@@ -41,7 +41,7 @@ export interface NavChild {
   to: string;
   label: string;
   permission?: string | string[];
-  selfServiceFor?: "student" | "student-or-staff";
+  selfServiceFor?: "student" | "staff" | "student-or-staff";
   hideForRoles?: string[];
   showForRoles?: string[];
 }
@@ -51,7 +51,7 @@ export interface NavItem {
   label: string;
   icon: typeof LayoutDashboard;
   permission?: string | string[];
-  selfServiceFor?: "student" | "student-or-staff";
+  selfServiceFor?: "student" | "staff" | "student-or-staff";
   /** See `isNavItemVisible` in useAuth.ts. */
   hideForRoles?: string[];
   showForRoles?: string[];
@@ -68,6 +68,14 @@ export const NAV_CONFIG: NavItem[] = [
   { to: "/my-live-sessions", label: "Live Sessions", icon: Video, selfServiceFor: "student" },
   { to: "/my-results", label: "Results", icon: Award, selfServiceFor: "student" },
   { to: "/my-graduation-status", label: "Graduation Status", icon: GraduationCap, selfServiceFor: "student" },
+  { to: "/my-attendance", label: "My Attendance", icon: CalendarCheck, selfServiceFor: "student" },
+  {
+    to: "/my-staff-attendance",
+    label: "My Attendance",
+    icon: CalendarCheck,
+    selfServiceFor: "staff",
+    hideForRoles: ["principal", "school-administrator"],
+  },
   { to: "/students", label: "Students", icon: GraduationCap, permission: "students.view" },
   { to: "/staff", label: "Staff", icon: Users, permission: "staff.view" },
   {
@@ -107,8 +115,10 @@ export const NAV_CONFIG: NavItem[] = [
     permission: ["attendance.view", "staff_attendance.view"],
     children: [
       { to: "/attendance/take", label: "Take attendance", permission: "attendance.create" },
-      { to: "/attendance/records", label: "Records", permission: "attendance.view" },
-      { to: "/attendance/stats", label: "Stats", permission: "attendance.view" },
+      // A teacher only ever takes attendance — the school-wide Records/Stats views aren't theirs
+      // to browse (a Principal/School Administrator still has both).
+      { to: "/attendance/records", label: "Records", permission: "attendance.view", hideForRoles: ["teacher"] },
+      { to: "/attendance/stats", label: "Stats", permission: "attendance.view", hideForRoles: ["teacher"] },
       { to: "/attendance/staff", label: "Staff attendance", permission: "staff_attendance.view" },
     ],
   },

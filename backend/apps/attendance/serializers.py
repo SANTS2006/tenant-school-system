@@ -82,8 +82,7 @@ class BulkMarkEntrySerializer(serializers.Serializer):
 class BulkMarkStudentAttendanceSerializer(serializers.Serializer):
     date = serializers.DateField()
     section = serializers.UUIDField()
-    subject = serializers.UUIDField(required=False, allow_null=True)
-    period = serializers.UUIDField(required=False, allow_null=True)
+    subject = serializers.UUIDField()
     entries = BulkMarkEntrySerializer(many=True)
 
 

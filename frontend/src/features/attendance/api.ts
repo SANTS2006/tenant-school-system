@@ -13,6 +13,16 @@ import type {
   StudentAttendancePayload,
 } from "./types";
 
+export async function fetchMyAttendance(): Promise<StudentAttendance[]> {
+  const { data } = await apiClient.get<{ records: StudentAttendance[] }>("/attendance/my-attendance/");
+  return data.records;
+}
+
+export async function fetchMyStaffAttendance(): Promise<StaffAttendance[]> {
+  const { data } = await apiClient.get<{ records: StaffAttendance[] }>("/attendance/my-staff-attendance/");
+  return data.records;
+}
+
 export async function fetchStudentAttendance(
   params: StudentAttendanceListParams,
 ): Promise<PaginatedResponse<StudentAttendance>> {

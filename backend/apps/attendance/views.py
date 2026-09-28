@@ -4,13 +4,13 @@ from django.shortcuts import get_object_or_404
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+
 from apps.academics.models import Section, Subject
 from apps.authorization.permissions import require_permission
-from apps.common.views import TenantScopedModelViewSet
+from apps.common.views import TenantScopedAPIView, TenantScopedModelViewSet
 from apps.parents.services import notify_student_guardians
 from apps.students.models import Student
 from apps.tenants.services import get_current_school
-from apps.timetable.models import Period as TimetablePeriod
 
 from .models import AttendanceStatus, StaffAttendance, StudentAttendance
 from .serializers import (
@@ -70,12 +70,12 @@ class StudentAttendanceViewSet(TenantScopedModelViewSet):
     @action(detail=False, methods=["post"], url_path="bulk-mark")
     def bulk_mark(self, request):
         """
-        Marks a whole class's attendance for one date/period in one call.
-        Idempotent by design (update_or_create per student) — re-submitting
-        to correct a mistake overwrites the prior entry rather than
-        conflicting with it; the DB unique constraints are what actually
-        prevent two *different* records for the same student/date/period
-        from ever coexisting.
+        Marks a whole class's daily attendance for one subject in one call (`period` is always
+        null here — daily, per-subject attendance, not a timetable-period one). Idempotent by
+        design (update_or_create per student) — re-submitting to correct a mistake overwrites the
+        prior entry rather than conflicting with it; the DB unique constraint on
+        (student, date, period) is what actually prevents two different records for the same
+        student/date from ever coexisting.
         """
         serializer = BulkMarkStudentAttendanceSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -83,12 +83,7 @@ class StudentAttendanceViewSet(TenantScopedModelViewSet):
         school = get_current_school()
 
         section = get_object_or_404(Section, pk=data["section"], school=school)
-        subject = None
-        if data.get("subject"):
-            subject = get_object_or_404(Subject, pk=data["subject"], school=school)
-        period = None
-        if data.get("period"):
-            period = get_object_or_404(TimetablePeriod, pk=data["period"], school=school)
+        subject = get_object_or_404(Subject, pk=data["subject"], school=school)
 
         results = []
         with transaction.atomic():
@@ -98,7 +93,7 @@ class StudentAttendanceViewSet(TenantScopedModelViewSet):
                     school=school,
                     student=student,
                     date=data["date"],
-                    period=period,
+                    period=None,
                     defaults={
                         "status": entry["status"],
                         "notes": entry.get("notes", ""),
@@ -142,3 +137,29 @@ class StaffAttendanceViewSet(TenantScopedModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(school=get_current_school(), recorded_by=self.request.user)
+
+
+class MyStudentAttendanceView(TenantScopedAPIView):
+    """Student self-service: this student's own attendance history, read-only — no permission
+    gate (a student holds no RBAC permissions at all beyond the "student" role's narrow grants),
+    same pattern as MyResultsView/MyLessonsView elsewhere in this codebase."""
+
+    def get(self, request):
+        student_profile = getattr(request.user, "student_profile", None)
+        if student_profile is None:
+            return _ok(records=[])
+        records = StudentAttendance.objects.filter(student=student_profile).select_related("section", "subject")
+        return _ok(records=StudentAttendanceSerializer(records, many=True).data)
+
+
+class MyStaffAttendanceView(TenantScopedAPIView):
+    """Staff self-service: this staff member's own attendance history, read-only — a teacher or
+    any other staff role with no staff_attendance.* grant can still see their own record once a
+    Principal/School Administrator has marked it."""
+
+    def get(self, request):
+        staff_profile = getattr(request.user, "staff_profile", None)
+        if staff_profile is None:
+            return _ok(records=[])
+        records = StaffAttendance.objects.filter(staff=staff_profile).select_related("recorded_by")
+        return _ok(records=StaffAttendanceSerializer(records, many=True).data)

@@ -159,13 +159,15 @@ DEFAULT_ROLE_PERMISSION_PREFIXES = {
     },
     "school-administrator": {
         "include": [
-            "students.", "attendance.", "staff_attendance.", "results.", "users.", "settings.",
+            "students.", "staff_attendance.", "results.", "users.", "settings.",
             "staff.", "parents.", "academics.", "transport.", "hostel.", "medical.",
             "discipline.", "communications.", "documents.", "inventory.", "procurement.",
             "events.", "complaints.", "salary.", "reports.", "audit.", "examinations.", "records.",
             "roles.", "permissions.",
-            # view-only:
-            "fees.view", "payments.view", "library.view",
+            # view-only: student attendance is taken by teachers; an admin can see it but never
+            # add/edit/delete a record directly (staff attendance is different — see
+            # staff_attendance. above, which school-administrator manages in full).
+            "fees.view", "payments.view", "library.view", "attendance.view",
             # timetable, education, assignments, live_sessions: no access — simply never
             # included, so no exclude list is needed for those.
         ],
@@ -175,7 +177,7 @@ DEFAULT_ROLE_PERMISSION_PREFIXES = {
         "include": [
             "students.view", "academics.view", "results.view",
             "communications.", "complaints.", "documents.", "education.", "live_sessions.",
-            "assignments.",
+            "assignments.", "attendance.view", "attendance.create",
         ],
         "exclude": [],
     },

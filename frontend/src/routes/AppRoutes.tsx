@@ -41,6 +41,8 @@ import { AttendanceIndexRedirect } from "@/features/attendance/AttendanceIndexRe
 import { AttendanceLayout } from "@/features/attendance/AttendanceLayout";
 import { AttendanceRecordFormPage } from "@/features/attendance/AttendanceRecordFormPage";
 import { AttendanceRecordsPage } from "@/features/attendance/AttendanceRecordsPage";
+import { MyAttendancePage } from "@/features/attendance/MyAttendancePage";
+import { MyStaffAttendancePage } from "@/features/attendance/MyStaffAttendancePage";
 import { AttendanceStatsPage } from "@/features/attendance/AttendanceStatsPage";
 import { StaffAttendanceFormPage } from "@/features/attendance/StaffAttendanceFormPage";
 import { StaffAttendanceListPage } from "@/features/attendance/StaffAttendanceListPage";
@@ -353,6 +355,8 @@ export function AppRoutes() {
           <Route path="/my-results" element={<MyResultsPage />} />
           <Route path="/my-results/:schoolClassId/:termId" element={<MyResultDetailPage />} />
           <Route path="/my-graduation-status" element={<MyGraduationStatusPage />} />
+          <Route path="/my-attendance" element={<MyAttendancePage />} />
+          <Route path="/my-staff-attendance" element={<MyStaffAttendancePage />} />
 
           <Route path="/education/lessons" element={<LessonsListPage />} />
           <Route path="/education/lessons/new" element={<LessonFormPage />} />

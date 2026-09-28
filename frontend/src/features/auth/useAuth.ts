@@ -192,7 +192,7 @@ export function isNavItemVisible(
   user: CurrentUser | undefined,
   item: {
     permission?: string | string[];
-    selfServiceFor?: "student" | "student-or-staff";
+    selfServiceFor?: "student" | "staff" | "student-or-staff";
     /** Role slugs that never see this item, even if they hold its permission (e.g. the Teacher
      * keeps `academics.view` for the subject-roster API but has no Academics sidebar module). */
     hideForRoles?: string[];
@@ -205,6 +205,7 @@ export function isNavItemVisible(
   if (item.showForRoles && !item.showForRoles.some((slug) => roleSlugs.includes(slug))) return false;
   if (!userHasPermission(user, item.permission)) return false;
   if (item.selfServiceFor === "student" && !user?.is_student) return false;
+  if (item.selfServiceFor === "staff" && !user?.is_staff_member) return false;
   if (item.selfServiceFor === "student-or-staff" && !(user?.is_student || user?.is_staff_member)) return false;
   return true;
 }
