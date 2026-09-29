@@ -1,4 +1,4 @@
-import { BookOpen, Camera, ClipboardCheck, MessageSquare, NotebookText, Users } from "lucide-react";
+import { BookOpen, Camera, ClipboardCheck, FileQuestion, MessageSquare, NotebookText, Users } from "lucide-react";
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -126,11 +126,15 @@ function SubjectOfferingCard({ offering }: { offering: SubjectOffering }) {
           </button>
           <button
             type="button"
-            className={`${ACTION_CLASS} col-span-3`}
+            className={`${ACTION_CLASS} col-span-2`}
             onClick={() => navigate(`${base}/communications`)}
           >
             <MessageSquare className="size-5" aria-hidden="true" />
             Messages
+          </button>
+          <button type="button" className={ACTION_CLASS} onClick={() => navigate(`${base}/quizzes`)}>
+            <FileQuestion className="size-5" aria-hidden="true" />
+            Quizzes
           </button>
         </div>
       </div>

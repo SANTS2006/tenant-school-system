@@ -163,6 +163,10 @@ import { LiveSessionFormPage } from "@/features/live-sessions/LiveSessionFormPag
 import { LiveSessionRoomPage } from "@/features/live-sessions/LiveSessionRoomPage";
 import { LiveSessionsListPage } from "@/features/live-sessions/LiveSessionsListPage";
 import { MyLiveSessionsPage } from "@/features/live-sessions/MyLiveSessionsPage";
+import { MyQuizzesPage } from "@/features/quizzes/MyQuizzesPage";
+import { QuizResultsPage } from "@/features/quizzes/QuizResultsPage";
+import { SubjectOfferingQuizzesPage } from "@/features/quizzes/SubjectOfferingQuizzesPage";
+import { TakeQuizPage } from "@/features/quizzes/TakeQuizPage";
 import { MedicalLayout } from "@/features/medical/MedicalLayout";
 import { ProfileFormPage } from "@/features/medical/ProfileFormPage";
 import { ProfilesListPage } from "@/features/medical/ProfilesListPage";
@@ -249,6 +253,8 @@ export function AppRoutes() {
       </Route>
 
       <Route element={<ProtectedRoute />}>
+        <Route path="/my-quizzes/:quizId/take" element={<TakeQuizPage />} />
+
         <Route element={<AuthLayout />}>
           <Route path="/change-password" element={<ForcedPasswordChangePage />} />
         </Route>
@@ -376,6 +382,9 @@ export function AppRoutes() {
           <Route path="/live-sessions/:id/room" element={<LiveSessionRoomPage />} />
           <Route path="/my-live-sessions" element={<MyLiveSessionsPage />} />
 
+          <Route path="/my-quizzes" element={<MyQuizzesPage />} />
+          <Route path="/quizzes/:quizId/results" element={<QuizResultsPage />} />
+
           <Route path="/inventory" element={<InventoryLayout />}>
             <Route index element={<Navigate to="items" replace />} />
             <Route path="items" element={<InventoryItemsListPage />} />
@@ -436,6 +445,7 @@ export function AppRoutes() {
               element={<TeacherSubjectPrivateThreadPage />}
             />
             <Route path="subject-offerings/:id/ca" element={<SubjectOfferingCAPage />} />
+            <Route path="subject-offerings/:id/quizzes" element={<SubjectOfferingQuizzesPage />} />
             <Route path="subject-offerings/:id/results" element={<SubjectResultsPage />} />
             <Route
               path="subject-offerings/:id/communications"
