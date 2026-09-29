@@ -136,6 +136,9 @@ PERMISSION_CATALOG = [
     ("salary.create", "Create salary structures and process salary payments", "salary"),
     ("salary.update", "Update salary structures and staff salary assignments", "salary"),
     ("salary.delete", "Delete salary structures", "salary"),
+    ("admissions.view", "View applications", "admissions"),
+    ("admissions.update", "Shortlist, interview, accept, and reject applications", "admissions"),
+    ("admissions.delete", "Delete applications", "admissions"),
 ]
 
 # Default role -> permission spec mapping used when seeding (and re-syncing) a school's system
@@ -163,7 +166,7 @@ DEFAULT_ROLE_PERMISSION_PREFIXES = {
             "staff.", "parents.", "academics.", "transport.", "hostel.", "medical.",
             "discipline.", "communications.", "documents.", "inventory.", "procurement.",
             "events.", "complaints.", "salary.", "reports.", "audit.", "examinations.", "records.",
-            "roles.", "permissions.",
+            "roles.", "permissions.", "admissions.",
             # view-only: student attendance is taken by teachers; an admin can see it but never
             # add/edit/delete a record directly (staff attendance is different — see
             # staff_attendance. above, which school-administrator manages in full).

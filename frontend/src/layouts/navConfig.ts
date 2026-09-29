@@ -280,6 +280,7 @@ export const NAV_CONFIG: NavItem[] = [
     ],
   },
   { to: "/audit", label: "Audit log", icon: History, permission: "audit.view" },
+  { to: "/admissions/applications", label: "Applications", icon: ClipboardList, permission: "admissions.view" },
   {
     to: "/reports",
     label: "Reports",

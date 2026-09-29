@@ -92,6 +92,7 @@ LOCAL_APPS = [
     "apps.education",
     "apps.live_sessions",
     "apps.salary",
+    "apps.admissions",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -302,6 +303,7 @@ REST_FRAMEWORK = {
         "auth_two_factor": "10/min",
         "auth_sensitive": "10/min",
         "school_branding": "30/min",
+        "public_application": "10/min",
         "anon": "60/min",
         "user": "600/min",
         "default": "120/min",

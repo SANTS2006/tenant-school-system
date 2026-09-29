@@ -1,0 +1,138 @@
+from rest_framework import serializers
+
+from apps.academics.models import SchoolClass
+from apps.authorization.models import Role
+from apps.common.validators import validate_upload_file
+
+from .models import Application, ApplicationDocument
+
+
+class ApplicationDocumentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ApplicationDocument
+        fields = ["id", "title", "file", "created_at"]
+        read_only_fields = ["id", "created_at"]
+
+
+class ApplicationSerializer(serializers.ModelSerializer):
+    """Admin-facing read serializer — every mutation goes through a dedicated action
+    (shortlist/invite-interview/accept/reject in ApplicationViewSet), never a plain PATCH, so
+    every field here is read-only; there is nothing for a generic update() to do."""
+
+    applying_for_class_name = serializers.CharField(source="applying_for_class.name", read_only=True, default=None)
+    applying_for_role_name = serializers.CharField(source="applying_for_role.name", read_only=True, default=None)
+    reviewed_by_name = serializers.CharField(source="reviewed_by.full_name", read_only=True, default=None)
+    full_name = serializers.CharField(read_only=True)
+    documents = ApplicationDocumentSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Application
+        fields = [
+            "id", "kind", "status",
+            "first_name", "middle_name", "last_name", "full_name", "email", "phone",
+            "date_of_birth", "gender", "address",
+            "applying_for_class", "applying_for_class_name", "previous_school",
+            "guardian_name", "guardian_phone", "guardian_email",
+            "applying_for_role", "applying_for_role_name", "job_title", "qualification", "years_of_experience",
+            "interview_datetime", "interview_location", "interview_notes",
+            "reviewed_by", "reviewed_by_name", "decided_at", "rejection_reason",
+            "created_student", "created_staff", "documents",
+            "created_at", "updated_at",
+        ]
+        read_only_fields = [
+            "id", "kind", "status",
+            "first_name", "middle_name", "last_name", "email", "phone",
+            "date_of_birth", "gender", "address",
+            "applying_for_class", "previous_school", "guardian_name", "guardian_phone", "guardian_email",
+            "applying_for_role", "job_title", "qualification", "years_of_experience",
+            "interview_datetime", "interview_location", "interview_notes",
+            "reviewed_by", "decided_at", "rejection_reason",
+            "created_student", "created_staff",
+            "created_at", "updated_at",
+        ]
+
+
+class BulkApplicationIdsSerializer(serializers.Serializer):
+    application_ids = serializers.ListField(child=serializers.UUIDField(), allow_empty=False)
+
+
+class BulkRejectSerializer(BulkApplicationIdsSerializer):
+    reason = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+class InviteInterviewSerializer(BulkApplicationIdsSerializer):
+    interview_datetime = serializers.DateTimeField()
+    interview_location = serializers.CharField(max_length=500, required=False, allow_blank=True, default="")
+    interview_notes = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+class PublicSchoolClassOptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SchoolClass
+        fields = ["id", "name"]
+
+
+class PublicRoleOptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Role
+        fields = ["id", "name"]
+
+
+class PublicApplicationSubmitSerializer(serializers.Serializer):
+    """Public, unauthenticated submission (see PublicApplyView) — `applying_for_class`/
+    `applying_for_role` are plain UUIDs here, resolved and validated in `validate()` against the
+    `school` passed in via context (never request.user, since there is no authenticated user on
+    this request at all)."""
+
+    kind = serializers.ChoiceField(choices=Application.Kind.choices)
+    first_name = serializers.CharField(max_length=150)
+    middle_name = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
+    last_name = serializers.CharField(max_length=150)
+    email = serializers.EmailField()
+    phone = serializers.CharField(max_length=30, required=False, allow_blank=True, default="")
+    date_of_birth = serializers.DateField(required=False, allow_null=True, default=None)
+    gender = serializers.ChoiceField(
+        choices=Application.Gender.choices, required=False, allow_blank=True, default=""
+    )
+    address = serializers.CharField(max_length=500, required=False, allow_blank=True, default="")
+
+    applying_for_class = serializers.UUIDField(required=False, allow_null=True, default=None)
+    previous_school = serializers.CharField(max_length=255, required=False, allow_blank=True, default="")
+    guardian_name = serializers.CharField(max_length=255, required=False, allow_blank=True, default="")
+    guardian_phone = serializers.CharField(max_length=30, required=False, allow_blank=True, default="")
+    guardian_email = serializers.EmailField(required=False, allow_blank=True, default="")
+
+    applying_for_role = serializers.UUIDField(required=False, allow_null=True, default=None)
+    job_title = serializers.CharField(max_length=100, required=False, allow_blank=True, default="")
+    qualification = serializers.CharField(max_length=255, required=False, allow_blank=True, default="")
+    years_of_experience = serializers.IntegerField(required=False, allow_null=True, default=None, min_value=0)
+
+    documents = serializers.ListField(
+        child=serializers.FileField(validators=[validate_upload_file]), required=False, default=list
+    )
+
+    def validate(self, attrs):
+        school = self.context["school"]
+        if attrs["kind"] == Application.Kind.STUDENT:
+            class_id = attrs.get("applying_for_class")
+            if not class_id:
+                raise serializers.ValidationError({"applying_for_class": "Select the class you're applying for."})
+            try:
+                attrs["applying_for_class"] = SchoolClass.unscoped_objects.get(pk=class_id, school=school)
+            except SchoolClass.DoesNotExist as exc:
+                raise serializers.ValidationError(
+                    {"applying_for_class": "Not a valid class for this school."}
+                ) from exc
+            attrs["applying_for_role"] = None
+        else:
+            role_id = attrs.get("applying_for_role")
+            if not role_id:
+                raise serializers.ValidationError({"applying_for_role": "Select the role you're applying for."})
+            try:
+                attrs["applying_for_role"] = Role.unscoped_objects.get(pk=role_id, school=school, is_active=True)
+            except Role.DoesNotExist as exc:
+                raise serializers.ValidationError(
+                    {"applying_for_role": "Not a valid role for this school."}
+                ) from exc
+            attrs["applying_for_class"] = None
+        return attrs

@@ -1,5 +1,8 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
+import { ApplicationDetailPage } from "@/features/admissions/ApplicationDetailPage";
+import { ApplicationsListPage } from "@/features/admissions/ApplicationsListPage";
+import { PublicApplyPage } from "@/features/admissions/PublicApplyPage";
 import { AcademicYearFormPage } from "@/features/academics/AcademicYearFormPage";
 import { AcademicYearsListPage } from "@/features/academics/AcademicYearsListPage";
 import { AcademicsLayout } from "@/features/academics/AcademicsLayout";
@@ -242,6 +245,7 @@ export function AppRoutes() {
         <Route path="/two-factor" element={<TwoFactorPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/apply/:schoolSlug" element={<PublicApplyPage />} />
       </Route>
 
       <Route element={<ProtectedRoute />}>
@@ -288,6 +292,8 @@ export function AppRoutes() {
 
           <Route path="/audit" element={<AuditLogsListPage />} />
           <Route path="/audit/:id" element={<AuditLogDetailPage />} />
+          <Route path="/admissions/applications" element={<ApplicationsListPage />} />
+          <Route path="/admissions/applications/:id" element={<ApplicationDetailPage />} />
           <Route path="/roles" element={<RolesListPage />} />
           <Route path="/roles/new" element={<RoleFormPage />} />
           <Route path="/roles/:id" element={<RoleDetailPage />} />
