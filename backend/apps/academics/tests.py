@@ -2602,3 +2602,104 @@ class TestSectionClassTeacher:
         response = api_client.get(f"/api/v1/academics/sections/{section.id}/")
         assert response.status_code == 200
         assert response.data["class_teacher_name"] == staff.user.full_name
+
+
+class TestAcademicYearArchiving:
+    def test_archives_a_non_current_year(self, api_client):
+        school, principal = _principal()
+        year = AcademicYearFactory(school=school, is_current=False)
+        _login(api_client, principal)
+
+        response = api_client.post(f"/api/v1/academics/academic-years/{year.id}/archive/")
+
+        assert response.status_code == 200
+        year.refresh_from_db()
+        assert year.is_archived is True
+        assert year.archived_at is not None
+
+    def test_cannot_archive_the_current_year(self, api_client):
+        school, principal = _principal()
+        year = AcademicYearFactory(school=school, is_current=True)
+        _login(api_client, principal)
+
+        response = api_client.post(f"/api/v1/academics/academic-years/{year.id}/archive/")
+
+        assert response.status_code == 400
+        year.refresh_from_db()
+        assert year.is_archived is False
+
+    def test_cannot_archive_an_already_archived_year(self, api_client):
+        school, principal = _principal()
+        year = AcademicYearFactory(school=school, is_current=False, is_archived=True)
+        _login(api_client, principal)
+
+        response = api_client.post(f"/api/v1/academics/academic-years/{year.id}/archive/")
+
+        assert response.status_code == 400
+
+    def test_unarchive_restores_write_access(self, api_client):
+        school, principal = _principal()
+        year = AcademicYearFactory(school=school, is_current=False, is_archived=True)
+        _login(api_client, principal)
+
+        response = api_client.post(f"/api/v1/academics/academic-years/{year.id}/unarchive/")
+
+        assert response.status_code == 200
+        year.refresh_from_db()
+        assert year.is_archived is False
+        assert year.archived_at is None
+
+    def test_teacher_without_permission_cannot_archive(self, api_client):
+        school, _ = _principal()
+        year = AcademicYearFactory(school=school, is_current=False)
+        teacher = UserFactory(school=school)
+        assign_role(user=teacher, role=Role.unscoped_objects.get(school=school, slug="teacher"))
+        _login(api_client, teacher)
+
+        response = api_client.post(f"/api/v1/academics/academic-years/{year.id}/archive/")
+
+        assert response.status_code == 403
+
+    def test_cannot_create_a_section_for_an_archived_year(self, api_client):
+        school, principal = _principal()
+        year = AcademicYearFactory(school=school, is_current=False, is_archived=True)
+        school_class = SchoolClassFactory(school=school)
+        _login(api_client, principal)
+
+        response = api_client.post(
+            "/api/v1/academics/sections/",
+            {"school_class": str(school_class.id), "academic_year": str(year.id), "name": "A"},
+            format="json",
+        )
+
+        assert response.status_code == 400
+
+    def test_cannot_create_a_term_for_an_archived_year(self, api_client):
+        school, principal = _principal()
+        year = AcademicYearFactory(school=school, is_current=False, is_archived=True)
+        _login(api_client, principal)
+
+        response = api_client.post(
+            "/api/v1/academics/terms/",
+            {
+                "academic_year": str(year.id),
+                "name": "Term 1",
+                "sequence": 1,
+                "start_date": "2025-09-01",
+                "end_date": "2025-12-15",
+            },
+            format="json",
+        )
+
+        assert response.status_code == 400
+
+    def test_can_still_update_a_section_in_a_non_archived_year(self, api_client):
+        school, principal = _principal()
+        section = SectionFactory(school=school)
+        _login(api_client, principal)
+
+        response = api_client.patch(
+            f"/api/v1/academics/sections/{section.id}/", {"capacity": 40}, format="json"
+        )
+
+        assert response.status_code == 200

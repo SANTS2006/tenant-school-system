@@ -2,10 +2,12 @@ from django.db import transaction
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 
 from apps.academics.models import Section, Subject
+from apps.academics.services import assert_year_not_archived
 from apps.authorization.permissions import require_permission
 from apps.common.views import TenantScopedAPIView, TenantScopedModelViewSet
 from apps.parents.services import notify_student_guardians
@@ -84,6 +86,10 @@ class StudentAttendanceViewSet(TenantScopedModelViewSet):
 
         section = get_object_or_404(Section, pk=data["section"], school=school)
         subject = get_object_or_404(Subject, pk=data["subject"], school=school)
+        try:
+            assert_year_not_archived(section.academic_year)
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
 
         results = []
         with transaction.atomic():

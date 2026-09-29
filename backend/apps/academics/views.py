@@ -60,6 +60,8 @@ _ACTION_SUFFIX = {
     "close_ca": "update",
     "reopen_ca": "update",
     "close_ca_bulk": "update",
+    "archive": "update",
+    "unarchive": "update",
 }
 
 
@@ -107,13 +109,38 @@ class AcademicsModelViewSet(TenantScopedModelViewSet):
 class AcademicYearViewSet(AcademicsModelViewSet):
     model = AcademicYear
     serializer_class = AcademicYearSerializer
-    filterset_fields = ["is_current"]
+    filterset_fields = ["is_current", "is_archived"]
     search_fields = ["name"]
     ordering_fields = ["start_date", "name"]
     summary_stats = {
         "total": {},
         "current": {"is_current": True},
+        "archived": {"is_archived": True},
     }
+
+    @action(detail=True, methods=["post"])
+    def archive(self, request, pk=None):
+        year = self.get_object()
+        try:
+            services.archive_academic_year(year, actor=request.user)
+        except ValueError as exc:
+            return _error(str(exc), "VALIDATION_ERROR", status.HTTP_400_BAD_REQUEST)
+        return _ok(
+            f'"{year.name}" archived — its records are now read-only.',
+            academic_year=AcademicYearSerializer(year, context={"request": request}).data,
+        )
+
+    @action(detail=True, methods=["post"])
+    def unarchive(self, request, pk=None):
+        year = self.get_object()
+        try:
+            services.unarchive_academic_year(year, actor=request.user)
+        except ValueError as exc:
+            return _error(str(exc), "VALIDATION_ERROR", status.HTTP_400_BAD_REQUEST)
+        return _ok(
+            f'"{year.name}" unarchived.',
+            academic_year=AcademicYearSerializer(year, context={"request": request}).data,
+        )
 
 
 class TermViewSet(AcademicsModelViewSet):

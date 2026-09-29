@@ -116,6 +116,8 @@ class InvoiceViewSet(TenantScopedModelViewSet):
 
         student = get_object_or_404(Student, pk=data["student"], school=school)
         academic_year = get_object_or_404(AcademicYear, pk=data["academic_year"], school=school)
+        if academic_year.is_archived:
+            raise ValidationError(f'"{academic_year.name}" is archived; new invoices cannot be created against it.')
         term = None
         if data.get("term"):
             term = get_object_or_404(Term, pk=data["term"], school=school)
@@ -164,6 +166,10 @@ class InvoiceViewSet(TenantScopedModelViewSet):
         school = get_current_school()
 
         fee_structure = get_object_or_404(FeeStructure, pk=data["fee_structure"], school=school)
+        if fee_structure.academic_year.is_archived:
+            raise ValidationError(
+                f'"{fee_structure.academic_year.name}" is archived; invoices cannot be generated against it.'
+            )
         students_qs = Student.objects.filter(status=Student.Status.ACTIVE)
         school_class_id = data.get("school_class") or fee_structure.school_class_id
         if school_class_id:

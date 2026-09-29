@@ -111,6 +111,16 @@ export async function updateAcademicYear(id: string, values: AcademicYearPayload
   return data;
 }
 
+export async function archiveAcademicYear(id: string): Promise<AcademicYear> {
+  const { data } = await apiClient.post<{ academic_year: AcademicYear }>(`/academics/academic-years/${id}/archive/`);
+  return data.academic_year;
+}
+
+export async function unarchiveAcademicYear(id: string): Promise<AcademicYear> {
+  const { data } = await apiClient.post<{ academic_year: AcademicYear }>(`/academics/academic-years/${id}/unarchive/`);
+  return data.academic_year;
+}
+
 export async function deleteAcademicYear(id: string): Promise<void> {
   await apiClient.delete(`/academics/academic-years/${id}/`);
 }

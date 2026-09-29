@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ApiError } from "@/lib/api-client";
 
 import {
+  archiveAcademicYear,
   bulkPromote,
   closeSubjectOfferingCA,
   createAcademicYear,
@@ -29,6 +30,7 @@ import {
   deleteSubjectMaterial,
   deleteSubjectOffering,
   deleteTerm,
+  unarchiveAcademicYear,
   fetchAcademicYears,
   fetchAssessments,
   fetchAssessmentScores,
@@ -190,6 +192,22 @@ export function useDeleteAcademicYear() {
   const queryClient = useQueryClient();
   return useMutation<void, ApiError, string>({
     mutationFn: deleteAcademicYear,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["academics"] }),
+  });
+}
+
+export function useArchiveAcademicYear() {
+  const queryClient = useQueryClient();
+  return useMutation<AcademicYear, ApiError, string>({
+    mutationFn: archiveAcademicYear,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["academics"] }),
+  });
+}
+
+export function useUnarchiveAcademicYear() {
+  const queryClient = useQueryClient();
+  return useMutation<AcademicYear, ApiError, string>({
+    mutationFn: unarchiveAcademicYear,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["academics"] }),
   });
 }

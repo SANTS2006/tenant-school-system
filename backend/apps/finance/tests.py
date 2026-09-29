@@ -110,6 +110,25 @@ class TestInvoiceCreate:
         )
         assert response.status_code == 400
 
+    def test_cannot_create_an_invoice_against_an_archived_year(self, api_client):
+        school, accountant = _accountant()
+        student = StudentFactory(school=school)
+        from tests.factories import AcademicYearFactory
+
+        year = AcademicYearFactory(school=school, is_current=False, is_archived=True)
+        _login(api_client, accountant)
+
+        response = api_client.post(
+            "/api/v1/finance/invoices/",
+            {
+                "student": str(student.id),
+                "academic_year": str(year.id),
+                "line_items": [{"line_type": "charge", "amount": "100.00"}],
+            },
+            format="json",
+        )
+        assert response.status_code == 400
+
 
 class TestGenerateInvoices:
     def test_generate_creates_one_invoice_per_active_student(self, api_client):
@@ -145,6 +164,22 @@ class TestGenerateInvoices:
         assert response.status_code == 200
         assert len(response.data["invoices"]) == 0
         assert len(response.data["skipped_student_ids"]) == 1
+
+    def test_cannot_generate_against_an_archived_years_fee_structure(self, api_client):
+        school, accountant = _accountant()
+        school_class = SchoolClassFactory(school=school)
+        StudentFactory(school=school, current_class=school_class, status="active")
+        from tests.factories import AcademicYearFactory
+
+        year = AcademicYearFactory(school=school, is_current=False, is_archived=True)
+        structure = FeeStructureFactory(school=school, school_class=school_class, academic_year=year)
+        FeeStructureItemFactory(school=school, fee_structure=structure, amount=Decimal("300.00"))
+        _login(api_client, accountant)
+
+        response = api_client.post(
+            "/api/v1/finance/invoices/generate/", {"fee_structure": str(structure.id)}, format="json"
+        )
+        assert response.status_code == 400
 
 
 class TestPaymentRecording:

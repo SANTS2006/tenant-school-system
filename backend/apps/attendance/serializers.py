@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from apps.academics.services import assert_year_not_archived
+
 from .models import StaffAttendance, StudentAttendance
 
 
@@ -61,6 +63,13 @@ class StudentAttendanceSerializer(serializers.ModelSerializer):
         student = attrs.get("student", getattr(self.instance, "student", None))
         attendance_date = attrs.get("date", getattr(self.instance, "date", None))
         period = attrs.get("period", getattr(self.instance, "period", None))
+        section = attrs.get("section", getattr(self.instance, "section", None))
+
+        if section is not None:
+            try:
+                assert_year_not_archived(section.academic_year)
+            except ValueError as exc:
+                raise serializers.ValidationError({"section": str(exc)}) from exc
 
         qs = StudentAttendance.objects.filter(student=student, date=attendance_date, period=period)
         if self.instance is not None:

@@ -10,6 +10,12 @@ class AcademicYear(TenantScopedModel, TimeStampedModel):
     start_date = models.DateField()
     end_date = models.DateField()
     is_current = models.BooleanField(default=False)
+    # Once archived, the year's own records (sections, subject offerings, terms — and, one hop
+    # further, anything scoped to one of those, like attendance/timetable) become read-only; see
+    # apps.academics.services.assert_year_not_archived, the single choke point every write path
+    # that touches a year-scoped model runs through.
+    is_archived = models.BooleanField(default=False)
+    archived_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "academic_years"

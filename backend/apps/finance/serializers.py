@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from apps.academics.services import assert_year_not_archived
+
 from .models import FeeCategory, FeeStructure, FeeStructureItem, Invoice, InvoiceLineItem, Payment, Refund
 
 
@@ -51,6 +53,14 @@ class FeeStructureSerializer(serializers.ModelSerializer):
 
     def validate_school_class(self, value):
         return self._same_school(value, "Class")
+
+    def validate(self, attrs):
+        academic_year = attrs.get("academic_year", getattr(self.instance, "academic_year", None))
+        try:
+            assert_year_not_archived(academic_year)
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc)) from exc
+        return attrs
 
     def validate_name(self, value):
         # Same gap as FeeCategorySerializer.validate_name — `unique_fee_structure_name_per_school`
@@ -156,6 +166,14 @@ class InvoiceSerializer(serializers.ModelSerializer):
 
     def validate_term(self, value):
         return self._same_school(value, "Term")
+
+    def validate(self, attrs):
+        academic_year = attrs.get("academic_year", getattr(self.instance, "academic_year", None))
+        try:
+            assert_year_not_archived(academic_year)
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc)) from exc
+        return attrs
 
 
 class InvoiceLineItemInputSerializer(serializers.Serializer):

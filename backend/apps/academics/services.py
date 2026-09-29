@@ -7,7 +7,7 @@ from django.utils.html import escape
 from apps.audit.services import log_action
 from apps.notifications.services import notify, notify_bulk
 
-from .models import Assessment, AssessmentScore, Section, SchoolClass, SubjectOffering, Term
+from .models import AcademicYear, Assessment, AssessmentScore, Section, SchoolClass, SubjectOffering, Term
 
 # Phase 6: a Final Subject Score within this many percentage points BELOW the offering's own
 # pass_mark reads as NEAR PASS rather than FAIL — a fixed band, not a per-school setting, since
@@ -21,6 +21,58 @@ def _round2(value):
     if value is None:
         return None
     return Decimal(value).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def assert_year_not_archived(academic_year: AcademicYear | None) -> None:
+    """The single choke point every write path for a year-scoped record runs through: Section,
+    Term, and SubjectOffering here in academics (direct FK to AcademicYear/Term), plus, one hop
+    further via their own `section.academic_year`, AttendanceRecord and TimetableEntry, and
+    FeeStructure/Invoice in finance (direct, nullable FK). `None` is a no-op — some of those FKs
+    are optional, and a record with no year at all was never year-scoped to begin with.
+
+    Raises a plain ValueError, not a DRF error — same convention as every other service function
+    in this module (see close_ca, save_assessment_scores): the caller (almost always a
+    serializer's own `validate()`) re-raises it as `serializers.ValidationError`, keeping this
+    module framework-agnostic and reusable outside a request (management commands, tests)."""
+    if academic_year is not None and academic_year.is_archived:
+        raise ValueError(f'"{academic_year.name}" is archived; its records are read-only.')
+
+
+def archive_academic_year(academic_year: AcademicYear, *, actor) -> AcademicYear:
+    """Marks a year read-only for every year-scoped write path (see assert_year_not_archived).
+    Refuses to archive the currently-current year — switch which year is current first, so a
+    school is never left with its active year suddenly locked out from under whoever's using it."""
+    if academic_year.is_archived:
+        raise ValueError("This academic year is already archived.")
+    if academic_year.is_current:
+        raise ValueError("Switch the current academic year to a different one before archiving this one.")
+    academic_year.is_archived = True
+    academic_year.archived_at = timezone.now()
+    academic_year.save(update_fields=["is_archived", "archived_at"])
+    log_action(
+        action="academics.year_archived",
+        actor=actor,
+        school=academic_year.school,
+        entity_type="AcademicYear",
+        entity_id=academic_year.id,
+    )
+    return academic_year
+
+
+def unarchive_academic_year(academic_year: AcademicYear, *, actor) -> AcademicYear:
+    if not academic_year.is_archived:
+        raise ValueError("This academic year is not archived.")
+    academic_year.is_archived = False
+    academic_year.archived_at = None
+    academic_year.save(update_fields=["is_archived", "archived_at"])
+    log_action(
+        action="academics.year_unarchived",
+        actor=actor,
+        school=academic_year.school,
+        entity_type="AcademicYear",
+        entity_id=academic_year.id,
+    )
+    return academic_year
 
 
 def scope_subject_offerings_for_teacher(queryset, user):

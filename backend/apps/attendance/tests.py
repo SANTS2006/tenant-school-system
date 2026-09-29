@@ -120,6 +120,28 @@ class TestBulkMark:
         assert record.status == AttendanceStatus.LATE
         assert StudentAttendance.unscoped_objects.filter(student=s1, date="2026-01-15").count() == 1
 
+    def test_cannot_bulk_mark_for_a_section_in_an_archived_year(self, api_client):
+        from tests.factories import AcademicYearFactory
+
+        school, teacher = _teacher()
+        year = AcademicYearFactory(school=school, is_current=False, is_archived=True)
+        section = SectionFactory(school=school, academic_year=year)
+        subject = SubjectFactory(school=school)
+        student = StudentFactory(school=school, current_section=section)
+        _login(api_client, teacher)
+
+        response = api_client.post(
+            "/api/v1/attendance/students/bulk-mark/",
+            {
+                "date": "2026-01-15",
+                "section": str(section.id),
+                "subject": str(subject.id),
+                "entries": [{"student_id": str(student.id), "status": "present"}],
+            },
+            format="json",
+        )
+        assert response.status_code == 400
+
     def test_cannot_bulk_mark_student_from_another_school(self, api_client):
         school_a, teacher_a = _teacher()
         school_b, _ = _teacher()

@@ -16,14 +16,29 @@ from .models import (
     Term,
     TermResultPublication,
 )
-from .services import compute_ca_allocation
+from .services import assert_year_not_archived, compute_ca_allocation
+
+
+def _reject_if_year_archived(academic_year):
+    # Shared by every year-scoped serializer's validate() below — see
+    # apps.academics.services.assert_year_not_archived for why this re-raises rather than
+    # letting the plain ValueError propagate (it would surface as an unhandled 500, not a 400).
+    try:
+        assert_year_not_archived(academic_year)
+    except ValueError as exc:
+        raise serializers.ValidationError(str(exc)) from exc
 
 
 class AcademicYearSerializer(serializers.ModelSerializer):
     class Meta:
         model = AcademicYear
-        fields = ["id", "name", "start_date", "end_date", "is_current", "created_at", "updated_at"]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        fields = [
+            "id", "name", "start_date", "end_date", "is_current", "is_archived", "archived_at",
+            "created_at", "updated_at",
+        ]
+        # is_archived/archived_at are only ever set by the archive/unarchive actions
+        # (services.archive_academic_year/unarchive_academic_year), never by a plain create/update.
+        read_only_fields = ["id", "is_archived", "archived_at", "created_at", "updated_at"]
 
 
 class TermSerializer(serializers.ModelSerializer):
@@ -42,6 +57,11 @@ class TermSerializer(serializers.ModelSerializer):
         if value.school_id != request.user.school_id:
             raise serializers.ValidationError("Academic year must belong to your own school.")
         return value
+
+    def validate(self, attrs):
+        academic_year = attrs.get("academic_year", getattr(self.instance, "academic_year", None))
+        _reject_if_year_archived(academic_year)
+        return attrs
 
     # `unique_term_sequence_per_year` needs no explicit validate() here, unlike the
     # school-name-uniqueness gap documented elsewhere in this codebase (Timetable's Room/Period,
@@ -135,6 +155,7 @@ class SubjectOfferingSerializer(serializers.ModelSerializer):
         academic_year = attrs.get("academic_year", getattr(self.instance, "academic_year", None))
         if term is not None and academic_year is not None and term.academic_year_id != academic_year.id:
             raise serializers.ValidationError({"term": "Term must belong to the selected academic year."})
+        _reject_if_year_archived(academic_year)
 
         ca = attrs.get("ca_weight_percent", getattr(self.instance, "ca_weight_percent", None))
         exam = attrs.get("exam_weight_percent", getattr(self.instance, "exam_weight_percent", None))
@@ -278,6 +299,11 @@ class SectionSerializer(serializers.ModelSerializer):
 
     def validate_class_teacher(self, value):
         return self._validate_same_school(value, "Class teacher")
+
+    def validate(self, attrs):
+        academic_year = attrs.get("academic_year", getattr(self.instance, "academic_year", None))
+        _reject_if_year_archived(academic_year)
+        return attrs
 
 
 class PromotionRecordSerializer(serializers.ModelSerializer):
