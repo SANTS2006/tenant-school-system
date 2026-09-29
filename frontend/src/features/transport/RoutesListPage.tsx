@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { Pagination } from "@/components/ui/Pagination";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { FullPageSpinner, Spinner } from "@/components/ui/Spinner";
@@ -59,12 +60,15 @@ export function RoutesListPage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-[var(--color-text)]">Routes</h2>
-        {canCreate && (
-          <Button onClick={() => navigate("/transport/routes/new")}>
-            <Plus className="size-4" aria-hidden="true" />
-            New route
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton path="/transport/routes/" params={{}} filename="transport_routes.csv" />
+          {canCreate && (
+            <Button onClick={() => navigate("/transport/routes/new")}>
+              <Plus className="size-4" aria-hidden="true" />
+              New route
+            </Button>
+          )}
+        </div>
       </div>
 
       {stats && (

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { Pagination } from "@/components/ui/Pagination";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Select } from "@/components/ui/Select";
@@ -110,12 +111,15 @@ export function LiveSessionsListPage() {
             <option value="cancelled">Cancelled</option>
           </Select>
         </div>
-        {canCreate && (
-          <Button onClick={() => navigate("/live-sessions/new")}>
-            <Plus className="size-4" aria-hidden="true" />
-            Schedule session
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton path="/live-sessions/" params={filterParams} filename="live_sessions.csv" />
+          {canCreate && (
+            <Button onClick={() => navigate("/live-sessions/new")}>
+              <Plus className="size-4" aria-hidden="true" />
+              Schedule session
+            </Button>
+          )}
+        </div>
       </div>
 
       {isError && <Alert tone="danger">{(error as ApiError).message}</Alert>}

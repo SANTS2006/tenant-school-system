@@ -5,6 +5,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { Pagination } from "@/components/ui/Pagination";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Select } from "@/components/ui/Select";
@@ -86,21 +87,24 @@ export function LoansListPage() {
         </ScrollReveal>
       )}
 
-      <div className="w-full max-w-[180px]">
-        <Select
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value as LoanStatus | "");
-            setPage(1);
-          }}
-        >
-          <option value="">All statuses</option>
-          {STATUS_OPTIONS.map((option) => (
-            <option key={option} value={option}>
-              {statusLabel(option)}
-            </option>
-          ))}
-        </Select>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="w-full max-w-[180px]">
+          <Select
+            value={status}
+            onChange={(e) => {
+              setStatus(e.target.value as LoanStatus | "");
+              setPage(1);
+            }}
+          >
+            <option value="">All statuses</option>
+            {STATUS_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {statusLabel(option)}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <ExportCsvButton path="/library/loans/" params={filterParams} filename="library_loans.csv" />
       </div>
 
       {isError && <Alert tone="danger">{(error as ApiError).message}</Alert>}

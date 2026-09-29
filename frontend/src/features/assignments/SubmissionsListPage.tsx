@@ -6,6 +6,7 @@ import { BackArrowIcon } from "@/components/ui/BackArrowIcon";
 import { Badge } from "@/components/ui/Badge";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { FullPageSpinner } from "@/components/ui/Spinner";
 import { StatRow } from "@/components/ui/StatRow";
@@ -70,9 +71,16 @@ export function SubmissionsListPage() {
         Back to assignments
       </button>
 
-      <h2 className="text-lg font-semibold text-[var(--color-text)]">
-        Submissions for {assignment?.title ?? "this assignment"}
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold text-[var(--color-text)]">
+          Submissions for {assignment?.title ?? "this assignment"}
+        </h2>
+        <ExportCsvButton
+          path="/assignment-submissions/"
+          params={{ assignment: assignmentId }}
+          filename="assignment_submissions.csv"
+        />
+      </div>
 
       {stats && (
         <ScrollReveal>

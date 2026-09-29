@@ -6,6 +6,7 @@ import { BackArrowIcon } from "@/components/ui/BackArrowIcon";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { FullPageSpinner } from "@/components/ui/Spinner";
 import { StatRow } from "@/components/ui/StatRow";
@@ -82,12 +83,19 @@ export function InvoiceLineItemsListPage() {
         <h2 className="text-lg font-semibold text-[var(--color-text)]">
           Line items for {invoice?.invoice_number ?? "this invoice"}
         </h2>
-        {canCreate && !isLocked && (
-          <Button onClick={() => navigate(`/finance/invoices/${invoiceId}/line-items/new`)}>
-            <Plus className="size-4" aria-hidden="true" />
-            New line item
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton
+            path="/finance/invoice-line-items/"
+            params={{ invoice: invoiceId }}
+            filename="invoice_line_items.csv"
+          />
+          {canCreate && !isLocked && (
+            <Button onClick={() => navigate(`/finance/invoices/${invoiceId}/line-items/new`)}>
+              <Plus className="size-4" aria-hidden="true" />
+              New line item
+            </Button>
+          )}
+        </div>
       </div>
 
       {stats && (

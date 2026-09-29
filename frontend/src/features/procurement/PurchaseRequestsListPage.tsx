@@ -6,6 +6,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { Input } from "@/components/ui/Input";
 import { Pagination } from "@/components/ui/Pagination";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
@@ -88,12 +89,15 @@ export function PurchaseRequestsListPage() {
             </Select>
           </div>
         </div>
-        {canCreate && (
-          <Button onClick={() => navigate("/procurement/requests/new")}>
-            <Plus className="size-4" aria-hidden="true" />
-            New request
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton path="/procurement/requests/" params={filterParams} filename="purchase_requests.csv" />
+          {canCreate && (
+            <Button onClick={() => navigate("/procurement/requests/new")}>
+              <Plus className="size-4" aria-hidden="true" />
+              New request
+            </Button>
+          )}
+        </div>
       </div>
 
       {isError && <Alert tone="danger">{(error as ApiError).message}</Alert>}

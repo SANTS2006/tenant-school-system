@@ -6,6 +6,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { Input } from "@/components/ui/Input";
 import { FullPageSpinner, Spinner } from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/Toast";
@@ -61,12 +62,19 @@ export function RecordsListPage() {
             Important school information — policies, notices and documents kept in one shared place.
           </p>
         </div>
-        {canCreate && (
-          <Button onClick={() => navigate("/records/new")}>
-            <Plus className="size-4" aria-hidden="true" />
-            Add record
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton
+            path="/records/"
+            params={{ search: debouncedSearch || undefined }}
+            filename="records.csv"
+          />
+          {canCreate && (
+            <Button onClick={() => navigate("/records/new")}>
+              <Plus className="size-4" aria-hidden="true" />
+              Add record
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="max-w-sm">

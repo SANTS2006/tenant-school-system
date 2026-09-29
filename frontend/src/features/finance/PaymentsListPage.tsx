@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { Pagination } from "@/components/ui/Pagination";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Select } from "@/components/ui/Select";
@@ -52,7 +53,8 @@ export function PaymentsListPage() {
         </ScrollReveal>
       )}
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-3">
         <div className="w-full max-w-[200px]">
           <Select
             value={method}
@@ -85,6 +87,8 @@ export function PaymentsListPage() {
             ))}
           </Select>
         </div>
+        </div>
+        <ExportCsvButton path="/finance/payments/" params={filterParams} filename="payments.csv" />
       </div>
 
       {isError && <Alert tone="danger">{(error as ApiError).message}</Alert>}

@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { Input } from "@/components/ui/Input";
 import { Pagination } from "@/components/ui/Pagination";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
@@ -62,34 +63,37 @@ export function AuditLogsListPage() {
         </ScrollReveal>
       )}
 
-      <div className="flex flex-wrap gap-3">
-        <div className="w-full max-w-xs">
-          <Input
-            icon={Search}
-            placeholder="Search by action, actor, or entity"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-          />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-3">
+          <div className="w-full max-w-xs">
+            <Input
+              icon={Search}
+              placeholder="Search by action, actor, or entity"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+            />
+          </div>
+          <div className="w-full max-w-[160px]">
+            <Select
+              value={severity}
+              onChange={(e) => {
+                setSeverity(e.target.value as AuditSeverity | "");
+                setPage(1);
+              }}
+            >
+              <option value="">All severities</option>
+              {SEVERITIES.map((option) => (
+                <option key={option} value={option}>
+                  {severityLabel(option)}
+                </option>
+              ))}
+            </Select>
+          </div>
         </div>
-        <div className="w-full max-w-[160px]">
-          <Select
-            value={severity}
-            onChange={(e) => {
-              setSeverity(e.target.value as AuditSeverity | "");
-              setPage(1);
-            }}
-          >
-            <option value="">All severities</option>
-            {SEVERITIES.map((option) => (
-              <option key={option} value={option}>
-                {severityLabel(option)}
-              </option>
-            ))}
-          </Select>
-        </div>
+        <ExportCsvButton path="/audit/" params={filterParams} filename="audit_logs.csv" />
       </div>
 
       {isError && <Alert tone="danger">{(error as ApiError).message}</Alert>}

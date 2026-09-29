@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { Pagination } from "@/components/ui/Pagination";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Select } from "@/components/ui/Select";
@@ -50,7 +51,8 @@ export function TransactionsListPage() {
         </ScrollReveal>
       )}
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-3">
         <div className="w-full max-w-[220px]">
           <Select
             value={itemId}
@@ -83,6 +85,8 @@ export function TransactionsListPage() {
             ))}
           </Select>
         </div>
+        </div>
+        <ExportCsvButton path="/inventory/transactions/" params={filterParams} filename="inventory_transactions.csv" />
       </div>
 
       {isError && <Alert tone="danger">{(error as ApiError).message}</Alert>}

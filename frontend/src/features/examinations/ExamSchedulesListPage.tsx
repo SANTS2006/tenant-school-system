@@ -7,6 +7,7 @@ import { BackArrowIcon } from "@/components/ui/BackArrowIcon";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { Pagination } from "@/components/ui/Pagination";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { FullPageSpinner, Spinner } from "@/components/ui/Spinner";
@@ -80,12 +81,15 @@ export function ExamSchedulesListPage() {
         <h2 className="text-lg font-semibold text-[var(--color-text)]">
           Schedules for {exam?.name ?? "this exam"}
         </h2>
-        {canCreate && (
-          <Button onClick={() => navigate(`/examinations/exams/${examId}/schedules/new`)}>
-            <Plus className="size-4" aria-hidden="true" />
-            New schedule
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton path="/examinations/schedules/" params={filterParams} filename="exam_schedules.csv" />
+          {canCreate && (
+            <Button onClick={() => navigate(`/examinations/exams/${examId}/schedules/new`)}>
+              <Plus className="size-4" aria-hidden="true" />
+              New schedule
+            </Button>
+          )}
+        </div>
       </div>
 
       {stats && (

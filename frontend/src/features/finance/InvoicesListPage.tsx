@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { Input } from "@/components/ui/Input";
 import { Pagination } from "@/components/ui/Pagination";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
@@ -128,12 +129,15 @@ export function InvoicesListPage() {
             }}
           />
         </div>
-        {canCreate && (
-          <Button onClick={() => navigate("/finance/invoices/new")}>
-            <Plus className="size-4" aria-hidden="true" />
-            New invoice
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton path="/finance/invoices/" params={filterParams} filename="invoices.csv" />
+          {canCreate && (
+            <Button onClick={() => navigate("/finance/invoices/new")}>
+              <Plus className="size-4" aria-hidden="true" />
+              New invoice
+            </Button>
+          )}
+        </div>
       </div>
 
       {isError && <Alert tone="danger">{(error as ApiError).message}</Alert>}

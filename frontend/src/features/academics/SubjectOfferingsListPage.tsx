@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Select } from "@/components/ui/Select";
 import { FullPageSpinner, Spinner } from "@/components/ui/Spinner";
@@ -123,12 +124,15 @@ export function SubjectOfferingsListPage() {
             </Select>
           </div>
         </div>
-        {canCreate && (
-          <Button onClick={() => navigate("/academics/subject-offerings/new")}>
-            <Plus className="size-4" aria-hidden="true" />
-            New offering
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton path="/academics/subject-offerings/" params={filterParams} filename="subject_offerings.csv" />
+          {canCreate && (
+            <Button onClick={() => navigate("/academics/subject-offerings/new")}>
+              <Plus className="size-4" aria-hidden="true" />
+              New offering
+            </Button>
+          )}
+        </div>
       </div>
 
       {isError && <Alert tone="danger">{(error as ApiError).message}</Alert>}

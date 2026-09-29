@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { Input } from "@/components/ui/Input";
 import { Pagination } from "@/components/ui/Pagination";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
@@ -105,12 +106,15 @@ export function BooksListPage() {
             </Select>
           </div>
         </div>
-        {canCreate && (
-          <Button onClick={() => navigate("/library/books/new")}>
-            <Plus className="size-4" aria-hidden="true" />
-            New book
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton path="/library/books/" params={filterParams} filename="library_books.csv" />
+          {canCreate && (
+            <Button onClick={() => navigate("/library/books/new")}>
+              <Plus className="size-4" aria-hidden="true" />
+              New book
+            </Button>
+          )}
+        </div>
       </div>
 
       {isError && <Alert tone="danger">{(error as ApiError).message}</Alert>}

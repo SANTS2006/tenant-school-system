@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { Input } from "@/components/ui/Input";
 import { Pagination } from "@/components/ui/Pagination";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
@@ -131,12 +132,15 @@ export function StaffListPage() {
           <h1 className="text-xl font-semibold text-[var(--color-text)]">Staff</h1>
           <p className="mt-1 text-sm text-[var(--color-text-muted)]">Manage your school's staff directory.</p>
         </div>
-        {canCreate && (
-          <Button onClick={() => navigate("/staff/new")}>
-            <Plus className="size-4" aria-hidden="true" />
-            New staff member
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton path="/staff/" params={filterParams} filename="staff.csv" />
+          {canCreate && (
+            <Button onClick={() => navigate("/staff/new")}>
+              <Plus className="size-4" aria-hidden="true" />
+              New staff member
+            </Button>
+          )}
+        </div>
       </div>
 
       {stats && (

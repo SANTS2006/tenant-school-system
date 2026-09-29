@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { Input } from "@/components/ui/Input";
 import { Pagination } from "@/components/ui/Pagination";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
@@ -105,10 +106,13 @@ export function PlatformAdminsListPage() {
             }}
           />
         </div>
-        <Button onClick={() => navigate("/platform/admins/new")}>
-          <Plus className="size-4" aria-hidden="true" />
-          Invite admin
-        </Button>
+        <div className="flex items-center gap-2">
+          <ExportCsvButton path="/platform/admins/" params={filterParams} filename="platform_admins.csv" />
+          <Button onClick={() => navigate("/platform/admins/new")}>
+            <Plus className="size-4" aria-hidden="true" />
+            Invite admin
+          </Button>
+        </div>
       </div>
 
       {isError && <Alert tone="danger">{(error as ApiError).message}</Alert>}

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { FullPageSpinner } from "@/components/ui/Spinner";
 import { StatRow } from "@/components/ui/StatRow";
@@ -82,12 +83,19 @@ export function SalaryStructureItemsListPage() {
         <h2 className="text-lg font-semibold text-[var(--color-text)]">
           Line items for {structure?.name ?? "this structure"}
         </h2>
-        {canCreate && (
-          <Button onClick={() => navigate(`/salary/structures/${structureId}/items/new`)}>
-            <Plus className="size-4" aria-hidden="true" />
-            New line item
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton
+            path="/salary/salary-structure-items/"
+            params={filterParams}
+            filename="salary_structure_items.csv"
+          />
+          {canCreate && (
+            <Button onClick={() => navigate(`/salary/structures/${structureId}/items/new`)}>
+              <Plus className="size-4" aria-hidden="true" />
+              New line item
+            </Button>
+          )}
+        </div>
       </div>
 
       {stats && (

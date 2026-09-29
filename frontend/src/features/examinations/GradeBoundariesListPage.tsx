@@ -6,6 +6,7 @@ import { BackArrowIcon } from "@/components/ui/BackArrowIcon";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { FullPageSpinner } from "@/components/ui/Spinner";
 import { StatRow } from "@/components/ui/StatRow";
@@ -73,12 +74,19 @@ export function GradeBoundariesListPage() {
         <h2 className="text-lg font-semibold text-[var(--color-text)]">
           Grade boundaries for {scale?.name ?? "this scale"}
         </h2>
-        {canCreate && (
-          <Button onClick={() => navigate(`/examinations/scales/${scaleId}/boundaries/new`)}>
-            <Plus className="size-4" aria-hidden="true" />
-            New boundary
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton
+            path="/examinations/grade-boundaries/"
+            params={{ grading_scale: scaleId }}
+            filename="grade_boundaries.csv"
+          />
+          {canCreate && (
+            <Button onClick={() => navigate(`/examinations/scales/${scaleId}/boundaries/new`)}>
+              <Plus className="size-4" aria-hidden="true" />
+              New boundary
+            </Button>
+          )}
+        </div>
       </div>
 
       {stats && (

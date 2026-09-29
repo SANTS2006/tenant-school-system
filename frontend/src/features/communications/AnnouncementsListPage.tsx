@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { Input } from "@/components/ui/Input";
 import { Pagination } from "@/components/ui/Pagination";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
@@ -139,12 +140,15 @@ export function AnnouncementsListPage() {
             </Select>
           </div>
         </div>
-        {canCreate && (
-          <Button onClick={() => navigate("/communications/new")}>
-            <Plus className="size-4" aria-hidden="true" />
-            New announcement
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton path="/communications/announcements/" params={filterParams} filename="announcements.csv" />
+          {canCreate && (
+            <Button onClick={() => navigate("/communications/new")}>
+              <Plus className="size-4" aria-hidden="true" />
+              New announcement
+            </Button>
+          )}
+        </div>
       </div>
 
       {isError && <Alert tone="danger">{(error as ApiError).message}</Alert>}

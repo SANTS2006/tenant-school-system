@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { Pagination } from "@/components/ui/Pagination";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Select } from "@/components/ui/Select";
@@ -96,12 +97,15 @@ export function VisitsListPage() {
             ))}
           </Select>
         </div>
-        {canCreate && (
-          <Button onClick={() => navigate("/medical/visits/new")}>
-            <Plus className="size-4" aria-hidden="true" />
-            New visit
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton path="/medical/visits/" params={filterParams} filename="medical_visits.csv" />
+          {canCreate && (
+            <Button onClick={() => navigate("/medical/visits/new")}>
+              <Plus className="size-4" aria-hidden="true" />
+              New visit
+            </Button>
+          )}
+        </div>
       </div>
 
       {isError && <Alert tone="danger">{(error as ApiError).message}</Alert>}

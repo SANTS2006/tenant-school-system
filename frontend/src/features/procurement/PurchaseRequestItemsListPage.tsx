@@ -6,6 +6,7 @@ import { BackArrowIcon } from "@/components/ui/BackArrowIcon";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { FullPageSpinner } from "@/components/ui/Spinner";
 import { StatRow } from "@/components/ui/StatRow";
@@ -82,12 +83,15 @@ export function PurchaseRequestItemsListPage() {
         <h2 className="text-lg font-semibold text-[var(--color-text)]">
           Items for {request?.title ?? "this request"}
         </h2>
-        {canCreate && !isLocked && (
-          <Button onClick={() => navigate(`/procurement/requests/${requestId}/items/new`)}>
-            <Plus className="size-4" aria-hidden="true" />
-            New item
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton path="/procurement/request-items/" params={filterParams} filename="purchase_request_items.csv" />
+          {canCreate && !isLocked && (
+            <Button onClick={() => navigate(`/procurement/requests/${requestId}/items/new`)}>
+              <Plus className="size-4" aria-hidden="true" />
+              New item
+            </Button>
+          )}
+        </div>
       </div>
 
       {isLocked && (

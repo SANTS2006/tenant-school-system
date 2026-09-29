@@ -6,6 +6,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { Input } from "@/components/ui/Input";
 import { Pagination } from "@/components/ui/Pagination";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
@@ -96,10 +97,13 @@ export function SchoolsListPage() {
             </Select>
           </div>
         </div>
-        <Button onClick={() => navigate("/platform/schools/new")}>
-          <Plus className="size-4" aria-hidden="true" />
-          New school
-        </Button>
+        <div className="flex items-center gap-2">
+          <ExportCsvButton path="/schools/" params={filterParams} filename="schools.csv" />
+          <Button onClick={() => navigate("/platform/schools/new")}>
+            <Plus className="size-4" aria-hidden="true" />
+            New school
+          </Button>
+        </div>
       </div>
 
       {isError && <Alert tone="danger">{(error as ApiError).message}</Alert>}

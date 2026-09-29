@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { Input } from "@/components/ui/Input";
 import { FullPageSpinner, Spinner } from "@/components/ui/Spinner";
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeaderCell, TableRowLink } from "@/components/ui/Table";
@@ -52,12 +53,15 @@ export function RolesListPage() {
             Who can do what. Click a role to see and edit the permissions it grants.
           </p>
         </div>
-        {canCreate && (
-          <Button onClick={() => navigate("/roles/new")}>
-            <Plus className="size-4" aria-hidden="true" />
-            New role
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton path="/roles/" params={{ search: debouncedSearch || undefined }} filename="roles.csv" />
+          {canCreate && (
+            <Button onClick={() => navigate("/roles/new")}>
+              <Plus className="size-4" aria-hidden="true" />
+              New role
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="w-full max-w-xs">

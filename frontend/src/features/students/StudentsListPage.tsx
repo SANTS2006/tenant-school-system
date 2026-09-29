@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/Table";
 import { Alert } from "@/components/ui/Alert";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { useToast } from "@/components/ui/Toast";
 import { useHasPermission } from "@/features/auth/useAuth";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -122,12 +123,15 @@ export function StudentsListPage() {
           <h1 className="text-xl font-semibold text-[var(--color-text)]">Students</h1>
           <p className="mt-1 text-sm text-[var(--color-text-muted)]">Manage your school's student records.</p>
         </div>
-        {canCreate && (
-          <Button onClick={() => navigate("/students/new")}>
-            <Plus className="size-4" aria-hidden="true" />
-            New student
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton path="/students/" params={filterParams} filename="students.csv" />
+          {canCreate && (
+            <Button onClick={() => navigate("/students/new")}>
+              <Plus className="size-4" aria-hidden="true" />
+              New student
+            </Button>
+          )}
+        </div>
       </div>
 
       {stats && (

@@ -6,6 +6,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { Input } from "@/components/ui/Input";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { FullPageSpinner, Spinner } from "@/components/ui/Spinner";
@@ -70,12 +71,19 @@ export function StaffSalaryAssignmentsListPage() {
         <div className="w-full max-w-xs">
           <Input icon={Search} placeholder="Search by staff name" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        {canCreate && (
-          <Button onClick={() => navigate("/salary/assignments/new")}>
-            <Plus className="size-4" aria-hidden="true" />
-            Assign a structure
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton
+            path="/salary/staff-salary-assignments/"
+            params={filterParams}
+            filename="staff_salary_assignments.csv"
+          />
+          {canCreate && (
+            <Button onClick={() => navigate("/salary/assignments/new")}>
+              <Plus className="size-4" aria-hidden="true" />
+              Assign a structure
+            </Button>
+          )}
+        </div>
       </div>
 
       {isError && <Alert tone="danger">{(error as ApiError).message}</Alert>}

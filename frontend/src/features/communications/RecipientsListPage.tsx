@@ -6,6 +6,7 @@ import { BackArrowIcon } from "@/components/ui/BackArrowIcon";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { FullPageSpinner } from "@/components/ui/Spinner";
 import { StatRow } from "@/components/ui/StatRow";
@@ -72,12 +73,19 @@ export function RecipientsListPage() {
         <h2 className="text-lg font-semibold text-[var(--color-text)]">
           Recipients of {announcement?.title ?? "this announcement"}
         </h2>
-        {canCreate && (
-          <Button onClick={() => navigate(`/communications/${announcementId}/recipients/new`)}>
-            <Plus className="size-4" aria-hidden="true" />
-            Add recipient
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton
+            path="/communications/announcement-recipients/"
+            params={{ announcement: announcementId }}
+            filename="announcement_recipients.csv"
+          />
+          {canCreate && (
+            <Button onClick={() => navigate(`/communications/${announcementId}/recipients/new`)}>
+              <Plus className="size-4" aria-hidden="true" />
+              Add recipient
+            </Button>
+          )}
+        </div>
       </div>
 
       {stats && (

@@ -121,6 +121,116 @@ class TestSingleOriginSpaServing:
         assert api_client.post("/students/123", {}, format="json").status_code == 404
 
 
+class TestExportMixin:
+    """Exercises `ExportMixin` (apps.common.views) against a real, already-registered ViewSet
+    (Rooms, under the Timetable module) rather than a throwaway test-only view — the mixin is
+    meant to work identically for every ViewSet built on TenantScopedModelViewSet with zero
+    per-app code, so proving it against one real one is a faithful test of all of them."""
+
+    def _principal(self):
+        from apps.authorization.models import Role
+        from apps.authorization.services import assign_role, seed_default_roles_for_school, seed_permission_catalog
+        from tests.factories import SchoolFactory, UserFactory
+
+        seed_permission_catalog()
+        school = SchoolFactory()
+        seed_default_roles_for_school(school)
+        principal = UserFactory(school=school)
+        assign_role(user=principal, role=Role.unscoped_objects.get(school=school, slug="principal"))
+        return school, principal
+
+    def _login(self, api_client, user):
+        from tests.factories import DEFAULT_TEST_PASSWORD
+
+        return api_client.post(
+            "/api/v1/auth/login/", {"email": user.email, "password": DEFAULT_TEST_PASSWORD}, format="json"
+        )
+
+    @pytest.mark.django_db
+    def test_export_csv_streams_every_matching_row_with_a_header(self, api_client):
+        from tests.factories import RoomFactory
+
+        school, principal = self._principal()
+        RoomFactory(school=school, name="Lab 1", capacity=20)
+        RoomFactory(school=school, name="Lab 2", capacity=25)
+        self._login(api_client, principal)
+
+        response = api_client.get("/api/v1/timetable/rooms/?export=csv")
+
+        assert response.status_code == 200
+        assert response["Content-Type"] == "text/csv"
+        assert response["Content-Disposition"] == 'attachment; filename="room_list.csv"'
+        body = b"".join(response.streaming_content).decode()
+        rows = body.strip().splitlines()
+        assert rows[0] == "id,name,capacity,created_at,updated_at"
+        assert any("Lab 1" in row for row in rows[1:])
+        assert any("Lab 2" in row for row in rows[1:])
+        assert len(rows) == 3  # header + 2 rooms
+
+    @pytest.mark.django_db
+    def test_export_csv_respects_the_same_filters_as_a_normal_list(self, api_client):
+        from tests.factories import RoomFactory
+
+        school, principal = self._principal()
+        RoomFactory(school=school, name="Lab 1")
+        RoomFactory(school=school, name="Gym")
+        self._login(api_client, principal)
+
+        response = api_client.get("/api/v1/timetable/rooms/?export=csv&search=Lab")
+
+        body = b"".join(response.streaming_content).decode()
+        assert "Lab 1" in body
+        assert "Gym" not in body
+
+    @pytest.mark.django_db
+    def test_export_csv_never_leaks_another_schools_rows(self, api_client):
+        from tests.factories import RoomFactory, SchoolFactory
+
+        school, principal = self._principal()
+        other_school = SchoolFactory()
+        RoomFactory(school=school, name="Mine")
+        RoomFactory(school=other_school, name="Not Mine")
+        self._login(api_client, principal)
+
+        response = api_client.get("/api/v1/timetable/rooms/?export=csv")
+
+        body = b"".join(response.streaming_content).decode()
+        assert "Mine" in body
+        assert "Not Mine" not in body
+
+    @pytest.mark.django_db
+    def test_export_requires_the_same_permission_as_list(self, api_client):
+        from apps.authorization.models import Role
+        from apps.authorization.services import assign_role
+        from tests.factories import UserFactory
+
+        school, _ = self._principal()
+        # "accountant" holds no timetable.* permission at all (see authorization/catalog.py) —
+        # a role that genuinely can't list rooms either, so a 403 here is the same check the
+        # plain (non-export) list action already enforces, not something export-specific.
+        outsider = UserFactory(school=school)
+        assign_role(user=outsider, role=Role.unscoped_objects.get(school=school, slug="accountant"))
+        self._login(api_client, outsider)
+
+        response = api_client.get("/api/v1/timetable/rooms/?export=csv")
+
+        assert response.status_code == 403
+
+    @pytest.mark.django_db
+    def test_plain_list_is_unaffected(self, api_client):
+        from tests.factories import RoomFactory
+
+        school, principal = self._principal()
+        RoomFactory(school=school)
+        self._login(api_client, principal)
+
+        response = api_client.get("/api/v1/timetable/rooms/")
+
+        assert response.status_code == 200
+        assert response["Content-Type"] == "application/json"
+        assert "results" in response.data
+
+
 class TestBrandedEmail:
     def test_template_carries_the_schools_details_and_escapes_them(self):
         from types import SimpleNamespace

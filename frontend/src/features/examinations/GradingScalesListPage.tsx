@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { Input } from "@/components/ui/Input";
 import { Pagination } from "@/components/ui/Pagination";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
@@ -90,12 +91,15 @@ export function GradingScalesListPage() {
             }}
           />
         </div>
-        {canCreate && (
-          <Button onClick={() => navigate("/examinations/scales/new")}>
-            <Plus className="size-4" aria-hidden="true" />
-            New grading scale
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton path="/examinations/grading-scales/" params={filterParams} filename="grading_scales.csv" />
+          {canCreate && (
+            <Button onClick={() => navigate("/examinations/scales/new")}>
+              <Plus className="size-4" aria-hidden="true" />
+              New grading scale
+            </Button>
+          )}
+        </div>
       </div>
 
       {isError && <Alert tone="danger">{(error as ApiError).message}</Alert>}

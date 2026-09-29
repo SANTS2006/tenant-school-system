@@ -1,4 +1,4 @@
-import { CalendarRange, CheckCircle2, Plus, Search, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, CalendarRange, CheckCircle2, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { Input } from "@/components/ui/Input";
 import { Pagination } from "@/components/ui/Pagination";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
@@ -27,7 +28,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { useSummaryStats } from "@/hooks/useSummaryStats";
 import type { ApiError } from "@/lib/api-client";
 
-import { useAcademicYearList, useDeleteAcademicYear } from "./useAcademicsCrud";
+import { useAcademicYearList, useArchiveAcademicYear, useDeleteAcademicYear, useUnarchiveAcademicYear } from "./useAcademicsCrud";
 
 const PAGE_SIZE = 25;
 
@@ -36,6 +37,7 @@ export function AcademicYearsListPage() {
   const { showToast } = useToast();
   const confirm = useConfirm();
   const canCreate = useHasPermission("academics.create");
+  const canUpdate = useHasPermission("academics.update");
   const canDelete = useHasPermission("academics.delete");
 
   const [page, setPage] = useState(1);
@@ -53,6 +55,8 @@ export function AcademicYearsListPage() {
   });
   const { data: stats } = useSummaryStats("academics/academic-years", filterParams);
   const deleteAcademicYear = useDeleteAcademicYear();
+  const archiveAcademicYear = useArchiveAcademicYear();
+  const unarchiveAcademicYear = useUnarchiveAcademicYear();
 
   const handleDelete = async (id: string, name: string) => {
     const ok = await confirm({
@@ -67,6 +71,25 @@ export function AcademicYearsListPage() {
     });
   };
 
+  const handleArchive = async (id: string, name: string) => {
+    const ok = await confirm({
+      title: `Archive "${name}"?`,
+      description: "Its sections, terms, subject offerings, attendance, and timetable become read-only. You can unarchive it later.",
+    });
+    if (!ok) return;
+    archiveAcademicYear.mutate(id, {
+      onSuccess: () => showToast({ title: `"${name}" archived` }),
+      onError: (err) => showToast({ title: "Could not archive", description: err.message, tone: "danger" }),
+    });
+  };
+
+  const handleUnarchive = (id: string, name: string) => {
+    unarchiveAcademicYear.mutate(id, {
+      onSuccess: () => showToast({ title: `"${name}" unarchived` }),
+      onError: (err) => showToast({ title: "Could not unarchive", description: err.message, tone: "danger" }),
+    });
+  };
+
   return (
     <div className="flex flex-col gap-4">
       {stats && (
@@ -75,6 +98,7 @@ export function AcademicYearsListPage() {
             items={[
               { key: "total", label: "Total academic years", value: stats.total as number, icon: CalendarRange },
               { key: "current", label: "Current", value: stats.current as number, tone: "success", icon: CheckCircle2 },
+              { key: "archived", label: "Archived", value: stats.archived as number, tone: "neutral", icon: Archive },
             ]}
           />
         </ScrollReveal>
@@ -92,12 +116,15 @@ export function AcademicYearsListPage() {
             }}
           />
         </div>
-        {canCreate && (
-          <Button onClick={() => navigate("/academics/years/new")}>
-            <Plus className="size-4" aria-hidden="true" />
-            New academic year
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton path="/academics/academic-years/" params={filterParams} filename="academic_years.csv" />
+          {canCreate && (
+            <Button onClick={() => navigate("/academics/years/new")}>
+              <Plus className="size-4" aria-hidden="true" />
+              New academic year
+            </Button>
+          )}
+        </div>
       </div>
 
       {isError && <Alert tone="danger">{(error as ApiError).message}</Alert>}
@@ -116,7 +143,7 @@ export function AcademicYearsListPage() {
                 <TableHeaderCell>Start date</TableHeaderCell>
                 <TableHeaderCell>End date</TableHeaderCell>
                 <TableHeaderCell>Status</TableHeaderCell>
-                {canDelete && <TableHeaderCell className="text-right">Actions</TableHeaderCell>}
+                {(canUpdate || canDelete) && <TableHeaderCell className="text-right">Actions</TableHeaderCell>}
               </tr>
             </TableHead>
             <TableBody>
@@ -126,21 +153,57 @@ export function AcademicYearsListPage() {
                   <TableCell>{year.start_date}</TableCell>
                   <TableCell>{year.end_date}</TableCell>
                   <TableCell>
-                    {year.is_current ? <Badge tone="primary">Current</Badge> : <Badge>Inactive</Badge>}
+                    <div className="flex flex-wrap gap-1.5">
+                      {year.is_current ? <Badge tone="primary">Current</Badge> : <Badge>Inactive</Badge>}
+                      {year.is_archived && <Badge tone="warning">Archived</Badge>}
+                    </div>
                   </TableCell>
-                  {canDelete && (
+                  {(canUpdate || canDelete) && (
                     <TableCell className="text-right">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(year.id, year.name);
-                        }}
-                        aria-label={`Delete ${year.name}`}
-                        className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-danger)]"
-                      >
-                        <Trash2 className="size-4" aria-hidden="true" />
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        {canUpdate && !year.is_archived && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleArchive(year.id, year.name);
+                            }}
+                            aria-label={`Archive ${year.name}`}
+                            title="Archive"
+                            className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-primary)]"
+                          >
+                            <Archive className="size-4" aria-hidden="true" />
+                          </button>
+                        )}
+                        {canUpdate && year.is_archived && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUnarchive(year.id, year.name);
+                            }}
+                            aria-label={`Unarchive ${year.name}`}
+                            title="Unarchive"
+                            className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-primary)]"
+                          >
+                            <ArchiveRestore className="size-4" aria-hidden="true" />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(year.id, year.name);
+                            }}
+                            aria-label={`Delete ${year.name}`}
+                            title="Delete"
+                            className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-danger)]"
+                          >
+                            <Trash2 className="size-4" aria-hidden="true" />
+                          </button>
+                        )}
+                      </div>
                     </TableCell>
                   )}
                 </TableRowLink>

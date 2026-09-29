@@ -6,6 +6,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { Input } from "@/components/ui/Input";
 import { FullPageSpinner, Spinner } from "@/components/ui/Spinner";
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
@@ -55,12 +56,19 @@ export function PermissionsListPage() {
             Every permission code roles can be granted. Assign these to a role from its own page.
           </p>
         </div>
-        {canCreate && (
-          <Button onClick={() => navigate("/permissions/new")}>
-            <Plus className="size-4" aria-hidden="true" />
-            New permission
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton
+            path="/roles/permissions/"
+            params={{ search: debouncedSearch || undefined }}
+            filename="permissions.csv"
+          />
+          {canCreate && (
+            <Button onClick={() => navigate("/permissions/new")}>
+              <Plus className="size-4" aria-hidden="true" />
+              New permission
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="w-full max-w-xs">

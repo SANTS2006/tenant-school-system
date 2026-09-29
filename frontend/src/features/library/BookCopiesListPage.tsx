@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { FullPageSpinner } from "@/components/ui/Spinner";
 import { StatRow } from "@/components/ui/StatRow";
@@ -74,12 +75,15 @@ export function BookCopiesListPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-[var(--color-text)]">Copies of {book?.title ?? "this book"}</h2>
-        {canCreate && (
-          <Button onClick={() => navigate(`/library/books/${bookId}/copies/new`)}>
-            <Plus className="size-4" aria-hidden="true" />
-            New copy
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton path="/library/copies/" params={filterParams} filename="library_book_copies.csv" />
+          {canCreate && (
+            <Button onClick={() => navigate(`/library/books/${bookId}/copies/new`)}>
+              <Plus className="size-4" aria-hidden="true" />
+              New copy
+            </Button>
+          )}
+        </div>
       </div>
 
       {stats && (

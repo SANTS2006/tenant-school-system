@@ -6,6 +6,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { Pagination } from "@/components/ui/Pagination";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Select } from "@/components/ui/Select";
@@ -78,12 +79,15 @@ export function NotificationsListPage() {
           <h1 className="text-xl font-semibold text-[var(--color-text)]">Notifications</h1>
           <p className="mt-1 text-sm text-[var(--color-text-muted)]">Updates relevant to you.</p>
         </div>
-        {!!unreadCount && (
-          <Button variant="secondary" size="sm" onClick={handleMarkAllRead} isLoading={markAllRead.isPending}>
-            {!markAllRead.isPending && <CheckCheck className="size-4" aria-hidden="true" />}
-            Mark all read
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton path="/notifications/" params={filterParams} filename="notifications.csv" />
+          {!!unreadCount && (
+            <Button variant="secondary" size="sm" onClick={handleMarkAllRead} isLoading={markAllRead.isPending}>
+              {!markAllRead.isPending && <CheckCheck className="size-4" aria-hidden="true" />}
+              Mark all read
+            </Button>
+          )}
+        </div>
       </div>
 
       {stats && (

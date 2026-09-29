@@ -1,4 +1,7 @@
+import csv
+
 from django.db.models import Count
+from django.http import StreamingHttpResponse
 from rest_framework import generics, views, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -48,6 +51,63 @@ class SummaryStatsMixin:
         return Response({"success": True, "message": "", "code": "OK", "errors": [], "summary": result})
 
 
+class _CsvEcho:
+    """A fake "file" whose `write()` just returns what it was given, instead of buffering it —
+    lets `csv.writer` drive a `StreamingHttpResponse` generator row-by-row so an export of a
+    large table doesn't have to build the whole CSV in memory first (unlike `_csv_response` in
+    `apps.reports.views`, which is fine only because its rows are a handful of aggregated
+    summary rows, never a full table dump)."""
+
+    def write(self, value):
+        return value
+
+
+class ExportMixin:
+    """
+    Opt-in `GET .../?export=csv` support for any ViewSet built on it — reuses the exact same
+    `filter_queryset(get_queryset())` the normal `list` action already applies (so the current
+    search/filter/ordering params shape the export too), but skips pagination's `max_page_size`
+    cap entirely, since the whole point of an export is "everything that matches, not just one
+    page of it."
+
+    Columns default to every field on the ViewSet's own list serializer, in that serializer's
+    declared order — the same denormalized `*_name` fields the UI table already shows, so the
+    exported CSV reads the same as the on-screen table. Set `export_fields = [...]` on a ViewSet
+    to curate/reorder/drop columns (e.g. to skip a heavy nested field) without touching its
+    serializer.
+
+    No separate permission code: exporting is "viewing in bulk," so it reuses whatever the list
+    action's own permission check already requires (every ViewSet in this codebase already gates
+    `list` on its `.view` code) — no new catalog entries needed for any app.
+    """
+
+    export_fields: list[str] | None = None
+    export_filename: str | None = None
+
+    def list(self, request, *args, **kwargs):
+        if request.query_params.get("export") == "csv":
+            return self._export_csv(request)
+        return super().list(request, *args, **kwargs)
+
+    def _export_csv(self, request):
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer_class = self.get_serializer_class()
+        fields = self.export_fields or list(serializer_class().fields.keys())
+        context = self.get_serializer_context()
+
+        def rows():
+            writer = csv.writer(_CsvEcho())
+            yield writer.writerow(fields)
+            for obj in queryset.iterator(chunk_size=500):
+                data = serializer_class(obj, context=context).data
+                yield writer.writerow(["" if data.get(f) is None else str(data.get(f)) for f in fields])
+
+        filename = self.export_filename or f"{self.get_view_name().lower().replace(' ', '_')}.csv"
+        response = StreamingHttpResponse(rows(), content_type="text/csv")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+
 class TenantScopedAPIView(TenantContextMixin, views.APIView):
     """Base for plain APIViews that touch school-owned data."""
 
@@ -70,7 +130,7 @@ class TenantScopedViewSet(TenantContextMixin, viewsets.GenericViewSet):
     pass
 
 
-class TenantScopedModelViewSet(SummaryStatsMixin, TenantContextMixin, viewsets.ModelViewSet):
+class TenantScopedModelViewSet(SummaryStatsMixin, ExportMixin, TenantContextMixin, viewsets.ModelViewSet):
     """
     `school` is deliberately never a client-settable serializer field on any
     tenant-scoped resource (never trust a client-supplied school id) — so
@@ -96,5 +156,5 @@ class TenantScopedModelViewSet(SummaryStatsMixin, TenantContextMixin, viewsets.M
         serializer.save(school_id=get_current_school_id())
 
 
-class TenantScopedReadOnlyViewSet(SummaryStatsMixin, TenantContextMixin, viewsets.ReadOnlyModelViewSet):
+class TenantScopedReadOnlyViewSet(SummaryStatsMixin, ExportMixin, TenantContextMixin, viewsets.ReadOnlyModelViewSet):
     pass

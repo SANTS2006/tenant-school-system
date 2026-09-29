@@ -6,6 +6,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { Pagination } from "@/components/ui/Pagination";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { FullPageSpinner, Spinner } from "@/components/ui/Spinner";
@@ -57,12 +58,15 @@ export function AssignmentsListPage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-[var(--color-text)]">Student assignments</h2>
-        {canCreate && (
-          <Button onClick={() => navigate("/transport/assignments/new")}>
-            <Plus className="size-4" aria-hidden="true" />
-            New assignment
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton path="/transport/assignments/" params={{}} filename="transport_assignments.csv" />
+          {canCreate && (
+            <Button onClick={() => navigate("/transport/assignments/new")}>
+              <Plus className="size-4" aria-hidden="true" />
+              New assignment
+            </Button>
+          )}
+        </div>
       </div>
 
       {stats && (

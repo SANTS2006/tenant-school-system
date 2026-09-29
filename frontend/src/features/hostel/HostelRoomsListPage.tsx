@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { FullPageSpinner } from "@/components/ui/Spinner";
 import { StatRow } from "@/components/ui/StatRow";
@@ -73,12 +74,15 @@ export function HostelRoomsListPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-[var(--color-text)]">Rooms in {hostel?.name ?? "this hostel"}</h2>
-        {canCreate && (
-          <Button onClick={() => navigate(`/hostel/hostels/${hostelId}/rooms/new`)}>
-            <Plus className="size-4" aria-hidden="true" />
-            New room
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton path="/hostel/rooms/" params={filterParams} filename="hostel_rooms.csv" />
+          {canCreate && (
+            <Button onClick={() => navigate(`/hostel/hostels/${hostelId}/rooms/new`)}>
+              <Plus className="size-4" aria-hidden="true" />
+              New room
+            </Button>
+          )}
+        </div>
       </div>
 
       {stats && (

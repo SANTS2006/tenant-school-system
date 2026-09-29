@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { FullPageSpinner } from "@/components/ui/Spinner";
 import { StatRow } from "@/components/ui/StatRow";
@@ -70,12 +71,15 @@ export function BedsListPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-[var(--color-text)]">Beds in room {room?.room_number ?? ""}</h2>
-        {canCreate && (
-          <Button onClick={() => navigate(`/hostel/hostels/${hostelId}/rooms/${roomId}/beds/new`)}>
-            <Plus className="size-4" aria-hidden="true" />
-            New bed
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton path="/hostel/beds/" params={filterParams} filename="hostel_beds.csv" />
+          {canCreate && (
+            <Button onClick={() => navigate(`/hostel/hostels/${hostelId}/rooms/${roomId}/beds/new`)}>
+              <Plus className="size-4" aria-hidden="true" />
+              New bed
+            </Button>
+          )}
+        </div>
       </div>
 
       {stats && (

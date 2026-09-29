@@ -6,6 +6,7 @@ import { BackArrowIcon } from "@/components/ui/BackArrowIcon";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { FullPageSpinner } from "@/components/ui/Spinner";
 import { StatRow } from "@/components/ui/StatRow";
@@ -72,12 +73,15 @@ export function StopsListPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-[var(--color-text)]">Stops on {route?.name ?? "this route"}</h2>
-        {canCreate && (
-          <Button onClick={() => navigate(`/transport/routes/${routeId}/stops/new`)}>
-            <Plus className="size-4" aria-hidden="true" />
-            New stop
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton path="/transport/stops/" params={filterParams} filename="transport_stops.csv" />
+          {canCreate && (
+            <Button onClick={() => navigate(`/transport/routes/${routeId}/stops/new`)}>
+              <Plus className="size-4" aria-hidden="true" />
+              New stop
+            </Button>
+          )}
+        </div>
       </div>
 
       {stats && (

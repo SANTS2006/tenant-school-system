@@ -6,6 +6,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Select } from "@/components/ui/Select";
 import { FullPageSpinner, Spinner } from "@/components/ui/Spinner";
@@ -64,12 +65,15 @@ export function SalaryPaymentsListPage() {
             ))}
           </Select>
         </div>
-        {canCreate && (
-          <Button onClick={() => navigate("/salary/generate")}>
-            <Wand2 className="size-4" aria-hidden="true" />
-            Generate this month's payments
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton path="/salary/payments/" params={filterParams} filename="salary_payments.csv" />
+          {canCreate && (
+            <Button onClick={() => navigate("/salary/generate")}>
+              <Wand2 className="size-4" aria-hidden="true" />
+              Generate this month's payments
+            </Button>
+          )}
+        </div>
       </div>
 
       {isError && <Alert tone="danger">{(error as ApiError).message}</Alert>}
