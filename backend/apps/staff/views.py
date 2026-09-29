@@ -6,7 +6,9 @@ from rest_framework.response import Response
 from apps.audit.services import log_action
 from apps.authentication.emails import send_staff_terminated_email
 from apps.authentication.services import blacklist_all_outstanding_tokens
+from apps.authorization.models import Role
 from apps.authorization.permissions import require_permission
+from apps.authorization.services import set_user_roles
 from apps.common.views import TenantScopedModelViewSet
 from apps.tenants.services import get_current_school
 
@@ -22,6 +24,7 @@ _ACTION_SUFFIX = {
     "destroy": "delete",
     "enable": "update",
     "delete_permanently": "delete",
+    "roles": "update",
 }
 
 
@@ -161,6 +164,40 @@ class StaffViewSet(TenantScopedModelViewSet):
             severity="warning",
         )
         return _ok("Password reset to the school default.", default_password=default_password)
+
+    @action(detail=True, methods=["post"])
+    def roles(self, request, pk=None):
+        """Replaces this staff member's full set of held roles with `role_ids` — a multi-select
+        "manage roles" action (mirrors the Roles & Permissions module's own multi-select
+        assignment UI), not incremental add/remove calls. Lets one staff member hold several
+        roles at once (e.g. Teacher + Exams Director) and switch which one drives their sidebar
+        client-side — see frontend/src/features/auth/useAuth.ts's useActiveRole. Every id must
+        belong to this school; an unknown/foreign id 400s rather than being silently dropped.
+        """
+        staff = self.get_object()
+        role_ids = request.data.get("role_ids") or []
+        school = get_current_school()
+        roles = list(Role.objects.filter(id__in=role_ids, school=school))
+        if len(roles) != len(set(role_ids)):
+            return Response(
+                {
+                    "success": False,
+                    "message": "One or more roles were not found in your school.",
+                    "code": "VALIDATION_ERROR",
+                    "errors": [],
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        set_user_roles(user=staff.user, roles=roles, assigned_by=request.user)
+        log_action(
+            action="staff.roles_updated",
+            actor=request.user,
+            school=school,
+            entity_type="Staff",
+            entity_id=str(staff.pk),
+            after={"role_ids": [str(r.id) for r in roles]},
+        )
+        return _ok("Roles updated.", staff=StaffSerializer(staff, context={"request": request}).data)
 
     @action(detail=True, methods=["post"])
     def enable(self, request, pk=None):

@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from apps.authorization.models import UserRole
+
 from .models import Staff
 
 
@@ -8,6 +10,10 @@ class StaffSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source="user.email", read_only=True)
     photo = serializers.FileField(use_url=True, read_only=True)
     is_online = serializers.BooleanField(source="user.is_online", read_only=True)
+    # Read-only — managed entirely through StaffViewSet.roles (services.set_user_roles), never
+    # through this serializer's own update(), since "which roles this person holds" is a
+    # UserRole-table concern, not a plain Staff-model field.
+    roles = serializers.SerializerMethodField()
     # Write-only counterpart of `photo` above — `Staff.photo` is a read-only Python property
     # delegating to `user.photo`, so a plain `ModelSerializer.update()` can't assign through it;
     # `save()` below pops this and writes it onto the linked `User` explicitly instead.
@@ -19,10 +25,19 @@ class StaffSerializer(serializers.ModelSerializer):
         fields = [
             "id", "user", "full_name", "email", "photo", "photo_upload", "is_online", "staff_id",
             "department", "department_name", "job_title", "qualification", "hire_date",
-            "employment_status", "emergency_contact_name", "emergency_contact_phone",
+            "employment_status", "emergency_contact_name", "emergency_contact_phone", "roles",
             "created_at", "updated_at",
         ]
         read_only_fields = ["id", "employment_status", "created_at", "updated_at"]
+
+    def get_roles(self, obj):
+        # unscoped_objects — same reasoning as CurrentUserSerializer.get_roles: this reads
+        # through a reverse relation, not the tenant-scoped queryset this view's own
+        # get_queryset() already filtered, so it shouldn't depend on ambient tenant context.
+        return [
+            {"id": ur.role_id, "name": ur.role.name, "slug": ur.role.slug}
+            for ur in UserRole.unscoped_objects.filter(user_id=obj.user_id).select_related("role")
+        ]
 
     def validate_user(self, value):
         request = self.context["request"]

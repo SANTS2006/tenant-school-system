@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 
 import type { ApiError } from "@/lib/api-client";
-import type { ChangePasswordPayload, CurrentUser, UpdateProfilePayload } from "@/types/auth";
+import type { ChangePasswordPayload, CurrentUser, RoleSummary, UpdateProfilePayload } from "@/types/auth";
 
 import {
   beginTwoFactorSetup,
@@ -183,6 +183,70 @@ export function useHasRole(slug: string): boolean {
   return !!user?.roles.some((role) => role.slug === slug);
 }
 
+const ACTIVE_ROLE_STORAGE_PREFIX = "nts:active-role:";
+
+function activeRoleSlugQueryKey(userId: string) {
+  return ["auth", "active-role-slug", userId] as const;
+}
+
+/** A multi-role user's client-side "which hat am I wearing right now" choice — purely a
+ * per-viewer convenience (localStorage, keyed by user id so switching accounts on the same
+ * browser never leaks one user's choice into another's), never sent to or trusted by the
+ * backend: every request is still authorized against the full union of every role the user
+ * holds regardless of this (see CurrentUser.permissions vs. RoleSummary.permissions). Used only
+ * to declutter the sidebar (isNavItemVisible) for someone holding several roles at once.
+ * `activeRole` is always `null` for a 0-1-role user — there's nothing to switch between.
+ *
+ * Backed by the React Query cache (the same trick `useCurrentUser` relies on), not a plain
+ * `useState` — this hook is called from more than one component at once (UserMenu's switcher,
+ * AppShell's sidebar filter), and a plain local `useState` per call site would leave each
+ * instance with its own disconnected copy: switching roles in the menu would relabel the header
+ * but never actually re-filter the sidebar, since AppShell's own state never heard about the
+ * change. `setQueryData` updates every subscriber to this key synchronously, the same way
+ * logging in updates every `useCurrentUser()` call site at once. */
+export function useActiveRole(): { activeRole: RoleSummary | null; setActiveRoleSlug: (slug: string | null) => void } {
+  const { data: user } = useCurrentUser();
+  const queryClient = useQueryClient();
+  const queryKey = activeRoleSlugQueryKey(user?.id ?? "anonymous");
+
+  const { data: slug = null } = useQuery<string | null>({
+    queryKey,
+    queryFn: () => {
+      if (!user) return null;
+      try {
+        return localStorage.getItem(`${ACTIVE_ROLE_STORAGE_PREFIX}${user.id}`);
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!user,
+    staleTime: Infinity, // only ever changes via setActiveRoleSlug below, never a background refetch
+  });
+
+  const setActiveRoleSlug = useCallback(
+    (newSlug: string | null) => {
+      if (!user) return;
+      queryClient.setQueryData(activeRoleSlugQueryKey(user.id), newSlug);
+      try {
+        const key = `${ACTIVE_ROLE_STORAGE_PREFIX}${user.id}`;
+        if (newSlug) {
+          localStorage.setItem(key, newSlug);
+        } else {
+          localStorage.removeItem(key);
+        }
+      } catch {
+        // Private window / blocked storage — the choice just won't survive a reload.
+      }
+    },
+    [user, queryClient],
+  );
+
+  const activeRole =
+    (user?.roles.length ?? 0) > 1 ? (user?.roles.find((role) => role.slug === slug) ?? null) : null;
+
+  return { activeRole, setActiveRoleSlug };
+}
+
 /** Layers a self-service identity check on top of `userHasPermission` — some nav items (My
  * Transcript, My Lessons, etc.) are meant only for student portal accounts, which hold zero RBAC
  * permissions and so can't be gated by a permission code at all (see `is_student` on
@@ -199,11 +263,26 @@ export function isNavItemVisible(
     /** When set, only accounts holding one of these role slugs see the item. */
     showForRoles?: string[];
   },
+  /** The role switcher's current pick (useActiveRole) — when given, both the role-slug checks
+   * and the permission check are scoped to just this one role instead of everything the user
+   * holds, so the sidebar reads as if this were their only role. Purely cosmetic: omitting this
+   * (or a 0-1-role user, for whom useActiveRole always returns null) falls back to the original
+   * full-membership behavior, and the backend never sees or trusts this choice either way. */
+  activeRole?: RoleSummary | null,
 ): boolean {
-  const roleSlugs = user?.roles?.map((role) => role.slug) ?? [];
+  const roleSlugs = activeRole ? [activeRole.slug] : (user?.roles?.map((role) => role.slug) ?? []);
   if (item.hideForRoles?.some((slug) => roleSlugs.includes(slug))) return false;
   if (item.showForRoles && !item.showForRoles.some((slug) => roleSlugs.includes(slug))) return false;
-  if (!userHasPermission(user, item.permission)) return false;
+
+  if (activeRole) {
+    const codes = item.permission ? (Array.isArray(item.permission) ? item.permission : [item.permission]) : [];
+    if (codes.length > 0 && !(user?.is_platform_admin || codes.some((c) => activeRole.permissions.includes(c)))) {
+      return false;
+    }
+  } else if (!userHasPermission(user, item.permission)) {
+    return false;
+  }
+
   if (item.selfServiceFor === "student" && !user?.is_student) return false;
   if (item.selfServiceFor === "staff" && !user?.is_staff_member) return false;
   if (item.selfServiceFor === "student-or-staff" && !(user?.is_student || user?.is_staff_member)) return false;

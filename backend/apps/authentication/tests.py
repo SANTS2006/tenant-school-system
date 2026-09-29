@@ -80,6 +80,38 @@ class TestMe:
         assert "education.create" in response.data["user"]["permissions"]  # Teacher's own module
         assert "fees.view" not in response.data["user"]["permissions"]  # accountant-only
 
+    def test_multi_role_user_lists_every_role_with_its_own_permissions(self, api_client):
+        """A role's own `permissions` (per role, in the `roles` list) is what the frontend's
+        role switcher uses to filter the sidebar down to one role's view — distinct from the
+        flat cross-role union at `user.permissions`, which stays the same regardless of which
+        role is "active" (switching is purely cosmetic; see CurrentUserSerializer.get_roles)."""
+        seed_permission_catalog()
+        school = SchoolFactory()
+        seed_default_roles_for_school(school)
+        user = UserFactory(school=school)
+
+        from apps.authorization.models import Role
+        from apps.authorization.services import assign_role
+
+        teacher_role = Role.unscoped_objects.get(school=school, slug="teacher")
+        accountant_role = Role.unscoped_objects.get(school=school, slug="accountant")
+        assign_role(user=user, role=teacher_role)
+        assign_role(user=user, role=accountant_role)
+
+        _login(api_client, user.email)
+        response = api_client.get("/api/v1/auth/me/")
+
+        assert response.status_code == 200
+        roles_by_slug = {r["slug"]: r for r in response.data["user"]["roles"]}
+        assert set(roles_by_slug) == {"teacher", "accountant"}
+        assert "education.create" in roles_by_slug["teacher"]["permissions"]
+        assert "fees.view" not in roles_by_slug["teacher"]["permissions"]
+        assert "fees.view" in roles_by_slug["accountant"]["permissions"]
+        assert "education.create" not in roles_by_slug["accountant"]["permissions"]
+        # The flat union at user-level still has both, unaffected by any "active" role.
+        assert "education.create" in response.data["user"]["permissions"]
+        assert "fees.view" in response.data["user"]["permissions"]
+
 
 class TestCsrf:
     def test_unsafe_request_without_csrf_header_is_rejected(self, csrf_api_client):

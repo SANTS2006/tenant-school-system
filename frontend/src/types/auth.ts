@@ -9,6 +9,11 @@ export interface RoleSummary {
   id: string;
   name: string;
   slug: string;
+  /** This role's own granted permission codes — distinct from CurrentUser.permissions (the
+   * flat union across every role the user holds). Powers the role switcher's sidebar filtering
+   * (useActiveRole) without touching what the backend actually authorizes, which always stays
+   * the full union regardless of which role is "active" client-side. */
+  permissions: string[];
 }
 
 export interface CurrentUser {

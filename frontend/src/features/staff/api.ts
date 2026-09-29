@@ -77,3 +77,10 @@ export async function resetStaffPassword(id: string): Promise<string> {
   const { data } = await apiClient.post<{ default_password: string }>(`/staff/${id}/reset-password/`);
   return data.default_password;
 }
+
+/** Replaces this staff member's full set of held roles with `roleIds` — a multi-select "manage
+ * roles" call, not incremental add/remove (see apps.staff.views.StaffViewSet.roles). */
+export async function setStaffRoles(id: string, roleIds: string[]): Promise<Staff> {
+  const { data } = await apiClient.post<{ staff: Staff }>(`/staff/${id}/roles/`, { role_ids: roleIds });
+  return data.staff;
+}

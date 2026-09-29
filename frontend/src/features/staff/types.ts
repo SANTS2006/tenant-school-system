@@ -22,6 +22,7 @@ export interface Staff {
   employment_status: EmploymentStatus;
   emergency_contact_name: string;
   emergency_contact_phone: string;
+  roles: { id: string; name: string; slug: string }[];
   created_at: string;
   updated_at: string;
 }

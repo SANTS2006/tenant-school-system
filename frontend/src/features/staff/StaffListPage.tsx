@@ -1,4 +1,4 @@
-import { CheckCircle2, KeyRound, Plus, RotateCcw, Search, Trash2, Users, UserX } from "lucide-react";
+import { CheckCircle2, KeyRound, Plus, RotateCcw, Search, Trash2, UserCog, Users, UserX } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -32,7 +32,8 @@ import { useSummaryStats } from "@/hooks/useSummaryStats";
 import type { ApiError } from "@/lib/api-client";
 
 import { employmentStatusTone } from "./employmentStatusTone";
-import type { EmploymentStatus } from "./types";
+import { ManageRolesModal } from "./ManageRolesModal";
+import type { EmploymentStatus, Staff } from "./types";
 import {
   useDeleteStaffPermanently,
   useReactivateStaff,
@@ -77,6 +78,7 @@ export function StaffListPage() {
   const reactivateStaff = useReactivateStaff();
   const resetPassword = useResetStaffPassword();
   const deletePermanently = useDeleteStaffPermanently();
+  const [managingRolesFor, setManagingRolesFor] = useState<Staff | null>(null);
 
   const handleTerminate = async (id: string, name: string) => {
     const ok = await confirm({
@@ -244,6 +246,20 @@ export function StaffListPage() {
                   {(canUpdate || canDelete || canResetPassword) && (
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
+                        {canUpdate && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setManagingRolesFor(member);
+                            }}
+                            aria-label={`Manage ${member.full_name}'s roles`}
+                            title="Manage roles"
+                            className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-primary)]"
+                          >
+                            <UserCog className="size-4" aria-hidden="true" />
+                          </button>
+                        )}
                         {canResetPassword && (
                           <button
                             type="button"
@@ -319,6 +335,12 @@ export function StaffListPage() {
           <Spinner />
         </div>
       )}
+
+      <ManageRolesModal
+        open={!!managingRolesFor}
+        onClose={() => setManagingRolesFor(null)}
+        staff={managingRolesFor}
+      />
     </div>
   );
 }

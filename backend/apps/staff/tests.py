@@ -171,3 +171,85 @@ class TestStaffPermanentDelete:
         response = api_client.post(f"/api/v1/staff/{staff.id}/delete-permanently/")
         assert response.status_code == 409
         assert Staff.unscoped_objects.filter(pk=staff.pk).exists()
+
+
+class TestStaffRoles:
+    def test_can_set_multiple_roles_at_once(self, api_client):
+        from apps.authorization.models import UserRole
+
+        school, principal = _principal()
+        staff = StaffFactory(school=school)
+        teacher_role = Role.unscoped_objects.get(school=school, slug="teacher")
+        exams_director_role = Role.unscoped_objects.get(school=school, slug="exams-director")
+        _login(api_client, principal)
+
+        response = api_client.post(
+            f"/api/v1/staff/{staff.id}/roles/",
+            {"role_ids": [str(teacher_role.id), str(exams_director_role.id)]},
+            format="json",
+        )
+
+        assert response.status_code == 200, response.data
+        held_slugs = set(
+            UserRole.unscoped_objects.filter(user=staff.user).values_list("role__slug", flat=True)
+        )
+        assert held_slugs == {"teacher", "exams-director"}
+        assert {r["slug"] for r in response.data["staff"]["roles"]} == {"teacher", "exams-director"}
+
+    def test_removes_roles_no_longer_included(self, api_client):
+        from apps.authorization.models import UserRole
+        from apps.authorization.services import assign_role
+
+        school, principal = _principal()
+        staff = StaffFactory(school=school)
+        teacher_role = Role.unscoped_objects.get(school=school, slug="teacher")
+        accountant_role = Role.unscoped_objects.get(school=school, slug="accountant")
+        assign_role(user=staff.user, role=teacher_role)
+        assign_role(user=staff.user, role=accountant_role)
+        _login(api_client, principal)
+
+        response = api_client.post(
+            f"/api/v1/staff/{staff.id}/roles/", {"role_ids": [str(teacher_role.id)]}, format="json"
+        )
+
+        assert response.status_code == 200
+        held_slugs = set(
+            UserRole.unscoped_objects.filter(user=staff.user).values_list("role__slug", flat=True)
+        )
+        assert held_slugs == {"teacher"}
+
+    def test_empty_role_ids_clears_every_role(self, api_client):
+        from apps.authorization.models import UserRole
+        from apps.authorization.services import assign_role
+
+        school, principal = _principal()
+        staff = StaffFactory(school=school)
+        assign_role(user=staff.user, role=Role.unscoped_objects.get(school=school, slug="teacher"))
+        _login(api_client, principal)
+
+        response = api_client.post(f"/api/v1/staff/{staff.id}/roles/", {"role_ids": []}, format="json")
+
+        assert response.status_code == 200
+        assert not UserRole.unscoped_objects.filter(user=staff.user).exists()
+
+    def test_rejects_a_role_from_another_school(self, api_client):
+        school, principal = _principal()
+        other_school, _ = _principal()
+        staff = StaffFactory(school=school)
+        foreign_role = Role.unscoped_objects.get(school=other_school, slug="teacher")
+        _login(api_client, principal)
+
+        response = api_client.post(
+            f"/api/v1/staff/{staff.id}/roles/", {"role_ids": [str(foreign_role.id)]}, format="json"
+        )
+        assert response.status_code == 400
+
+    def test_teacher_without_permission_cannot_manage_roles(self, api_client):
+        school, _ = _principal()
+        staff = StaffFactory(school=school)
+        teacher_user = UserFactory(school=school)
+        assign_role(user=teacher_user, role=Role.unscoped_objects.get(school=school, slug="teacher"))
+        _login(api_client, teacher_user)
+
+        response = api_client.post(f"/api/v1/staff/{staff.id}/roles/", {"role_ids": []}, format="json")
+        assert response.status_code == 403

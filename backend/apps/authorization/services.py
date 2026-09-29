@@ -153,3 +153,30 @@ def assign_role(*, user, role, assigned_by=None):
         role=role,
         defaults={"assigned_by": assigned_by},
     )
+
+
+def unassign_role(*, user, role):
+    """The `assign_role` counterpart — removes a single role from a user, a no-op if they didn't
+    hold it. `unscoped_objects` for the same reason as `assign_role`: safe to call from both
+    request-scoped views and no-ambient-context management commands/services."""
+    UserRole.unscoped_objects.filter(user=user, role=role).delete()
+
+
+@transaction.atomic
+def set_user_roles(*, user, roles, assigned_by=None):
+    """Replaces a user's full set of held roles with exactly `roles` (an iterable of Role
+    instances, all already confirmed to belong to `user.school`) — adds whatever's newly
+    included via `assign_role`, removes whatever's no longer included via `unassign_role`. The
+    higher-level primitive behind the staff "manage roles" multi-select UI; `assign_role`/
+    `unassign_role` remain the right calls for a single add/remove elsewhere (e.g. invite-time,
+    where a brand-new user has no prior roles to reconcile against)."""
+    desired = {role.id: role for role in roles}
+    current_ids = set(UserRole.unscoped_objects.filter(user=user).values_list("role_id", flat=True))
+
+    for role_id, role in desired.items():
+        if role_id not in current_ids:
+            assign_role(user=user, role=role, assigned_by=assigned_by)
+
+    stale_ids = current_ids - set(desired.keys())
+    if stale_ids:
+        UserRole.unscoped_objects.filter(user=user, role_id__in=stale_ids).delete()

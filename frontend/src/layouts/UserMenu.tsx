@@ -1,14 +1,15 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, LogOut, Settings } from "lucide-react";
+import { Check, ChevronDown, LogOut, Settings, UserCog } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Avatar } from "@/components/ui/Avatar";
-import { useCurrentUser, useLogout } from "@/features/auth/useAuth";
+import { useActiveRole, useCurrentUser, useLogout } from "@/features/auth/useAuth";
 import type { CurrentUser } from "@/types/auth";
 import { cn } from "@/lib/cn";
 
-function roleLabel(user: CurrentUser): string | null {
+function roleLabel(user: CurrentUser, activeRoleName?: string): string | null {
+  if (activeRoleName) return activeRoleName;
   if (user.roles.length > 0) return user.roles.map((role) => role.name).join(" / ");
   if (user.is_platform_admin) return "Platform Administrator";
   return null;
@@ -18,6 +19,7 @@ export function UserMenu() {
   const { data: user } = useCurrentUser();
   const logout = useLogout();
   const navigate = useNavigate();
+  const { activeRole, setActiveRoleSlug } = useActiveRole();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -45,7 +47,8 @@ export function UserMenu() {
     return null;
   }
 
-  const role = roleLabel(user);
+  const role = roleLabel(user, activeRole?.name);
+  const canSwitchRoles = user.roles.length > 1;
 
   const handleLogout = () => {
     setIsOpen(false);
@@ -93,6 +96,35 @@ export function UserMenu() {
               <p className="truncate text-xs text-[var(--color-text-muted)]">{user.email}</p>
               {role && <p className="mt-1 truncate text-xs text-[var(--color-text-muted)]">{role}</p>}
             </div>
+            {canSwitchRoles && (
+              <div className="border-b border-[var(--color-border)] p-1.5">
+                <p className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
+                  <UserCog className="size-3.5" aria-hidden="true" />
+                  Switch role
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveRoleSlug(null)}
+                  className="flex w-full items-center justify-between gap-2 rounded-[var(--radius-md)] px-3 py-2 text-sm text-[var(--color-text)] transition-colors duration-200 hover:bg-[var(--color-bg-subtle)]"
+                >
+                  All roles
+                  {!activeRole && <Check className="size-4 text-[var(--color-primary)]" aria-hidden="true" />}
+                </button>
+                {user.roles.map((userRole) => (
+                  <button
+                    key={userRole.id}
+                    type="button"
+                    onClick={() => setActiveRoleSlug(userRole.slug)}
+                    className="flex w-full items-center justify-between gap-2 rounded-[var(--radius-md)] px-3 py-2 text-sm text-[var(--color-text)] transition-colors duration-200 hover:bg-[var(--color-bg-subtle)]"
+                  >
+                    <span className="truncate">{userRole.name}</span>
+                    {activeRole?.slug === userRole.slug && (
+                      <Check className="size-4 shrink-0 text-[var(--color-primary)]" aria-hidden="true" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="flex flex-col p-1.5">
               <button
                 type="button"

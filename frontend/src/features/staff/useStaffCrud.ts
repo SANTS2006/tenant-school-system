@@ -9,6 +9,7 @@ import {
   getStaff,
   reactivateStaff,
   resetStaffPassword,
+  setStaffRoles,
   terminateStaff,
   updateStaff,
 } from "./api";
@@ -86,5 +87,15 @@ export function useDeleteStaffPermanently() {
 export function useResetStaffPassword() {
   return useMutation<string, ApiError, string>({
     mutationFn: resetStaffPassword,
+  });
+}
+
+export function useSetStaffRoles() {
+  const queryClient = useQueryClient();
+  return useMutation<Staff, ApiError, { id: string; roleIds: string[] }>({
+    mutationFn: ({ id, roleIds }) => setStaffRoles(id, roleIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["staff"] });
+    },
   });
 }

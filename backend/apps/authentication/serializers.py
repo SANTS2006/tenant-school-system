@@ -67,8 +67,17 @@ class CurrentUserSerializer(serializers.Serializer):
         # explicitly by `user=user` is correct regardless of request context, exactly like
         # `get_permissions` above already does — never rely on ambient tenant scoping in a
         # serializer that may be built from a not-yet-authenticated request.
+        # Each role's own permission codes (not the flat cross-role union `permissions` above) —
+        # lets the frontend's role switcher (useActiveRole) filter the sidebar down to exactly
+        # what one held role alone would grant, purely cosmetic: the backend still authorizes
+        # every request against the full union regardless of which role is "active" client-side.
         return [
-            {"id": ur.role_id, "name": ur.role.name, "slug": ur.role.slug}
+            {
+                "id": ur.role_id,
+                "name": ur.role.name,
+                "slug": ur.role.slug,
+                "permissions": sorted(ur.role.permissions.values_list("code", flat=True)),
+            }
             for ur in UserRole.unscoped_objects.filter(user=user).select_related("role")
         ]
 

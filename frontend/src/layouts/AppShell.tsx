@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { isNavItemVisible, useCurrentUser } from "@/features/auth/useAuth";
+import { isNavItemVisible, useActiveRole, useCurrentUser } from "@/features/auth/useAuth";
 import { NotificationBell } from "@/features/notifications/NotificationBell";
 import { useActingSchool } from "@/hooks/useActingSchool";
 import { clearActingSchool } from "@/lib/actingSchool";
@@ -170,6 +170,7 @@ function SidebarContent({
 
 export function AppShell() {
   const { data: user } = useCurrentUser();
+  const { activeRole } = useActiveRole();
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const actingSchool = useActingSchool();
   const navigate = useNavigate();
@@ -188,9 +189,9 @@ export function AppShell() {
 
   const schoolName = actingSchool?.name ?? user?.school?.name ?? "NTS School System";
   const schoolLogo = user?.school?.logo;
-  const navItems = NAV_CONFIG.filter((item) => isNavItemVisible(user, item)).map((item) => ({
+  const navItems = NAV_CONFIG.filter((item) => isNavItemVisible(user, item, activeRole)).map((item) => ({
     ...item,
-    children: item.children?.filter((child) => isNavItemVisible(user, child)),
+    children: item.children?.filter((child) => isNavItemVisible(user, child, activeRole)),
   }));
 
   return (
