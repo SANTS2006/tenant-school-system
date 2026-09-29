@@ -104,6 +104,7 @@ export const NAV_CONFIG: NavItem[] = [
     permission: "timetable.view",
     children: [
       { to: "/timetable/schedule", label: "Schedule" },
+      { to: "/timetable/build", label: "Build timetable", permission: "timetable.create" },
       { to: "/timetable/periods", label: "Periods" },
       { to: "/timetable/rooms", label: "Rooms" },
     ],

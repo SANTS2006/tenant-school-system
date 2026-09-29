@@ -137,8 +137,10 @@ export function BuildTimetablePage() {
         onSuccess: (result) => {
           showToast({
             title: `${result.created.length} lesson${result.created.length === 1 ? "" : "s"} copied`,
-            description: result.skipped.length > 0 ? `${result.skipped.length} skipped due to conflicts.` : undefined,
-            tone: result.skipped.length > 0 ? "warning" : "success",
+            description:
+              result.skipped.length > 0
+                ? `${result.skipped.length} skipped — the target section already had a lesson in that slot.`
+                : undefined,
           });
           setCopyFromSection("");
         },
@@ -186,8 +188,10 @@ export function BuildTimetablePage() {
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               <p className="text-sm text-[var(--color-text-muted)]">
-                Already built another section's timetable? Copy its whole week here — any slot that would
-                double-book a teacher or room is skipped rather than overwritten.
+                Already built another section's timetable? Copy its day/period/subject grid here — a parallel
+                section happens at the same time, so teacher and room are left for you to assign per section
+                below rather than copied. A slot the target section already has filled is skipped unless you
+                choose to replace it.
               </p>
               <div className="flex flex-wrap items-end gap-3">
                 <div className="w-full max-w-xs">

@@ -87,6 +87,22 @@ class TestTimetableEntryCreate:
         )
         assert response.status_code == 403
 
+    def test_cannot_schedule_a_lesson_for_a_section_in_an_archived_year(self, api_client):
+        from tests.factories import AcademicYearFactory
+
+        school, principal = _principal()
+        year = AcademicYearFactory(school=school, is_current=False, is_archived=True)
+        section = SectionFactory(school=school, academic_year=year)
+        period = PeriodFactory(school=school)
+        _login(api_client, principal)
+
+        response = api_client.post(
+            "/api/v1/timetable/entries/",
+            {"section": str(section.id), "day_of_week": "monday", "period": str(period.id)},
+            format="json",
+        )
+        assert response.status_code == 400
+
 
 class TestConflictPrevention:
     def test_cannot_double_book_same_section_day_period(self, api_client):
@@ -230,7 +246,7 @@ class TestBulkCreate:
         )
         assert response.status_code == 201
         assert len(response.data) == 2
-        assert TimetableEntry.objects.filter(section=section).count() == 2
+        assert TimetableEntry.unscoped_objects.filter(section=section).count() == 2
 
     def test_rejects_whole_batch_if_any_row_conflicts_with_existing_entry(self, api_client):
         school, principal = _principal()
@@ -253,7 +269,7 @@ class TestBulkCreate:
         assert response.status_code == 400
         assert any(e["field"] == "entries[0].section" for e in response.data["errors"])
         # Nothing committed — the second (otherwise-valid) row must not have been saved either.
-        assert TimetableEntry.objects.filter(section=section, period=period_b).count() == 0
+        assert TimetableEntry.unscoped_objects.filter(section=section, period=period_b).count() == 0
 
     def test_rejects_two_rows_in_the_same_batch_double_booking_a_teacher(self, api_client):
         school, principal = _principal()
@@ -284,7 +300,7 @@ class TestBulkCreate:
             format="json",
         )
         assert response.status_code == 400
-        assert TimetableEntry.objects.filter(teacher=teacher).count() == 0
+        assert TimetableEntry.unscoped_objects.filter(teacher=teacher).count() == 0
 
     def test_teacher_without_permission_cannot_bulk_create(self, api_client):
         school, _ = _principal()
@@ -307,7 +323,17 @@ class TestCopySection:
         school, principal = _principal()
         from_section = SectionFactory(school=school)
         to_section = SectionFactory(school=school)
-        TimetableEntryFactory(school=school, section=from_section, day_of_week="monday")
+        period = PeriodFactory(school=school)
+        teacher = StaffFactory(school=school)
+        room = RoomFactory(school=school)
+        TimetableEntryFactory(
+            school=school,
+            section=from_section,
+            period=period,
+            day_of_week="monday",
+            teacher=teacher,
+            room=room,
+        )
         _login(api_client, principal)
 
         response = api_client.post(
@@ -318,23 +344,23 @@ class TestCopySection:
         assert response.status_code == 201
         assert len(response.data["created"]) == 1
         assert response.data["skipped"] == []
-        assert TimetableEntry.objects.filter(section=to_section).count() == 1
+        copied = TimetableEntry.unscoped_objects.get(section=to_section)
+        # Teacher/room are deliberately dropped, not copied — a parallel section's lesson
+        # happens at the exact same day/period as the source, so it can never share the
+        # source's teacher or room (that's a guaranteed unique_*_day_period conflict); only the
+        # subject and slot make sense to carry over.
+        assert copied.teacher_id is None
+        assert copied.room_id is None
 
-    def test_skips_rows_that_would_double_book_a_shared_teacher(self, api_client):
+    def test_skips_a_slot_the_target_section_already_has_filled(self, api_client):
         school, principal = _principal()
         from_section = SectionFactory(school=school)
         to_section = SectionFactory(school=school)
         period = PeriodFactory(school=school)
-        teacher = StaffFactory(school=school)
-        TimetableEntryFactory(
-            school=school, section=from_section, period=period, day_of_week="monday", teacher=teacher
-        )
-        # The target section's own class already has this same teacher booked in the same slot
-        # for a different section — copying must skip that row rather than double-book them.
-        other_target_section = SectionFactory(school=school)
-        TimetableEntryFactory(
-            school=school, section=other_target_section, period=period, day_of_week="monday", teacher=teacher
-        )
+        TimetableEntryFactory(school=school, section=from_section, period=period, day_of_week="monday")
+        # The target section already has its own lesson in this exact slot — copying must skip
+        # it (report it back as skipped) rather than silently overwriting it.
+        existing = TimetableEntryFactory(school=school, section=to_section, period=period, day_of_week="monday")
         _login(api_client, principal)
 
         response = api_client.post(
@@ -345,7 +371,7 @@ class TestCopySection:
         assert response.status_code == 201
         assert response.data["created"] == []
         assert len(response.data["skipped"]) == 1
-        assert TimetableEntry.objects.filter(section=to_section).count() == 0
+        assert TimetableEntry.unscoped_objects.filter(pk=existing.pk).exists()
 
     def test_replace_clears_target_section_first(self, api_client):
         school, principal = _principal()
@@ -361,8 +387,8 @@ class TestCopySection:
             format="json",
         )
         assert response.status_code == 201
-        assert not TimetableEntry.objects.filter(pk=stale_entry.pk).exists()
-        assert TimetableEntry.objects.filter(section=to_section).count() == 1
+        assert not TimetableEntry.unscoped_objects.filter(pk=stale_entry.pk).exists()
+        assert TimetableEntry.unscoped_objects.filter(section=to_section).count() == 1
 
 
 class TestMyTimetable:

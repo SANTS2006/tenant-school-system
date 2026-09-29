@@ -154,11 +154,15 @@ class TimetableEntryViewSet(TimetableModelViewSet):
     @action(detail=False, methods=["post"], url_path="copy")
     def copy_section(self, request):
         """
-        Copies one section's whole week to another section — the fast path for schools where
-        parallel sections of the same class share most of their timetable. Each row still goes
-        through the normal conflict check against the target section's existing entries (and any
-        teacher/room already booked elsewhere), so a clash is reported and skipped rather than
-        silently overwriting or crashing the whole copy.
+        Copies one section's weekly subject grid to another section — the fast path for schools
+        where parallel sections of the same class share the same day/period/subject layout.
+        Teacher and room are deliberately NOT copied: they're a `unique_*_day_period` constraint
+        away from a guaranteed conflict, since the source section's own row still occupies that
+        exact teacher/room at that exact day and period — a parallel section's lesson happens at
+        the same time as the original, so it can never share the same teacher or room, only the
+        same subject and slot. The target's teacher/room are left unset for the admin to assign
+        per section (via the builder or a single-entry edit). A day/period the target section
+        already has filled is reported as skipped rather than overwritten, unless `replace`.
         """
         from_section_id = request.data.get("from_section")
         to_section_id = request.data.get("to_section")
@@ -189,8 +193,6 @@ class TimetableEntryViewSet(TimetableModelViewSet):
                         "day_of_week": entry.day_of_week,
                         "period": entry.period_id,
                         "subject": entry.subject_id,
-                        "teacher": entry.teacher_id,
-                        "room": entry.room_id,
                     },
                     context={"request": request},
                 )

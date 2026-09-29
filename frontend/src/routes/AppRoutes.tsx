@@ -81,6 +81,7 @@ import { MyLessonsPage } from "@/features/education/MyLessonsPage";
 import { MyDisciplinePage } from "@/features/discipline/MyDisciplinePage";
 import { MyMedicalPage } from "@/features/medical/MyMedicalPage";
 import { MyTransportPage } from "@/features/transport/MyTransportPage";
+import { BuildTimetablePage } from "@/features/timetable/BuildTimetablePage";
 import { MyTimetablePage } from "@/features/timetable/MyTimetablePage";
 import { MyDocumentsPage } from "@/features/documents/MyDocumentsPage";
 import { EventDetailPage } from "@/features/events/EventDetailPage";
@@ -452,6 +453,7 @@ export function AppRoutes() {
           <Route path="/timetable" element={<TimetableLayout />}>
             <Route index element={<Navigate to="schedule" replace />} />
             <Route path="schedule" element={<TimetableGridPage />} />
+            <Route path="build" element={<BuildTimetablePage />} />
             <Route path="entries/new" element={<TimetableEntryFormPage />} />
             <Route path="entries/:id/edit" element={<TimetableEntryFormPage />} />
             <Route path="periods" element={<PeriodsListPage />} />

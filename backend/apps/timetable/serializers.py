@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from apps.academics.services import assert_year_not_archived
+
 from .models import Period, Room, TimetableEntry
 
 
@@ -119,6 +121,12 @@ class TimetableEntrySerializer(serializers.ModelSerializer):
         period = attrs.get("period", getattr(self.instance, "period", None))
         teacher = attrs.get("teacher", getattr(self.instance, "teacher", None))
         room = attrs.get("room", getattr(self.instance, "room", None))
+
+        if section is not None:
+            try:
+                assert_year_not_archived(section.academic_year)
+            except ValueError as exc:
+                raise serializers.ValidationError({"section": str(exc)}) from exc
 
         qs = TimetableEntry.objects.filter(day_of_week=day, period=period)
         if self.instance is not None:

@@ -1,8 +1,9 @@
-import { Plus } from "lucide-react";
+import { Plus, Wand2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Select } from "@/components/ui/Select";
 import { FullPageSpinner } from "@/components/ui/Spinner";
@@ -88,15 +89,26 @@ export function TimetableGridPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="w-full max-w-sm">
-        <Select label="Section" value={sectionId} onChange={(e) => setSectionId(e.target.value)}>
-          <option value="">Choose a section to view its schedule</option>
-          {sections?.map((section) => (
-            <option key={section.id} value={section.id}>
-              {section.school_class_name} - {section.name} ({section.academic_year_name})
-            </option>
-          ))}
-        </Select>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="w-full max-w-sm">
+          <Select label="Section" value={sectionId} onChange={(e) => setSectionId(e.target.value)}>
+            <option value="">Choose a section to view its schedule</option>
+            {sections?.map((section) => (
+              <option key={section.id} value={section.id}>
+                {section.school_class_name} - {section.name} ({section.academic_year_name})
+              </option>
+            ))}
+          </Select>
+        </div>
+        {canCreate && (
+          <Button
+            variant="secondary"
+            onClick={() => navigate(sectionId ? `/timetable/build?section=${sectionId}` : "/timetable/build")}
+          >
+            <Wand2 className="size-4" aria-hidden="true" />
+            Build timetable
+          </Button>
+        )}
       </div>
 
       {!sectionId ? (
