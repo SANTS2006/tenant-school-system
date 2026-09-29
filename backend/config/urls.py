@@ -47,6 +47,7 @@ urlpatterns = [
     path("api/v1/", include("apps.education.urls")),
     path("api/v1/", include("apps.live_sessions.urls")),
     path("api/v1/admissions/", include("apps.admissions.urls")),
+    path("api/v1/quizzes/", include("apps.quizzes.urls")),
 ]
 
 # See ADMIN_URL in settings: never exposed at the guessable default path in production.
