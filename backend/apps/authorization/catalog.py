@@ -142,6 +142,9 @@ PERMISSION_CATALOG = [
     ("idcards.view", "View issued ID cards", "idcards"),
     ("idcards.create", "Issue ID cards to students and staff", "idcards"),
     ("idcards.update", "Revoke ID cards", "idcards"),
+    ("meetings.view", "View school-wide live meetings", "meetings"),
+    ("meetings.create", "Create live meetings and invite staff, parents and students", "meetings"),
+    ("meetings.update", "Start, end, cancel and resend invitations for live meetings", "meetings"),
 ]
 
 # Default role -> permission spec mapping used when seeding (and re-syncing) a school's system
@@ -169,7 +172,7 @@ DEFAULT_ROLE_PERMISSION_PREFIXES = {
             "staff.", "parents.", "academics.", "transport.", "hostel.", "medical.",
             "discipline.", "communications.", "documents.", "inventory.", "procurement.",
             "events.", "complaints.", "salary.", "reports.", "audit.", "examinations.", "records.",
-            "roles.", "permissions.", "admissions.", "idcards.",
+            "roles.", "permissions.", "admissions.", "idcards.", "meetings.",
             # view-only: student attendance is taken by teachers; an admin can see it but never
             # add/edit/delete a record directly (staff attendance is different — see
             # staff_attendance. above, which school-administrator manages in full).
