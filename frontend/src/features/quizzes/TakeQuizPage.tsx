@@ -19,7 +19,10 @@ const MAX_VIOLATIONS = 3;
 function enterFullscreen(): Promise<void> {
   const el = document.documentElement;
   if (!el.requestFullscreen) return Promise.resolve();
-  return el.requestFullscreen().catch(() => undefined);
+  // Some embedded webviews never settle this promise; don't let that block starting the quiz.
+  const settled = el.requestFullscreen().catch(() => undefined);
+  const timeout = new Promise<void>((resolve) => window.setTimeout(resolve, 1500));
+  return Promise.race([settled, timeout]);
 }
 
 function exitFullscreen() {
