@@ -165,6 +165,11 @@ import { LiveSessionsListPage } from "@/features/live-sessions/LiveSessionsListP
 import { MyLiveSessionsPage } from "@/features/live-sessions/MyLiveSessionsPage";
 import { IdCardsPage } from "@/features/idcards/IdCardsPage";
 import { MyIdCardPage } from "@/features/idcards/MyIdCardPage";
+import { MeetingDetailPage } from "@/features/meetings/MeetingDetailPage";
+import { MeetingFormPage } from "@/features/meetings/MeetingFormPage";
+import { MeetingRoomPage } from "@/features/meetings/MeetingRoomPage";
+import { MeetingsListPage } from "@/features/meetings/MeetingsListPage";
+import { MyMeetingsPage } from "@/features/meetings/MyMeetingsPage";
 import { PublicVerifyCardPage } from "@/features/idcards/PublicVerifyCardPage";
 import { MyQuizzesPage } from "@/features/quizzes/MyQuizzesPage";
 import { QuizResultsPage } from "@/features/quizzes/QuizResultsPage";
@@ -302,6 +307,11 @@ export function AppRoutes() {
 
           <Route path="/audit" element={<AuditLogsListPage />} />
           <Route path="/audit/:id" element={<AuditLogDetailPage />} />
+          <Route path="/meetings" element={<MeetingsListPage />} />
+          <Route path="/meetings/new" element={<MeetingFormPage />} />
+          <Route path="/meetings/:id" element={<MeetingDetailPage />} />
+          <Route path="/meetings/:id/room" element={<MeetingRoomPage />} />
+          <Route path="/my-meetings" element={<MyMeetingsPage />} />
           <Route path="/idcards" element={<IdCardsPage />} />
           <Route path="/my-id-card" element={<MyIdCardPage />} />
           <Route path="/admissions/applications" element={<ApplicationsListPage />} />

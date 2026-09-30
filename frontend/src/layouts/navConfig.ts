@@ -23,6 +23,7 @@ import {
   MessageSquareWarning,
   NotebookText,
   Package,
+  Presentation,
   Settings,
   ShieldCheck,
   ShieldAlert,
@@ -70,6 +71,7 @@ export const NAV_CONFIG: NavItem[] = [
   { to: "/my-live-sessions", label: "Live Sessions", icon: Video, selfServiceFor: "student" },
   { to: "/my-quizzes", label: "Quizzes", icon: FileQuestion, selfServiceFor: "student" },
   { to: "/my-id-card", label: "My ID card", icon: IdCard, selfServiceFor: "student-or-staff" },
+  { to: "/my-meetings", label: "My meetings", icon: Presentation, selfServiceFor: "student-or-staff" },
   { to: "/my-results", label: "Results", icon: Award, selfServiceFor: "student" },
   { to: "/my-graduation-status", label: "Graduation Status", icon: GraduationCap, selfServiceFor: "student" },
   { to: "/my-attendance", label: "My Attendance", icon: CalendarCheck, selfServiceFor: "student" },
@@ -286,6 +288,7 @@ export const NAV_CONFIG: NavItem[] = [
   { to: "/audit", label: "Audit log", icon: History, permission: "audit.view" },
   { to: "/admissions/applications", label: "Applications", icon: ClipboardList, permission: "admissions.view" },
   { to: "/idcards", label: "ID cards", icon: IdCard, permission: "idcards.view" },
+  { to: "/meetings", label: "Live meetings", icon: Presentation, permission: "meetings.view" },
   {
     to: "/reports",
     label: "Reports",
