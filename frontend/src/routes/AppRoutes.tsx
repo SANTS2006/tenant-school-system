@@ -163,6 +163,9 @@ import { LiveSessionFormPage } from "@/features/live-sessions/LiveSessionFormPag
 import { LiveSessionRoomPage } from "@/features/live-sessions/LiveSessionRoomPage";
 import { LiveSessionsListPage } from "@/features/live-sessions/LiveSessionsListPage";
 import { MyLiveSessionsPage } from "@/features/live-sessions/MyLiveSessionsPage";
+import { IdCardsPage } from "@/features/idcards/IdCardsPage";
+import { MyIdCardPage } from "@/features/idcards/MyIdCardPage";
+import { PublicVerifyCardPage } from "@/features/idcards/PublicVerifyCardPage";
 import { MyQuizzesPage } from "@/features/quizzes/MyQuizzesPage";
 import { QuizResultsPage } from "@/features/quizzes/QuizResultsPage";
 import { SubjectOfferingQuizzesPage } from "@/features/quizzes/SubjectOfferingQuizzesPage";
@@ -250,6 +253,7 @@ export function AppRoutes() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/apply/:schoolSlug" element={<PublicApplyPage />} />
+        <Route path="/verify-card/:token" element={<PublicVerifyCardPage />} />
       </Route>
 
       <Route element={<ProtectedRoute />}>
@@ -298,6 +302,8 @@ export function AppRoutes() {
 
           <Route path="/audit" element={<AuditLogsListPage />} />
           <Route path="/audit/:id" element={<AuditLogDetailPage />} />
+          <Route path="/idcards" element={<IdCardsPage />} />
+          <Route path="/my-id-card" element={<MyIdCardPage />} />
           <Route path="/admissions/applications" element={<ApplicationsListPage />} />
           <Route path="/admissions/applications/:id" element={<ApplicationDetailPage />} />
           <Route path="/roles" element={<RolesListPage />} />
