@@ -225,8 +225,10 @@ export interface CaBreakdownRow {
   assessment: string;
   name: string;
   weight: number;
+  discretionary_weight: number;
   max_score: string;
   raw_score: string | null;
+  discretionary_mark: string | null;
   weighted_score: string | null;
   status: "draft" | "submitted" | null;
 }

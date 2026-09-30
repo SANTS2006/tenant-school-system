@@ -249,8 +249,12 @@ class SubjectOfferingViewSet(AcademicsModelViewSet):
                         "assessment": str(assessment.pk),
                         "name": assessment.name,
                         "weight": assessment.weight,
+                        "discretionary_weight": assessment.discretionary_weight,
                         "max_score": str(assessment.max_score),
                         "raw_score": str(score.raw_score) if score and score.raw_score is not None else None,
+                        "discretionary_mark": (
+                            str(score.discretionary_mark) if score and score.discretionary_mark is not None else None
+                        ),
                         "weighted_score": (
                             str(score.weighted_score) if score and score.weighted_score is not None else None
                         ),
@@ -537,13 +541,21 @@ class AssessmentViewSet(TenantScopedModelViewSet):
                         "student_name": student.full_name,
                         "student_admission_number": student.admission_number,
                         "raw_score": str(score.raw_score) if score and score.raw_score is not None else None,
+                        "discretionary_mark": (
+                            str(score.discretionary_mark) if score and score.discretionary_mark is not None else None
+                        ),
                         "weighted_score": (
                             str(score.weighted_score) if score and score.weighted_score is not None else None
                         ),
                         "status": score.status if score else AssessmentScore.Status.DRAFT,
                     }
                 )
-            return _ok(rows=rows, max_score=str(assessment.max_score), weight=assessment.weight)
+            return _ok(
+                rows=rows,
+                max_score=str(assessment.max_score),
+                weight=assessment.weight,
+                discretionary_weight=assessment.discretionary_weight,
+            )
 
         from apps.students.models import Student
 
@@ -563,16 +575,18 @@ class AssessmentViewSet(TenantScopedModelViewSet):
                     "VALIDATION_ERROR",
                     status.HTTP_400_BAD_REQUEST,
                 )
-            raw_score = entry.get("raw_score")
-            if raw_score in (None, ""):
-                entries.append({"student": student, "raw_score": None})
-                continue
+            parsed = {"student": student}
             try:
-                entries.append({"student": student, "raw_score": Decimal(str(raw_score))})
+                raw_score = entry.get("raw_score")
+                parsed["raw_score"] = None if raw_score in (None, "") else Decimal(str(raw_score))
+                if "discretionary_mark" in entry:
+                    mark = entry["discretionary_mark"]
+                    parsed["discretionary_mark"] = None if mark in (None, "") else Decimal(str(mark))
             except InvalidOperation:
                 return _error(
                     f"Invalid score for {student.full_name}.", "VALIDATION_ERROR", status.HTTP_400_BAD_REQUEST
                 )
+            entries.append(parsed)
 
         try:
             services.save_assessment_scores(assessment, entries=entries, submit=submit)
@@ -616,8 +630,14 @@ class MySubjectCAView(TenantScopedAPIView):
                 "assessment": str(a.id),
                 "name": a.name,
                 "weight": a.weight,
+                "discretionary_weight": a.discretionary_weight,
                 "max_score": str(a.max_score),
                 "raw_score": str(scores[a.id].raw_score) if a.id in scores and scores[a.id].raw_score is not None else None,
+                "discretionary_mark": (
+                    str(scores[a.id].discretionary_mark)
+                    if a.id in scores and scores[a.id].discretionary_mark is not None
+                    else None
+                ),
                 "weighted_score": (
                     str(scores[a.id].weighted_score) if a.id in scores and scores[a.id].weighted_score is not None else None
                 ),

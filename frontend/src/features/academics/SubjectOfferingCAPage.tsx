@@ -58,6 +58,7 @@ export function SubjectOfferingCAPage() {
 
   const [name, setName] = useState("");
   const [weight, setWeight] = useState("");
+  const [discretionary, setDiscretionary] = useState("");
   const [maxScore, setMaxScore] = useState("100");
   const [showReopenForm, setShowReopenForm] = useState(false);
   const [reopenReason, setReopenReason] = useState("");
@@ -65,12 +66,19 @@ export function SubjectOfferingCAPage() {
   const handleAddAssessment = () => {
     if (!id || !name.trim() || !weight) return;
     createAssessment.mutate(
-      { subject_offering: id, name: name.trim(), weight: Number(weight), max_score: maxScore },
+      {
+        subject_offering: id,
+        name: name.trim(),
+        weight: Number(weight),
+        discretionary_weight: discretionary ? Number(discretionary) : 0,
+        max_score: maxScore,
+      },
       {
         onSuccess: () => {
           showToast({ title: "Assessment added" });
           setName("");
           setWeight("");
+          setDiscretionary("");
           setMaxScore("100");
         },
         onError: (err: ApiError) => showToast({ title: "Could not add assessment", description: err.message, tone: "danger" }),
@@ -228,6 +236,17 @@ export function SubjectOfferingCAPage() {
             <div className="w-28">
               <Input label="Max score" type="number" min={1} value={maxScore} onChange={(e) => setMaxScore(e.target.value)} />
             </div>
+            <div className="w-40">
+              <Input
+                label="Reserved for discretion"
+                type="number"
+                min={0}
+                max={weight ? Number(weight) : undefined}
+                hint="Marks you award by hand"
+                value={discretionary}
+                onChange={(e) => setDiscretionary(e.target.value)}
+              />
+            </div>
             <Button onClick={handleAddAssessment} disabled={!name.trim() || !weight} isLoading={createAssessment.isPending}>
               {!createAssessment.isPending && <Plus className="size-4" aria-hidden="true" />}
               Add
@@ -254,6 +273,7 @@ export function SubjectOfferingCAPage() {
                   <tr>
                     <TableHeaderCell>Name</TableHeaderCell>
                     <TableHeaderCell>Weight</TableHeaderCell>
+                    <TableHeaderCell>Discretionary</TableHeaderCell>
                     <TableHeaderCell>Max score</TableHeaderCell>
                     <TableHeaderCell>Status</TableHeaderCell>
                     {isTeacher && <TableHeaderCell className="text-right">Actions</TableHeaderCell>}
@@ -264,6 +284,7 @@ export function SubjectOfferingCAPage() {
                     <TableRow key={assessment.id}>
                       <TableCell className="font-medium">{assessment.name}</TableCell>
                       <TableCell>{assessment.weight}%</TableCell>
+                      <TableCell>{assessment.discretionary_weight > 0 ? assessment.discretionary_weight : "—"}</TableCell>
                       <TableCell>{assessment.max_score}</TableCell>
                       <TableCell>
                         <Badge tone={assessment.status === "active" ? "success" : "neutral"}>
@@ -359,6 +380,11 @@ export function SubjectOfferingCAPage() {
                                       <td className="py-1 pr-3">{row.weight}%</td>
                                       <td className="py-1 pr-3">
                                         {row.raw_score !== null ? `${row.raw_score} / ${row.max_score}` : "—"}
+                                        {row.discretionary_weight > 0 && (
+                                          <span className="ml-1 text-[var(--color-text-muted)]">
+                                            + {row.discretionary_mark ?? "—"} / {row.discretionary_weight} discretion
+                                          </span>
+                                        )}
                                       </td>
                                       <td className="py-1 pr-3">{row.weighted_score ?? "—"}</td>
                                       <td className="py-1">

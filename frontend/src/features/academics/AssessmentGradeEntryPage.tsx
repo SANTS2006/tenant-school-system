@@ -24,10 +24,20 @@ import type { ApiError } from "@/lib/api-client";
 
 import { useAssessment, useAssessmentScores, useSaveAssessmentScores } from "./useAcademicsCrud";
 
-function weightedScore(rawScore: string, maxScore: number, weight: number): string {
+function weightedScore(
+  rawScore: string,
+  discretionaryMark: string,
+  maxScore: number,
+  weight: number,
+  discretionaryWeight: number,
+): string {
   const raw = Number(rawScore);
-  if (rawScore === "" || Number.isNaN(raw) || maxScore <= 0) return "—";
-  return ((raw / maxScore) * weight).toFixed(2);
+  const mark = Number(discretionaryMark);
+  const hasRaw = rawScore !== "" && !Number.isNaN(raw) && maxScore > 0;
+  const hasMark = discretionaryMark !== "" && !Number.isNaN(mark);
+  if (!hasRaw && !hasMark) return "—";
+  const testPart = hasRaw ? (raw / maxScore) * (weight - discretionaryWeight) : 0;
+  return (testPart + (hasMark ? mark : 0)).toFixed(2);
 }
 
 export function AssessmentGradeEntryPage() {
@@ -41,24 +51,30 @@ export function AssessmentGradeEntryPage() {
   const saveScores = useSaveAssessmentScores(id ?? "");
 
   const [values, setValues] = useState<Record<string, string>>({});
+  const [marks, setMarks] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (scoresData) {
       const next: Record<string, string> = {};
+      const nextMarks: Record<string, string> = {};
       for (const row of scoresData.rows) {
         next[row.student] = row.raw_score ?? "";
+        nextMarks[row.student] = row.discretionary_mark ?? "";
       }
       setValues(next);
+      setMarks(nextMarks);
     }
   }, [scoresData]);
 
   const maxScore = Number(scoresData?.max_score ?? assessment?.max_score ?? 0);
   const weight = scoresData?.weight ?? assessment?.weight ?? 0;
+  const discretionaryWeight = scoresData?.discretionary_weight ?? assessment?.discretionary_weight ?? 0;
 
   const buildEntries = () =>
     Object.entries(values).map(([student, raw_score]) => ({
       student,
       raw_score: raw_score === "" ? null : raw_score,
+      ...(discretionaryWeight > 0 ? { discretionary_mark: (marks[student] ?? "") === "" ? null : marks[student] } : {}),
     }));
 
   const handleSaveDraft = () => {
@@ -110,6 +126,8 @@ export function AssessmentGradeEntryPage() {
         <p className="mt-1 text-sm text-[var(--color-text-muted)]">
           {assessment.subject_offering_name} — {assessment.school_class_name} · {assessment.term_name} · Weight{" "}
           {weight}% of CA · Out of {maxScore}
+          {discretionaryWeight > 0 &&
+            ` · ${discretionaryWeight} of the ${weight} marks are reserved for your discretion`}
         </p>
       </div>
 
@@ -131,6 +149,9 @@ export function AssessmentGradeEntryPage() {
                     <TableHeaderCell>Student</TableHeaderCell>
                     <TableHeaderCell>Score</TableHeaderCell>
                     <TableHeaderCell>Maximum</TableHeaderCell>
+                    {discretionaryWeight > 0 && (
+                      <TableHeaderCell>Discretionary (0–{discretionaryWeight})</TableHeaderCell>
+                    )}
                     <TableHeaderCell>Weight</TableHeaderCell>
                     <TableHeaderCell>Weighted score</TableHeaderCell>
                     <TableHeaderCell>Status</TableHeaderCell>
@@ -158,9 +179,29 @@ export function AssessmentGradeEntryPage() {
                         />
                       </TableCell>
                       <TableCell>{maxScore}</TableCell>
+                      {discretionaryWeight > 0 && (
+                        <TableCell>
+                          <input
+                            type="number"
+                            aria-label={`Discretionary mark for ${row.student_name}`}
+                            min={0}
+                            max={discretionaryWeight}
+                            step="0.01"
+                            value={marks[row.student] ?? ""}
+                            onChange={(e) => setMarks((prev) => ({ ...prev, [row.student]: e.target.value }))}
+                            className="w-24 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-sm text-[var(--color-text)]"
+                          />
+                        </TableCell>
+                      )}
                       <TableCell>{weight}%</TableCell>
                       <TableCell className="font-medium">
-                        {weightedScore(values[row.student] ?? "", maxScore, weight)}
+                        {weightedScore(
+                          values[row.student] ?? "",
+                          marks[row.student] ?? "",
+                          maxScore,
+                          weight,
+                          discretionaryWeight,
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge tone={row.status === "submitted" ? "success" : "neutral"}>

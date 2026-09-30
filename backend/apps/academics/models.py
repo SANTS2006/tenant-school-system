@@ -260,11 +260,21 @@ class Assessment(TenantScopedModel, TimeStampedModel):
     name = models.CharField(max_length=100)
     weight = models.PositiveIntegerField()
     max_score = models.DecimalField(max_digits=6, decimal_places=2, default=100)
+    # Part of `weight` the teacher holds back to award by hand, per student, at their own
+    # discretion (see AssessmentScore.discretionary_mark). The test itself only earns the rest:
+    # raw_score / max_score * (weight - discretionary_weight). 0 means no marks are reserved.
+    discretionary_weight = models.PositiveIntegerField(default=0)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
 
     class Meta:
         db_table = "assessments"
         ordering = ["created_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(discretionary_weight__lte=models.F("weight")),
+                name="assessment_discretionary_within_weight",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.name} ({self.subject_offering})"
@@ -291,6 +301,9 @@ class AssessmentScore(TenantScopedModel, TimeStampedModel):
     assessment = models.ForeignKey(Assessment, on_delete=models.CASCADE, related_name="scores")
     student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="assessment_scores")
     raw_score = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    # Teacher-awarded marks out of Assessment.discretionary_weight, in CA points (same unit as
+    # weighted_score) - added on top of the test portion, not scaled by max_score.
+    discretionary_mark = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     weighted_score = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
 
@@ -303,6 +316,10 @@ class AssessmentScore(TenantScopedModel, TimeStampedModel):
                 condition=models.Q(raw_score__gte=0) | models.Q(raw_score__isnull=True),
                 name="assessment_score_non_negative",
             ),
+            models.CheckConstraint(
+                condition=models.Q(discretionary_mark__gte=0) | models.Q(discretionary_mark__isnull=True),
+                name="assessment_discretionary_mark_non_negative",
+            ),
         ]
 
     def __str__(self):
@@ -313,12 +330,18 @@ class AssessmentScore(TenantScopedModel, TimeStampedModel):
             raise ValueError("AssessmentScore.assessment must belong to the same school")
         if self.student.school_id != self.school_id:
             raise ValueError("AssessmentScore.student must belong to the same school")
+        discretionary_cap = self.assessment.discretionary_weight
+        if self.discretionary_mark is not None and self.discretionary_mark > discretionary_cap:
+            raise ValueError("AssessmentScore.discretionary_mark cannot exceed the assessment's discretionary_weight")
+        weighted = None
         if self.raw_score is not None:
             if self.raw_score > self.assessment.max_score:
                 raise ValueError("AssessmentScore.raw_score cannot exceed the assessment's max_score")
-            self.weighted_score = (self.raw_score / self.assessment.max_score) * self.assessment.weight
-        else:
-            self.weighted_score = None
+            test_weight = self.assessment.weight - discretionary_cap
+            weighted = (self.raw_score / self.assessment.max_score) * test_weight
+        if self.discretionary_mark is not None:
+            weighted = (weighted or 0) + self.discretionary_mark
+        self.weighted_score = weighted
         super().save(*args, **kwargs)
 
 

@@ -182,6 +182,8 @@ export interface Assessment {
   term_name: string;
   name: string;
   weight: number;
+  /** Part of `weight` the teacher reserves to award by hand per student. */
+  discretionary_weight: number;
   max_score: string;
   status: AssessmentStatus;
   created_at: string;
@@ -192,6 +194,7 @@ export interface AssessmentPayload {
   subject_offering: string;
   name: string;
   weight: number;
+  discretionary_weight?: number;
   max_score: number | string;
   status?: AssessmentStatus;
 }
@@ -209,6 +212,7 @@ export interface AssessmentScoreRow {
   student_name: string;
   student_admission_number: string;
   raw_score: string | null;
+  discretionary_mark: string | null;
   weighted_score: string | null;
   status: AssessmentScoreStatus;
 }
@@ -217,10 +221,11 @@ export interface AssessmentScoresResponse {
   rows: AssessmentScoreRow[];
   max_score: string;
   weight: number;
+  discretionary_weight: number;
 }
 
 export interface SaveAssessmentScoresPayload {
-  entries: { student: string; raw_score: number | string | null }[];
+  entries: { student: string; raw_score: number | string | null; discretionary_mark?: number | string | null }[];
   submit: boolean;
 }
 
@@ -228,8 +233,10 @@ export interface MySubjectCAAssessment {
   assessment: string;
   name: string;
   weight: number;
+  discretionary_weight: number;
   max_score: string;
   raw_score: string | null;
+  discretionary_mark: string | null;
   weighted_score: string | null;
 }
 

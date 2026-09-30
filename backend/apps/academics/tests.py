@@ -992,6 +992,146 @@ class TestAssessmentAndCA:
         assert response.data["count"] == 0
 
 
+class TestDiscretionaryMarks:
+    """A teacher can reserve part of an assessment's weight to award by hand per student. The test
+    itself then only earns weight - discretionary_weight; the reserved part is added on top."""
+
+    def _teacher_world(self, api_client):
+        school, _ = _principal()
+        offering, teacher = TestAssessmentAndCA()._setup(school)
+        assign_role(user=teacher.user, role=Role.unscoped_objects.get(school=school, slug="teacher"))
+        _login(api_client, teacher.user)
+        return school, offering, teacher
+
+    def _enrolled_student(self, school, offering):
+        from tests.factories import StudentFactory, StudentSubjectEnrollmentFactory
+
+        student = StudentFactory(school=school, current_class=offering.school_class)
+        student.user = UserFactory(school=school)
+        student.save(update_fields=["user"])
+        StudentSubjectEnrollmentFactory(school=school, subject_offering=offering, student=student)
+        return student
+
+    def test_can_reserve_marks_when_creating_assessment(self, api_client):
+        _, offering, _ = self._teacher_world(api_client)
+        response = api_client.post(
+            "/api/v1/academics/assessments/",
+            {
+                "subject_offering": str(offering.id), "name": "Project", "weight": 20,
+                "discretionary_weight": 5, "max_score": "100",
+            },
+            format="json",
+        )
+        assert response.status_code == 201, response.data
+        assert response.data["discretionary_weight"] == 5
+
+    def test_reserved_marks_cannot_exceed_assessment_weight(self, api_client):
+        _, offering, _ = self._teacher_world(api_client)
+        response = api_client.post(
+            "/api/v1/academics/assessments/",
+            {
+                "subject_offering": str(offering.id), "name": "Project", "weight": 10,
+                "discretionary_weight": 11, "max_score": "100",
+            },
+            format="json",
+        )
+        assert response.status_code == 400
+
+    def test_weighted_score_combines_test_portion_and_discretionary_mark(self, api_client):
+        from tests.factories import AssessmentFactory
+
+        from apps.academics.models import AssessmentScore
+
+        school, offering, _ = self._teacher_world(api_client)
+        assessment = AssessmentFactory(
+            school=school, subject_offering=offering, weight=20, discretionary_weight=5, max_score=Decimal("100")
+        )
+        student = self._enrolled_student(school, offering)
+
+        response = api_client.post(
+            f"/api/v1/academics/assessments/{assessment.id}/scores/",
+            {"entries": [{"student": str(student.id), "raw_score": "80", "discretionary_mark": "4"}], "submit": True},
+            format="json",
+        )
+        assert response.status_code == 200, response.data
+
+        score = AssessmentScore.unscoped_objects.get(assessment=assessment, student=student)
+        # 80/100 of the 15 test marks = 12, plus 4 discretionary = 16 out of 20.
+        assert score.weighted_score == Decimal("16.00")
+        assert score.discretionary_mark == Decimal("4")
+
+    def test_discretionary_mark_cannot_exceed_reserved_marks(self, api_client):
+        from tests.factories import AssessmentFactory
+
+        school, offering, _ = self._teacher_world(api_client)
+        assessment = AssessmentFactory(
+            school=school, subject_offering=offering, weight=20, discretionary_weight=5, max_score=Decimal("100")
+        )
+        student = self._enrolled_student(school, offering)
+
+        response = api_client.post(
+            f"/api/v1/academics/assessments/{assessment.id}/scores/",
+            {"entries": [{"student": str(student.id), "raw_score": "50", "discretionary_mark": "6"}], "submit": False},
+            format="json",
+        )
+        assert response.status_code == 400
+
+    def test_saving_scores_without_discretionary_key_keeps_existing_mark(self, api_client):
+        from tests.factories import AssessmentFactory
+
+        from apps.academics.models import AssessmentScore
+
+        school, offering, _ = self._teacher_world(api_client)
+        assessment = AssessmentFactory(
+            school=school, subject_offering=offering, weight=20, discretionary_weight=5, max_score=Decimal("100")
+        )
+        student = self._enrolled_student(school, offering)
+        url = f"/api/v1/academics/assessments/{assessment.id}/scores/"
+        api_client.post(
+            url, {"entries": [{"student": str(student.id), "raw_score": "50", "discretionary_mark": "3"}], "submit": False},
+            format="json",
+        )
+        api_client.post(url, {"entries": [{"student": str(student.id), "raw_score": "60"}], "submit": False}, format="json")
+
+        score = AssessmentScore.unscoped_objects.get(assessment=assessment, student=student)
+        assert score.discretionary_mark == Decimal("3")
+        assert score.weighted_score == Decimal("9.00") + Decimal("3")  # 60/100 * 15 + 3
+
+    def test_cannot_lower_reserved_marks_below_what_was_awarded(self, api_client):
+        from tests.factories import AssessmentFactory
+
+        school, offering, _ = self._teacher_world(api_client)
+        assessment = AssessmentFactory(
+            school=school, subject_offering=offering, weight=20, discretionary_weight=5, max_score=Decimal("100")
+        )
+        student = self._enrolled_student(school, offering)
+        api_client.post(
+            f"/api/v1/academics/assessments/{assessment.id}/scores/",
+            {"entries": [{"student": str(student.id), "raw_score": "50", "discretionary_mark": "4"}], "submit": False},
+            format="json",
+        )
+        response = api_client.patch(
+            f"/api/v1/academics/assessments/{assessment.id}/", {"discretionary_weight": 2}, format="json"
+        )
+        assert response.status_code == 400
+
+    def test_assessment_without_reserved_marks_scores_exactly_as_before(self, api_client):
+        from tests.factories import AssessmentFactory
+
+        from apps.academics.models import AssessmentScore
+
+        school, offering, _ = self._teacher_world(api_client)
+        assessment = AssessmentFactory(school=school, subject_offering=offering, weight=20, max_score=Decimal("100"))
+        student = self._enrolled_student(school, offering)
+        api_client.post(
+            f"/api/v1/academics/assessments/{assessment.id}/scores/",
+            {"entries": [{"student": str(student.id), "raw_score": "80"}], "submit": True},
+            format="json",
+        )
+        score = AssessmentScore.unscoped_objects.get(assessment=assessment, student=student)
+        assert score.weighted_score == Decimal("16.00")
+
+
 class TestSubjectResultAndFinalScore:
     """Phase 6 — Examination & Result Engine. Exam scores are entered by Admin/Exams-Director
     only (never a teacher, never a School Administrator — who has no examinations access by

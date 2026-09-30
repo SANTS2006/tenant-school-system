@@ -1,3 +1,4 @@
+from django.db.models import Max
 from rest_framework import serializers
 
 from .models import (
@@ -175,7 +176,7 @@ class AssessmentSerializer(serializers.ModelSerializer):
         model = Assessment
         fields = [
             "id", "subject_offering", "subject_offering_name", "school_class_name", "term_name",
-            "name", "weight", "max_score", "status", "created_at", "updated_at",
+            "name", "weight", "discretionary_weight", "max_score", "status", "created_at", "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
@@ -191,6 +192,24 @@ class AssessmentSerializer(serializers.ModelSerializer):
         subject_offering = attrs.get("subject_offering", getattr(self.instance, "subject_offering", None))
         weight = attrs.get("weight", getattr(self.instance, "weight", None))
         status = attrs.get("status", getattr(self.instance, "status", Assessment.Status.ACTIVE))
+        discretionary_weight = attrs.get(
+            "discretionary_weight", getattr(self.instance, "discretionary_weight", 0)
+        )
+        if weight is not None and discretionary_weight > weight:
+            raise serializers.ValidationError(
+                {"discretionary_weight": "Cannot be more than the assessment's weight."}
+            )
+        if self.instance is not None and "discretionary_weight" in attrs:
+            highest_awarded = self.instance.scores.aggregate(m=Max("discretionary_mark"))["m"]
+            if highest_awarded is not None and discretionary_weight < highest_awarded:
+                raise serializers.ValidationError(
+                    {
+                        "discretionary_weight": (
+                            f"Discretionary marks of up to {highest_awarded} have already been awarded; "
+                            "reserve at least that many."
+                        )
+                    }
+                )
         if subject_offering is not None and weight is not None:
             allocation = compute_ca_allocation(subject_offering)
             already_allocated = allocation["allocated"]

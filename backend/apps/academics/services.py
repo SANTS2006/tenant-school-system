@@ -137,6 +137,15 @@ def save_assessment_scores(assessment: Assessment, *, entries: list[dict], submi
         raise ValueError("CA is closed for this subject offering; scores can no longer be modified.")
 
     for entry in entries:
+        discretionary_mark = entry.get("discretionary_mark")
+        if discretionary_mark is not None:
+            if discretionary_mark < 0:
+                raise ValueError(f"{entry['student'].full_name}'s discretionary mark cannot be negative.")
+            if discretionary_mark > assessment.discretionary_weight:
+                raise ValueError(
+                    f"{entry['student'].full_name}'s discretionary mark cannot exceed "
+                    f"{assessment.discretionary_weight}."
+                )
         raw_score = entry.get("raw_score")
         if raw_score is None:
             continue
@@ -148,15 +157,23 @@ def save_assessment_scores(assessment: Assessment, *, entries: list[dict], submi
     saved = []
     with transaction.atomic():
         for entry in entries:
-            score, _created = AssessmentScore.objects.update_or_create(
-                assessment=assessment,
-                student=entry["student"],
-                defaults={
-                    "school": assessment.school,
-                    "raw_score": entry.get("raw_score"),
-                    "status": AssessmentScore.Status.SUBMITTED if submit else AssessmentScore.Status.DRAFT,
-                },
-            )
+            defaults = {
+                "school": assessment.school,
+                "raw_score": entry.get("raw_score"),
+                "status": AssessmentScore.Status.SUBMITTED if submit else AssessmentScore.Status.DRAFT,
+            }
+            # Only touched when the caller sent it, so a client that predates discretionary marks
+            # never wipes ones already awarded.
+            if "discretionary_mark" in entry:
+                defaults["discretionary_mark"] = entry["discretionary_mark"]
+            # Not update_or_create: it saves only the keys in `defaults`, which would skip the
+            # weighted_score that AssessmentScore.save() recomputes and leave it stale on re-save.
+            score = AssessmentScore.objects.filter(assessment=assessment, student=entry["student"]).first()
+            if score is None:
+                score = AssessmentScore(assessment=assessment, student=entry["student"])
+            for field, value in defaults.items():
+                setattr(score, field, value)
+            score.save()
             saved.append(score)
 
     if submit:
@@ -168,6 +185,8 @@ def save_assessment_scores(assessment: Assessment, *, entries: list[dict], submi
                 if score.raw_score is not None
                 else "recorded (no score entered)"
             )
+            if score.discretionary_mark is not None:
+                detail += f" + {score.discretionary_mark}/{assessment.discretionary_weight} teacher's discretion"
             notify(
                 recipient=score.student.user,
                 category="assessment",

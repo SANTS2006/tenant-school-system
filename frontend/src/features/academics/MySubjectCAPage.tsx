@@ -89,7 +89,14 @@ export function MySubjectCAPage() {
                   {data.assessments.map((row) => (
                     <TableRow key={row.assessment}>
                       <TableCell className="font-medium">{row.name}</TableCell>
-                      <TableCell>{row.raw_score ?? "Not graded yet"}</TableCell>
+                      <TableCell>
+                        {row.raw_score ?? "Not graded yet"}
+                        {row.discretionary_weight > 0 && (
+                          <span className="ml-1 text-[var(--color-text-muted)]">
+                            + {row.discretionary_mark ?? "—"} / {row.discretionary_weight} from your teacher
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell>{row.max_score}</TableCell>
                       <TableCell>{row.weight}%</TableCell>
                       <TableCell>{row.weighted_score ?? "—"}</TableCell>
