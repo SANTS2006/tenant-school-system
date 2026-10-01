@@ -403,6 +403,11 @@ class TestMyTimetable:
 
         assert response.status_code == 200
         assert len(response.data["results"]) == 1
+        row = response.data["results"][0]
+        # each lesson carries its period's clock times so the timetable can show when it is
+        assert len(row["period_start_time"]) == 5 and ":" in row["period_start_time"]
+        assert len(row["period_end_time"]) == 5 and ":" in row["period_end_time"]
+        assert "period_order" in row
 
     def test_student_sees_their_sections_lessons(self, api_client):
         school, _ = _principal()

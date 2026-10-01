@@ -39,6 +39,10 @@ export interface TimetableEntry {
   day_of_week: DayOfWeek;
   period: string;
   period_name: string;
+  /** "HH:MM" (24h) — the period's own start/end, so a timetable can show when each lesson is. */
+  period_start_time: string;
+  period_end_time: string;
+  period_order: number;
   subject: string | null;
   subject_name: string | null;
   teacher: string | null;

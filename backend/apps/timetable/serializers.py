@@ -62,6 +62,9 @@ class TimetableEntrySerializer(serializers.ModelSerializer):
     # whole issue and reads correctly whether or not the relation is null.
     section_name = serializers.SerializerMethodField()
     period_name = serializers.CharField(source="period.name", read_only=True)
+    period_start_time = serializers.TimeField(source="period.start_time", read_only=True, format="%H:%M")
+    period_end_time = serializers.TimeField(source="period.end_time", read_only=True, format="%H:%M")
+    period_order = serializers.IntegerField(source="period.order", read_only=True)
     subject_name = serializers.CharField(source="subject.name", read_only=True, default=None)
     teacher_name = serializers.CharField(source="teacher.user.full_name", read_only=True, default=None)
     room_name = serializers.CharField(source="room.name", read_only=True, default=None)
@@ -73,7 +76,7 @@ class TimetableEntrySerializer(serializers.ModelSerializer):
         model = TimetableEntry
         fields = [
             "id", "section", "section_name", "day_of_week", "period", "period_name",
-            "subject", "subject_name", "teacher", "teacher_name", "room", "room_name",
+            "period_start_time", "period_end_time", "period_order", "subject", "subject_name", "teacher", "teacher_name", "room", "room_name",
             "created_at", "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]

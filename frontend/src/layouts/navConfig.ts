@@ -68,6 +68,7 @@ export interface NavItem {
 export const NAV_CONFIG: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/my-subjects", label: "Subjects", icon: BookOpen, selfServiceFor: "student" },
+  { to: "/my-timetable", label: "Timetable", icon: CalendarClock, selfServiceFor: "student" },
   { to: "/my-live-sessions", label: "Live Sessions", icon: Video, selfServiceFor: "student" },
   { to: "/my-quizzes", label: "Quizzes", icon: FileQuestion, selfServiceFor: "student" },
   { to: "/my-id-card", label: "My ID card", icon: IdCard, selfServiceFor: "student-or-staff" },
@@ -103,11 +104,15 @@ export const NAV_CONFIG: NavItem[] = [
     ],
   },
   { to: "/subjects", label: "Subjects", icon: BookOpen, permission: "academics.view", showForRoles: ["teacher"] },
+  { to: "/my-timetable", label: "Timetable", icon: CalendarClock, selfServiceFor: "staff", hideForRoles: ["principal", "exams-director"] },
   {
     to: "/timetable",
     label: "Timetable",
     icon: CalendarClock,
     permission: "timetable.view",
+    // Students hold `timetable.view` only so their own "Timetable" page works; the module below is
+    // the school-wide schedule/builder, not theirs.
+    hideForRoles: ["student"],
     children: [
       { to: "/timetable/schedule", label: "Schedule" },
       { to: "/timetable/build", label: "Build timetable", permission: "timetable.create" },
@@ -238,10 +243,9 @@ export const NAV_CONFIG: NavItem[] = [
   { to: "/records", label: "Records", icon: Archive },
   { to: "/assignments", label: "Assignments", icon: ClipboardList, permission: "assignments.view", hideForRoles: ["teacher"] },
   { to: "/education/lessons", label: "Lessons", icon: NotebookText, permission: "education.view", hideForRoles: ["teacher"] },
-  { to: "/live-sessions", label: "Live Sessions", icon: Video, permission: "live_sessions.view" },
+  { to: "/live-sessions", label: "Live Sessions", icon: Video, permission: "live_sessions.view", hideForRoles: ["student"] },
   { to: "/my-medical", label: "Medical", icon: HeartPulse, selfServiceFor: "student" },
   { to: "/my-transport", label: "Transport", icon: Truck, selfServiceFor: "student" },
-  { to: "/my-timetable", label: "Timetable", icon: CalendarClock, selfServiceFor: "student-or-staff", hideForRoles: ["principal", "exams-director"] },
   { to: "/my-documents", label: "Documents", icon: FileText, selfServiceFor: "student-or-staff", hideForRoles: ["principal", "school-administrator", "accountant", "exams-director", "teacher"] },
   {
     to: "/documents",
@@ -286,7 +290,16 @@ export const NAV_CONFIG: NavItem[] = [
     ],
   },
   { to: "/audit", label: "Audit log", icon: History, permission: "audit.view" },
-  { to: "/admissions/applications", label: "Applications", icon: ClipboardList, permission: "admissions.view" },
+  {
+    to: "/admissions",
+    label: "Applications",
+    icon: ClipboardList,
+    permission: "admissions.view",
+    children: [
+      { to: "/admissions/applications", label: "Applications" },
+      { to: "/admissions/form", label: "Application form" },
+    ],
+  },
   { to: "/idcards", label: "ID cards", icon: IdCard, permission: "idcards.view" },
   { to: "/meetings", label: "Live meetings", icon: Presentation, permission: "meetings.view" },
   {

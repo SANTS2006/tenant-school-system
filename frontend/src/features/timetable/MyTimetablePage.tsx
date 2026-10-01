@@ -46,7 +46,7 @@ export function MyTimetablePage() {
     ...day,
     entries: entries
       .filter((entry) => entry.day_of_week === day.value)
-      .sort((a, b) => a.period_name.localeCompare(b.period_name)),
+      .sort((a, b) => a.period_start_time.localeCompare(b.period_start_time) || a.period_order - b.period_order),
   })).filter((day) => day.entries.length > 0);
 
   return (
@@ -72,7 +72,9 @@ export function MyTimetablePage() {
                     <p className="text-sm font-medium text-[var(--color-text)]">
                       {entry.subject_name ?? <span className="text-[var(--color-text-muted)]">Free period</span>}
                     </p>
-                    <p className="text-xs text-[var(--color-text-muted)]">{entry.period_name}</p>
+                    <p className="text-xs text-[var(--color-text-muted)]">
+                      {entry.period_name} · {entry.period_start_time} – {entry.period_end_time}
+                    </p>
                   </div>
                   <div className="text-right text-xs text-[var(--color-text-muted)]">
                     {entry.teacher_name && <p>{entry.teacher_name}</p>}
