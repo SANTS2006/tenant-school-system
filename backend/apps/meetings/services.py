@@ -1,14 +1,13 @@
 import logging
-import threading
 from datetime import timedelta
 from html import escape
 from zoneinfo import ZoneInfo
 
-from django.conf import settings
-from django.db import connection, transaction
+from django.db import transaction
 from django.utils import timezone
 
 from apps.audit.services import log_action
+from apps.common.background import run_in_background
 from apps.common.email import email_button, send_email
 from apps.live_sessions.daily_client import create_room
 from apps.notifications.services import notify_bulk
@@ -229,33 +228,12 @@ def send_invitations(meeting_id, *, only_unsent: bool = True) -> dict:
     return counts
 
 
-def _run_in_background(label: str, fn, *args) -> None:
-    """Runs `fn(*args)` without holding up the HTTP response — a whole-school audience can be
-    hundreds of emails, each a network call, and there's no task queue in this codebase. A daemon
-    thread that closes its own DB connection afterwards; the per-invitee `email_status` and the
-    "Resend" action are what make a dropped or partial run recoverable. Tests turn this off via
-    settings.MEETING_EMAILS_ASYNC=False so the sends happen inline and are assertable."""
-
-    def run():
-        try:
-            fn(*args)
-        except Exception:  # noqa: BLE001
-            logger.exception("%s failed", label)
-        finally:
-            connection.close()
-
-    if getattr(settings, "MEETING_EMAILS_ASYNC", True):
-        threading.Thread(target=run, daemon=True).start()
-    else:
-        fn(*args)
-
-
 def dispatch_invitations(meeting: Meeting) -> None:
-    _run_in_background(f"Sending invitations for meeting {meeting.id}", send_invitations, meeting.id)
+    run_in_background(f"Sending invitations for meeting {meeting.id}", send_invitations, meeting.id)
 
 
 def dispatch_cancellation_notices(meeting: Meeting) -> None:
-    _run_in_background(f"Cancellation notices for meeting {meeting.id}", send_cancellation_notices, meeting.id)
+    run_in_background(f"Cancellation notices for meeting {meeting.id}", send_cancellation_notices, meeting.id)
 
 
 def start_meeting(meeting: Meeting) -> Meeting:

@@ -63,6 +63,9 @@ export function ApplicationDetailPage() {
           <Field label="Date of birth" value={application.date_of_birth} />
           <Field label="Gender" value={application.gender} />
           <Field label="Address" value={application.address} />
+          {Object.entries(application.custom_answers ?? {}).map(([key, answer]) => (
+            <Field key={key} label={answer.label} value={answer.value} />
+          ))}
         </CardContent>
       </Card>
 

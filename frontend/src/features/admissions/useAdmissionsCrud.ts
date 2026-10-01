@@ -8,15 +8,20 @@ import {
   bulkShortlistApplications,
   deleteApplication,
   fetchApplications,
+  fetchFormConfig,
   fetchPublicApplicationOptions,
   getApplication,
   inviteApplicationsToInterview,
+  saveFormConfig,
   submitPublicApplication,
 } from "./api";
 import type {
   Application,
   ApplicationListParams,
   BulkAcceptResult,
+  FormConfig,
+  FormConfigPayload,
+  FormConfigResponse,
   InviteInterviewPayload,
   PublicApplicationOptions,
   PublicApplicationPayload,
@@ -104,5 +109,20 @@ export function useSubmitPublicApplication() {
     { schoolSlug: string; values: PublicApplicationPayload; onProgress?: (percent: number) => void }
   >({
     mutationFn: ({ schoolSlug, values, onProgress }) => submitPublicApplication(schoolSlug, values, onProgress),
+  });
+}
+
+export function useFormConfig() {
+  return useQuery<FormConfigResponse, ApiError>({ queryKey: ["admissions", "form-config"], queryFn: fetchFormConfig });
+}
+
+export function useSaveFormConfig() {
+  const queryClient = useQueryClient();
+  return useMutation<FormConfig, ApiError, { kind: "student" | "staff"; payload: FormConfigPayload }>({
+    mutationFn: ({ kind, payload }) => saveFormConfig(kind, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admissions", "form-config"] });
+      queryClient.invalidateQueries({ queryKey: ["admissions", "public-options"] });
+    },
   });
 }

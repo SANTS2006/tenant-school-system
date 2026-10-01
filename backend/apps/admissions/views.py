@@ -5,11 +5,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.authorization.permissions import require_permission
-from apps.common.views import TenantScopedModelViewSet
+from apps.common.views import TenantScopedAPIView, TenantScopedModelViewSet
 from apps.tenants.models import School
 from apps.tenants.services import get_current_school
 
-from . import services
+from . import form_config, services
 from .models import Application
 from .serializers import (
     ApplicationSerializer,
@@ -75,6 +75,7 @@ class PublicApplicationOptionsView(APIView):
         return _ok(
             classes=PublicSchoolClassOptionSerializer(classes, many=True).data,
             roles=PublicRoleOptionSerializer(roles, many=True).data,
+            form={kind: form_config.effective_config(school, kind) for kind in ("student", "staff")},
         )
 
 
@@ -195,3 +196,35 @@ class ApplicationViewSet(TenantScopedModelViewSet):
             values["application_ids"], school=get_current_school(), reason=values["reason"], actor=request.user
         )
         return _ok(f"Rejected {len(applications)} application(s).", updated=len(applications))
+
+
+class ApplicationFormConfigView(TenantScopedAPIView):
+    """The admin's view of the public application form: its current setup for both kinds of applicant
+    and the shareable link (GET, `admissions.view`), and saving one kind's setup (PUT,
+    `admissions.update`). The same effective config is what the public page renders and what
+    submissions are validated against."""
+
+    def get_permissions(self):
+        code = "admissions.update" if self.request.method == "PUT" else "admissions.view"
+        return [require_permission(code)()]
+
+    def get(self, request):
+        school = get_current_school()
+        return _ok(
+            apply_url=services.apply_url(school, request),
+            school_slug=school.slug,
+            student=form_config.effective_config(school, "student"),
+            staff=form_config.effective_config(school, "staff"),
+        )
+
+    def put(self, request, kind):
+        if kind not in ("student", "staff"):
+            return _error("Unknown applicant type.", status.HTTP_404_NOT_FOUND)
+        school = get_current_school()
+        try:
+            config = form_config.save_config(
+                school, kind, fields=request.data.get("fields") or {}, custom_fields=request.data.get("custom_fields") or []
+            )
+        except form_config.FormConfigError as exc:
+            return _error(str(exc))
+        return _ok("Application form saved.", config=config)

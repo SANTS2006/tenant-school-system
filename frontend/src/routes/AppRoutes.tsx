@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { ApplicationDetailPage } from "@/features/admissions/ApplicationDetailPage";
+import { ApplicationFormBuilderPage } from "@/features/admissions/ApplicationFormBuilderPage";
 import { ApplicationsListPage } from "@/features/admissions/ApplicationsListPage";
 import { PublicApplyPage } from "@/features/admissions/PublicApplyPage";
 import { AcademicYearFormPage } from "@/features/academics/AcademicYearFormPage";
@@ -165,6 +166,7 @@ import { LiveSessionsListPage } from "@/features/live-sessions/LiveSessionsListP
 import { MyLiveSessionsPage } from "@/features/live-sessions/MyLiveSessionsPage";
 import { IdCardsPage } from "@/features/idcards/IdCardsPage";
 import { MyIdCardPage } from "@/features/idcards/MyIdCardPage";
+import { NotificationDetailPage } from "@/features/notifications/NotificationDetailPage";
 import { MeetingDetailPage } from "@/features/meetings/MeetingDetailPage";
 import { MeetingFormPage } from "@/features/meetings/MeetingFormPage";
 import { MeetingRoomPage } from "@/features/meetings/MeetingRoomPage";
@@ -307,6 +309,7 @@ export function AppRoutes() {
 
           <Route path="/audit" element={<AuditLogsListPage />} />
           <Route path="/audit/:id" element={<AuditLogDetailPage />} />
+          <Route path="/notifications/:id" element={<NotificationDetailPage />} />
           <Route path="/meetings" element={<MeetingsListPage />} />
           <Route path="/meetings/new" element={<MeetingFormPage />} />
           <Route path="/meetings/:id" element={<MeetingDetailPage />} />
@@ -316,6 +319,7 @@ export function AppRoutes() {
           <Route path="/my-id-card" element={<MyIdCardPage />} />
           <Route path="/admissions/applications" element={<ApplicationsListPage />} />
           <Route path="/admissions/applications/:id" element={<ApplicationDetailPage />} />
+          <Route path="/admissions/form" element={<ApplicationFormBuilderPage />} />
           <Route path="/roles" element={<RolesListPage />} />
           <Route path="/roles/new" element={<RoleFormPage />} />
           <Route path="/roles/:id" element={<RoleDetailPage />} />

@@ -22,6 +22,13 @@ class ApplicationAcceptError(Exception):
     apps.finance.services.generate_invoices_from_structure."""
 
 
+def apply_url(school, request=None) -> str:
+    """The link to hand out for this school's public application form."""
+    from apps.common.email import frontend_base_url
+
+    return f"{frontend_base_url(request).rstrip('/')}/apply/{school.slug}"
+
+
 def submit_application(*, school, kind, documents=None, **fields) -> Application:
     """The public, unauthenticated entry point — `school` is resolved explicitly by the view (see
     PublicApplyView), never read off a request.user, since there isn't one."""

@@ -4,6 +4,7 @@ from apps.academics.models import SchoolClass
 from apps.authorization.models import Role
 from apps.common.validators import validate_upload_file
 
+from . import form_config
 from .models import Application, ApplicationDocument
 
 
@@ -36,7 +37,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
             "applying_for_role", "applying_for_role_name", "job_title", "qualification", "years_of_experience",
             "interview_datetime", "interview_location", "interview_notes",
             "reviewed_by", "reviewed_by_name", "decided_at", "rejection_reason",
-            "created_student", "created_staff", "documents",
+            "created_student", "created_staff", "documents", "custom_answers",
             "created_at", "updated_at",
         ]
         read_only_fields = [
@@ -47,7 +48,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
             "applying_for_role", "job_title", "qualification", "years_of_experience",
             "interview_datetime", "interview_location", "interview_notes",
             "reviewed_by", "decided_at", "rejection_reason",
-            "created_student", "created_staff",
+            "created_student", "created_staff", "custom_answers",
             "created_at", "updated_at",
         ]
 
@@ -110,9 +111,12 @@ class PublicApplicationSubmitSerializer(serializers.Serializer):
     documents = serializers.ListField(
         child=serializers.FileField(validators=[validate_upload_file]), required=False, default=list
     )
+    # {question_key: answer} for the school's own extra questions (sent as a JSON string in multipart).
+    custom_answers = serializers.JSONField(required=False, default=dict)
 
     def validate(self, attrs):
         school = self.context["school"]
+        attrs = self._apply_form_config(attrs, school)
         if attrs["kind"] == Application.Kind.STUDENT:
             class_id = attrs.get("applying_for_class")
             if not class_id:
@@ -135,4 +139,48 @@ class PublicApplicationSubmitSerializer(serializers.Serializer):
                     {"applying_for_role": "Not a valid role for this school."}
                 ) from exc
             attrs["applying_for_class"] = None
+        return attrs
+
+    def _apply_form_config(self, attrs, school):
+        """Holds the submission to the school's own form: questions it switched off are ignored,
+        questions it made mandatory must be answered, and its extra questions are checked and stored
+        alongside the answer's label. A question the form never offered can't be smuggled in."""
+        config = form_config.effective_config(school, attrs["kind"])
+        errors = {}
+        for field in config["fields"]:
+            key = field["key"]
+            if not field["enabled"]:
+                if key == "documents":
+                    attrs["documents"] = []
+                elif key in attrs:
+                    attrs[key] = None if key in ("date_of_birth", "years_of_experience") else ""
+                continue
+            if field["required"] and key not in ("applying_for_class", "applying_for_role"):
+                value = attrs.get(key)
+                if value is None or value == "" or value == []:
+                    errors[key] = "This field is required."
+
+        raw = attrs.get("custom_answers") or {}
+        if not isinstance(raw, dict):
+            raise serializers.ValidationError({"custom_answers": "Invalid answers."})
+        answers = {}
+        for question in config["custom_fields"]:
+            value = str(raw.get(question["key"], "") or "").strip()
+            if not value:
+                if question["required"]:
+                    errors[question["key"]] = "This question is required."
+                continue
+            if question["type"] == "select" and value not in question["options"]:
+                errors[question["key"]] = "Choose one of the listed options."
+                continue
+            if question["type"] == "number":
+                try:
+                    float(value)
+                except ValueError:
+                    errors[question["key"]] = "Enter a number."
+                    continue
+            answers[question["key"]] = {"label": question["label"], "value": value[:2000]}
+        if errors:
+            raise serializers.ValidationError(errors)
+        attrs["custom_answers"] = answers
         return attrs

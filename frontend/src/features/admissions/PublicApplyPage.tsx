@@ -12,28 +12,13 @@ import { Textarea } from "@/components/ui/Textarea";
 import { useSchoolBranding } from "@/features/schools/useSchoolsCrud";
 import type { ApiError } from "@/lib/api-client";
 
-import type { ApplicationKind } from "./types";
+import type { ApplicationKind, CustomFieldConfig, FormFieldConfig, PublicApplicationOptions } from "./types";
 import { usePublicApplicationOptions, useSubmitPublicApplication } from "./useAdmissionsCrud";
 
-const EMPTY_FORM = {
-  first_name: "",
-  middle_name: "",
-  last_name: "",
-  email: "",
-  phone: "",
-  date_of_birth: "",
-  gender: "",
-  address: "",
-  applying_for_class: "",
-  previous_school: "",
-  guardian_name: "",
-  guardian_phone: "",
-  guardian_email: "",
-  applying_for_role: "",
-  job_title: "",
-  qualification: "",
-  years_of_experience: "",
-};
+/** Wide controls take a whole row; the rest sit two to a row. */
+const FULL_WIDTH_TYPES = new Set(["textarea", "files"]);
+
+type Errors = Record<string, string>;
 
 export function PublicApplyPage() {
   const { schoolSlug } = useParams<{ schoolSlug: string }>();
@@ -42,15 +27,19 @@ export function PublicApplyPage() {
   const submitApplication = useSubmitPublicApplication();
 
   const [kind, setKind] = useState<ApplicationKind>("student");
-  const [form, setForm] = useState(EMPTY_FORM);
+  // One bag of answers keyed by field key — standard questions and the school's own extra ones alike.
+  const [values, setValues] = useState<Record<string, string>>({});
   const [files, setFiles] = useState<File[]>([]);
   const [progress, setProgress] = useState<number | null>(null);
   const [generalError, setGeneralError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Errors>({});
   const [submitted, setSubmitted] = useState(false);
 
-  const set = (field: keyof typeof EMPTY_FORM) => (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-  ) => setForm((prev) => ({ ...prev, [field]: e.target.value }));
+  const form = options?.form[kind];
+  const set = (key: string, value: string) => {
+    setValues((prev) => ({ ...prev, [key]: value }));
+    setErrors((prev) => (prev[key] ? { ...prev, [key]: "" } : prev));
+  };
 
   if (isLoadingSchool) {
     return <FullPageSpinner />;
@@ -81,51 +70,186 @@ export function PublicApplyPage() {
     );
   }
 
+  const switchKind = (next: ApplicationKind) => {
+    setKind(next);
+    setErrors({});
+    setGeneralError(null);
+  };
+
+  const validate = (): Errors => {
+    const found: Errors = {};
+    for (const field of form?.fields ?? []) {
+      if (!field.enabled || !field.required) continue;
+      const missing = field.type === "files" ? files.length === 0 : !(values[field.key] ?? "").trim();
+      if (missing) found[field.key] = "This field is required.";
+    }
+    for (const question of form?.custom_fields ?? []) {
+      if (question.required && !(values[question.key as string] ?? "").trim()) {
+        found[question.key as string] = "This question is required.";
+      }
+    }
+    return found;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setGeneralError(null);
+    const found = validate();
+    setErrors(found);
+    if (Object.keys(found).length > 0) {
+      setGeneralError("Please complete the highlighted questions.");
+      return;
+    }
     setProgress(0);
+
+    const customAnswers: Record<string, string> = {};
+    for (const question of form?.custom_fields ?? []) {
+      const answer = (values[question.key as string] ?? "").trim();
+      if (answer) customAnswers[question.key as string] = answer;
+    }
+    const standard: Record<string, string | number | undefined> = {};
+    for (const field of form?.fields ?? []) {
+      if (!field.enabled || field.type === "files") continue;
+      const raw = (values[field.key] ?? "").trim();
+      standard[field.key] = field.type === "number" ? (raw ? Number(raw) : undefined) : raw || undefined;
+    }
 
     submitApplication.mutate(
       {
         schoolSlug,
         values: {
           kind,
-          first_name: form.first_name,
-          middle_name: form.middle_name || undefined,
-          last_name: form.last_name,
-          email: form.email,
-          phone: form.phone || undefined,
-          date_of_birth: form.date_of_birth || undefined,
-          gender: form.gender || undefined,
-          address: form.address || undefined,
-          ...(kind === "student"
-            ? {
-                applying_for_class: form.applying_for_class || undefined,
-                previous_school: form.previous_school || undefined,
-                guardian_name: form.guardian_name || undefined,
-                guardian_phone: form.guardian_phone || undefined,
-                guardian_email: form.guardian_email || undefined,
-              }
-            : {
-                applying_for_role: form.applying_for_role || undefined,
-                job_title: form.job_title || undefined,
-                qualification: form.qualification || undefined,
-                years_of_experience: form.years_of_experience ? Number(form.years_of_experience) : undefined,
-              }),
-          documents: files,
+          first_name: standard.first_name as string,
+          last_name: standard.last_name as string,
+          email: standard.email as string,
+          ...standard,
+          custom_answers: Object.keys(customAnswers).length > 0 ? customAnswers : undefined,
+          documents: form?.fields.some((f) => f.key === "documents" && f.enabled) ? files : [],
         },
         onProgress: setProgress,
       },
       {
         onSuccess: () => setSubmitted(true),
         onError: (err: ApiError) => {
-          setGeneralError(err.errors[0]?.message ?? err.message);
+          const fieldErrors: Errors = {};
+          for (const item of err.errors ?? []) {
+            if (item.field) fieldErrors[item.field] = item.message;
+          }
+          setErrors(fieldErrors);
+          setGeneralError(
+            Object.keys(fieldErrors).length > 0 ? "Please fix the highlighted questions." : (err.errors[0]?.message ?? err.message),
+          );
           setProgress(null);
         },
       },
     );
   };
+
+  const renderStandard = (field: FormFieldConfig, opts: PublicApplicationOptions | undefined) => {
+    const common = { label: field.label, required: field.required, error: errors[field.key] || undefined };
+    const value = values[field.key] ?? "";
+    switch (field.type) {
+      case "textarea":
+        return <Textarea {...common} rows={2} value={value} onChange={(e) => set(field.key, e.target.value)} />;
+      case "gender":
+        return (
+          <Select {...common} value={value} onChange={(e) => set(field.key, e.target.value)}>
+            <option value="">Prefer not to say</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="other">Other</option>
+          </Select>
+        );
+      case "class":
+        return (
+          <Select {...common} value={value} onChange={(e) => set(field.key, e.target.value)}>
+            <option value="">Select a class</option>
+            {opts?.classes.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.name}
+              </option>
+            ))}
+          </Select>
+        );
+      case "role":
+        return (
+          <Select {...common} value={value} onChange={(e) => set(field.key, e.target.value)}>
+            <option value="">Select a role</option>
+            {opts?.roles.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.name}
+              </option>
+            ))}
+          </Select>
+        );
+      case "files":
+        return (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-sm font-medium text-[var(--color-text)]">
+              {field.label}
+              {field.required && <span className="text-[var(--color-danger)]"> *</span>}
+            </span>
+            <input
+              type="file"
+              multiple
+              onChange={(e) => {
+                setFiles(e.target.files ? Array.from(e.target.files) : []);
+                setErrors((prev) => (prev[field.key] ? { ...prev, [field.key]: "" } : prev));
+              }}
+              className="text-sm text-[var(--color-text-muted)] file:mr-3 file:rounded-[var(--radius-md)] file:border-0 file:bg-[var(--color-bg-subtle)] file:px-3 file:py-1.5 file:text-sm file:text-[var(--color-text)]"
+            />
+            {files.length > 0 && (
+              <p className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
+                <Paperclip className="size-3.5" aria-hidden="true" />
+                {files.length} file(s) selected
+              </p>
+            )}
+            {errors[field.key] && <p className="text-xs text-[var(--color-danger)]">{errors[field.key]}</p>}
+          </div>
+        );
+      default:
+        return (
+          <Input
+            {...common}
+            type={field.type === "number" ? "number" : field.type}
+            min={field.type === "number" ? 0 : undefined}
+            value={value}
+            onChange={(e) => set(field.key, e.target.value)}
+          />
+        );
+    }
+  };
+
+  const renderCustom = (question: CustomFieldConfig) => {
+    const key = question.key as string;
+    const common = { label: question.label, required: question.required, error: errors[key] || undefined };
+    const value = values[key] ?? "";
+    if (question.type === "textarea") {
+      return <Textarea {...common} rows={3} value={value} onChange={(e) => set(key, e.target.value)} />;
+    }
+    if (question.type === "select") {
+      return (
+        <Select {...common} value={value} onChange={(e) => set(key, e.target.value)}>
+          <option value="">Select…</option>
+          {question.options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </Select>
+      );
+    }
+    return (
+      <Input
+        {...common}
+        type={question.type === "number" || question.type === "date" ? question.type : "text"}
+        value={value}
+        onChange={(e) => set(key, e.target.value)}
+      />
+    );
+  };
+
+  const enabledFields = form?.fields.filter((field) => field.enabled) ?? [];
 
   return (
     <Card className="w-full max-w-2xl">
@@ -154,7 +278,7 @@ export function PublicApplyPage() {
               <button
                 key={option}
                 type="button"
-                onClick={() => setKind(option)}
+                onClick={() => switchKind(option)}
                 className={`flex-1 rounded-[var(--radius-md)] border px-4 py-2 text-sm font-medium capitalize transition-colors ${
                   kind === option
                     ? "border-[var(--color-primary)] bg-[color-mix(in_srgb,var(--color-primary)_10%,transparent)] text-[var(--color-primary)]"
@@ -166,113 +290,43 @@ export function PublicApplyPage() {
             ))}
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Input label="First name" required value={form.first_name} onChange={set("first_name")} />
-            <Input label="Middle name" value={form.middle_name} onChange={set("middle_name")} />
-            <Input label="Last name" required value={form.last_name} onChange={set("last_name")} />
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Input type="email" label="Email" required value={form.email} onChange={set("email")} />
-            <Input label="Phone" value={form.phone} onChange={set("phone")} />
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Input type="date" label="Date of birth" value={form.date_of_birth} onChange={set("date_of_birth")} />
-            <Select label="Gender" value={form.gender} onChange={set("gender")}>
-              <option value="">Prefer not to say</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-              <option value="other">Other</option>
-            </Select>
-          </div>
-          <Textarea label="Address" rows={2} value={form.address} onChange={set("address")} />
-
-          {kind === "student" ? (
-            <>
-              <Select
-                label="Applying for class"
-                required
-                value={form.applying_for_class}
-                onChange={set("applying_for_class")}
-              >
-                <option value="">Select a class</option>
-                {options?.classes.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.name}
-                  </option>
-                ))}
-              </Select>
-              <Input label="Previous school" value={form.previous_school} onChange={set("previous_school")} />
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <Input label="Guardian name" value={form.guardian_name} onChange={set("guardian_name")} />
-                <Input label="Guardian phone" value={form.guardian_phone} onChange={set("guardian_phone")} />
-                <Input
-                  type="email"
-                  label="Guardian email"
-                  value={form.guardian_email}
-                  onChange={set("guardian_email")}
-                />
-              </div>
-            </>
+          {!form ? (
+            <FullPageSpinner />
           ) : (
             <>
-              <Select
-                label="Applying for role"
-                required
-                value={form.applying_for_role}
-                onChange={set("applying_for_role")}
-              >
-                <option value="">Select a role</option>
-                {options?.roles.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.name}
-                  </option>
-                ))}
-              </Select>
-              <Input label="Job title" value={form.job_title} onChange={set("job_title")} />
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Input label="Qualification" value={form.qualification} onChange={set("qualification")} />
-                <Input
-                  type="number"
-                  min={0}
-                  label="Years of experience"
-                  value={form.years_of_experience}
-                  onChange={set("years_of_experience")}
-                />
+                {enabledFields.map((field) => (
+                  <div key={field.key} className={FULL_WIDTH_TYPES.has(field.type) ? "sm:col-span-2" : undefined}>
+                    {renderStandard(field, options)}
+                  </div>
+                ))}
+                {form.custom_fields.map((question) => (
+                  <div
+                    key={question.key}
+                    className={question.type === "textarea" ? "sm:col-span-2" : undefined}
+                  >
+                    {renderCustom(question)}
+                  </div>
+                ))}
+              </div>
+
+              {progress !== null && (
+                <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--color-bg-subtle)]">
+                  <div
+                    className="h-full rounded-full bg-[image:var(--gradient-primary)] transition-all"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              )}
+
+              <div className="mt-2 flex justify-end">
+                <Button type="submit" isLoading={submitApplication.isPending}>
+                  {!submitApplication.isPending && <Upload className="size-4" aria-hidden="true" />}
+                  Submit application
+                </Button>
               </div>
             </>
           )}
-
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-[var(--color-text)]">Supporting documents</span>
-            <input
-              type="file"
-              multiple
-              onChange={(e) => setFiles(e.target.files ? Array.from(e.target.files) : [])}
-              className="text-sm text-[var(--color-text-muted)] file:mr-3 file:rounded-[var(--radius-md)] file:border-0 file:bg-[var(--color-bg-subtle)] file:px-3 file:py-1.5 file:text-sm file:text-[var(--color-text)]"
-            />
-            {files.length > 0 && (
-              <p className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
-                <Paperclip className="size-3.5" aria-hidden="true" />
-                {files.length} file(s) selected
-              </p>
-            )}
-          </div>
-
-          {progress !== null && (
-            <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--color-bg-subtle)]">
-              <div
-                className="h-full rounded-full bg-[image:var(--gradient-primary)] transition-all"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          )}
-
-          <div className="mt-2 flex justify-end">
-            <Button type="submit" isLoading={submitApplication.isPending}>
-              {!submitApplication.isPending && <Upload className="size-4" aria-hidden="true" />}
-              Submit application
-            </Button>
-          </div>
         </form>
       </CardContent>
     </Card>

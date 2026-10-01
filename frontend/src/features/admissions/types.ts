@@ -48,6 +48,8 @@ export interface Application {
   created_student: string | null;
   created_staff: string | null;
   documents: ApplicationDocument[];
+  /** Answers to the school's own extra questions, with the question's label stored alongside. */
+  custom_answers: Record<string, { label: string; value: string }>;
   created_at: string;
   updated_at: string;
 }
@@ -89,9 +91,62 @@ export interface PublicRoleOption {
   name: string;
 }
 
+export type FormFieldType =
+  | "text"
+  | "email"
+  | "date"
+  | "textarea"
+  | "gender"
+  | "class"
+  | "role"
+  | "number"
+  | "files";
+
+/** One standard question on the public form, with the school's choices applied. Locked ones (names,
+ * email, the class/role applied for) are always shown and required. */
+export interface FormFieldConfig {
+  key: string;
+  label: string;
+  type: FormFieldType;
+  locked: boolean;
+  enabled: boolean;
+  required: boolean;
+}
+
+export type CustomFieldType = "text" | "textarea" | "number" | "date" | "select";
+
+/** A question the school added itself. `key` is assigned by the server when first saved. */
+export interface CustomFieldConfig {
+  key?: string;
+  label: string;
+  type: CustomFieldType;
+  required: boolean;
+  options: string[];
+}
+
+export interface FormConfig {
+  kind: ApplicationKind;
+  fields: FormFieldConfig[];
+  custom_fields: CustomFieldConfig[];
+}
+
+export interface FormConfigResponse {
+  apply_url: string;
+  school_slug: string;
+  student: FormConfig;
+  staff: FormConfig;
+}
+
+export interface FormConfigPayload {
+  /** Only the non-locked standard fields: { key: { enabled, required } }. */
+  fields: Record<string, { enabled: boolean; required: boolean }>;
+  custom_fields: CustomFieldConfig[];
+}
+
 export interface PublicApplicationOptions {
   classes: PublicSchoolClassOption[];
   roles: PublicRoleOption[];
+  form: Record<ApplicationKind, FormConfig>;
 }
 
 export interface PublicApplicationPayload {
@@ -113,5 +168,6 @@ export interface PublicApplicationPayload {
   job_title?: string;
   qualification?: string;
   years_of_experience?: number;
+  custom_answers?: Record<string, string>;
   documents?: File[];
 }

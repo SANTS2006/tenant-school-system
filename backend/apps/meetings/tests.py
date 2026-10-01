@@ -25,7 +25,7 @@ pytestmark = pytest.mark.django_db
 def _fakes(monkeypatch, settings):
     """Daily.co and Brevo are external services — replaced by recorders. Emails are sent inline
     (not in a thread) so the tests can assert on them."""
-    settings.MEETING_EMAILS_ASYNC = False
+    settings.BACKGROUND_TASKS_ASYNC = False
     sent = []
     fail_for = set()
 

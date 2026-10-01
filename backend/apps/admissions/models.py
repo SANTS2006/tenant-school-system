@@ -53,6 +53,10 @@ class Application(TenantScopedModel, TimeStampedModel):
     qualification = models.CharField(max_length=255, blank=True)
     years_of_experience = models.PositiveIntegerField(null=True, blank=True)
 
+    # Answers to the school's own extra questions: {question_key: {"label": ..., "value": ...}} — the
+    # label is stored with the answer so it still reads correctly if the question is later edited.
+    custom_answers = models.JSONField(default=dict, blank=True)
+
     # Interview — set together by the "invite to interview" bulk action.
     interview_datetime = models.DateTimeField(null=True, blank=True)
     interview_location = models.CharField(max_length=500, blank=True)
@@ -110,3 +114,22 @@ class ApplicationDocument(TenantScopedModel, TimeStampedModel):
         if self.application.school_id != self.school_id:
             raise ValueError("ApplicationDocument.school must match application.school")
         super().save(*args, **kwargs)
+
+
+class ApplicationFormConfig(TenantScopedModel, TimeStampedModel):
+    """One school's choices for the public application form for one kind of applicant. `fields` holds
+    only what the school changed from the defaults ({field_key: {"enabled": bool, "required": bool}});
+    `custom_fields` are its own extra questions. See form_config.py for how these combine."""
+
+    kind = models.CharField(max_length=10, choices=Application.Kind.choices)
+    fields = models.JSONField(default=dict, blank=True)
+    custom_fields = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        db_table = "admission_form_configs"
+        constraints = [
+            models.UniqueConstraint(fields=["school", "kind"], name="unique_application_form_config_per_kind"),
+        ]
+
+    def __str__(self):
+        return f"{self.school_id} / {self.kind}"

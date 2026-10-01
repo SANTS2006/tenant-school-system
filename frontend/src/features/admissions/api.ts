@@ -3,6 +3,9 @@ import type { PaginatedResponse } from "@/types/pagination";
 
 import type {
   Application,
+  FormConfig,
+  FormConfigPayload,
+  FormConfigResponse,
   ApplicationListParams,
   BulkAcceptResult,
   InviteInterviewPayload,
@@ -72,9 +75,9 @@ export async function submitPublicApplication(
   const formData = new FormData();
   const { documents, ...fields } = values;
   for (const [key, value] of Object.entries(fields)) {
-    if (value !== undefined && value !== null && value !== "") {
-      formData.append(key, String(value));
-    }
+    if (value === undefined || value === null || value === "") continue;
+    // The school's extra-question answers are an object — sent as a JSON string the server parses.
+    formData.append(key, key === "custom_answers" ? JSON.stringify(value) : String(value));
   }
   for (const file of documents ?? []) {
     formData.append("documents", file);
@@ -91,4 +94,14 @@ export async function submitPublicApplication(
     },
   );
   return data;
+}
+
+export async function fetchFormConfig(): Promise<FormConfigResponse> {
+  const { data } = await apiClient.get<FormConfigResponse>("/admissions/form-config/");
+  return data;
+}
+
+export async function saveFormConfig(kind: "student" | "staff", payload: FormConfigPayload): Promise<FormConfig> {
+  const { data } = await apiClient.put<{ config: FormConfig }>(`/admissions/form-config/${kind}/`, payload);
+  return data.config;
 }

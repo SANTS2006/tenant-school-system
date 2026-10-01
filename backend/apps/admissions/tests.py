@@ -368,3 +368,107 @@ class TestBulkReject:
         application.refresh_from_db()
         assert application.status == Application.Status.REJECTED
         assert application.rejection_reason == "Class is full."
+
+
+class TestApplicationFormBuilder:
+    def _student_payload(self, school, **extra):
+        school_class = SchoolClassFactory(school=school)
+        return {
+            "kind": "student", "first_name": "Ama", "last_name": "Koroma", "email": "ama@example.test",
+            "applying_for_class": str(school_class.id), **extra,
+        }
+
+    def test_default_form_matches_what_it_always_asked_for(self, api_client):
+        school, _ = _school_administrator()
+        form = api_client.get(f"/api/v1/admissions/apply/{school.slug}/options/").data["form"]
+        student = {f["key"]: f for f in form["student"]["fields"]}
+        assert student["first_name"]["required"] and student["first_name"]["locked"]
+        assert student["phone"]["enabled"] and not student["phone"]["required"]
+        assert form["student"]["custom_fields"] == []
+
+    def test_admin_can_make_a_question_mandatory_and_the_public_form_enforces_it(self, api_client):
+        school, admin = _school_administrator()
+        _login(api_client, admin)
+        saved = api_client.put(
+            "/api/v1/admissions/form-config/student/",
+            {"fields": {"guardian_phone": {"enabled": True, "required": True}}, "custom_fields": []},
+            format="json",
+        )
+        assert saved.status_code == 200, saved.data
+        api_client.logout()
+
+        missing = api_client.post(f"/api/v1/admissions/apply/{school.slug}/", self._student_payload(school), format="multipart")
+        assert missing.status_code == 400
+        assert "guardian_phone" in str(missing.data)
+        ok = api_client.post(
+            f"/api/v1/admissions/apply/{school.slug}/",
+            self._student_payload(school, guardian_phone="0777"), format="multipart",
+        )
+        assert ok.status_code == 201, ok.data
+
+    def test_a_question_switched_off_is_ignored_even_if_submitted(self, api_client):
+        school, admin = _school_administrator()
+        _login(api_client, admin)
+        api_client.put("/api/v1/admissions/form-config/student/", {"fields": {"previous_school": {"enabled": False}}}, format="json")
+        api_client.logout()
+
+        response = api_client.post(
+            f"/api/v1/admissions/apply/{school.slug}/",
+            self._student_payload(school, previous_school="Old School"), format="multipart",
+        )
+        assert response.status_code == 201, response.data
+        assert Application.unscoped_objects.get(school=school).previous_school == ""
+
+    def test_locked_fields_cannot_be_switched_off(self, api_client):
+        school, admin = _school_administrator()
+        _login(api_client, admin)
+        api_client.put("/api/v1/admissions/form-config/student/", {"fields": {"email": {"enabled": False, "required": False}}}, format="json")
+        form = {f["key"]: f for f in api_client.get("/api/v1/admissions/form-config/").data["student"]["fields"]}
+        assert form["email"]["enabled"] and form["email"]["required"]
+
+    def test_custom_questions_are_asked_validated_and_stored_with_their_label(self, api_client):
+        import json
+
+        school, admin = _school_administrator()
+        _login(api_client, admin)
+        saved = api_client.put(
+            "/api/v1/admissions/form-config/student/",
+            {"custom_fields": [
+                {"label": "Religion", "type": "select", "options": ["Christian", "Muslim", "Other"], "required": True},
+                {"label": "Hobbies", "type": "text", "required": False},
+            ]},
+            format="json",
+        )
+        assert saved.status_code == 200, saved.data
+        religion_key = saved.data["config"]["custom_fields"][0]["key"]
+        api_client.logout()
+
+        url = f"/api/v1/admissions/apply/{school.slug}/"
+        assert api_client.post(url, self._student_payload(school), format="multipart").status_code == 400  # required
+        bad = api_client.post(url, self._student_payload(school, custom_answers=json.dumps({religion_key: "Pastafarian"})), format="multipart")
+        assert bad.status_code == 400
+        good = api_client.post(url, self._student_payload(school, custom_answers=json.dumps({religion_key: "Muslim"})), format="multipart")
+        assert good.status_code == 201, good.data
+        stored = Application.unscoped_objects.get(school=school).custom_answers
+        assert stored == {religion_key: {"label": "Religion", "value": "Muslim"}}
+
+    def test_config_is_per_school_and_needs_the_update_permission(self, api_client):
+        school_a, admin_a = _school_administrator()
+        school_b, _ = _school_administrator()
+        _login(api_client, admin_a)
+        api_client.put("/api/v1/admissions/form-config/staff/", {"fields": {"qualification": {"enabled": True, "required": True}}}, format="json")
+        api_client.logout()
+        form_b = {f["key"]: f for f in api_client.get(f"/api/v1/admissions/apply/{school_b.slug}/options/").data["form"]["staff"]["fields"]}
+        assert not form_b["qualification"]["required"]
+
+        teacher = UserFactory(school=school_a)
+        assign_role(user=teacher, role=Role.unscoped_objects.get(school=school_a, slug="teacher"))
+        _login(api_client, teacher)
+        assert api_client.put("/api/v1/admissions/form-config/staff/", {}, format="json").status_code == 403
+
+    def test_admin_gets_the_shareable_link(self, api_client):
+        school, admin = _school_administrator()
+        _login(api_client, admin)
+        response = api_client.get("/api/v1/admissions/form-config/")
+        assert response.status_code == 200
+        assert response.data["apply_url"].endswith(f"/apply/{school.slug}")
