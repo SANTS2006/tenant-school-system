@@ -157,7 +157,7 @@ export function IncidentsListPage() {
               {data.results.map((incident) => (
                 <TableRowLink key={incident.id} onClick={() => navigate(`/discipline/${incident.id}/edit`)}>
                   <TableCell className="font-medium">{incident.student_name}</TableCell>
-                  <TableCell>{statusLabel(incident.category)}</TableCell>
+                  <TableCell>{incident.category_label}</TableCell>
                   <TableCell>
                     <Badge tone={severityTone(incident.severity)}>{statusLabel(incident.severity)}</Badge>
                   </TableCell>

@@ -1,6 +1,7 @@
 from django.db import models
 
 from apps.common.models import TimeStampedModel
+from apps.common.validators import validate_image_file
 from apps.tenants.models import TenantScopedModel
 
 
@@ -38,6 +39,9 @@ class Event(TenantScopedModel, TimeStampedModel):
     start_datetime = models.DateTimeField()
     end_datetime = models.DateTimeField()
     location = models.CharField(max_length=255, blank=True)
+    # The event's cover image — required on create through the API (see EventSerializer); nullable
+    # in the DB so events that predate the field stay valid. Separate from the EventMedia gallery.
+    image = models.FileField(upload_to="event_images/", null=True, blank=True, validators=[validate_image_file])
     # Null = unlimited attendance — a school-wide holiday notice has no headcount to cap.
     capacity = models.PositiveIntegerField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)

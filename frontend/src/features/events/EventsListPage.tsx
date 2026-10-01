@@ -3,7 +3,9 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Alert } from "@/components/ui/Alert";
+import { CategorySelect } from "@/components/ui/CategorySelect";
 import { Badge } from "@/components/ui/Badge";
+import { CardAction, ImageCard } from "@/components/ui/ImageCard";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -14,15 +16,6 @@ import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Select } from "@/components/ui/Select";
 import { FullPageSpinner, Spinner } from "@/components/ui/Spinner";
 import { StatRow } from "@/components/ui/StatRow";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableHeaderCell,
-  TableRowLink,
-} from "@/components/ui/Table";
 import { useToast } from "@/components/ui/Toast";
 import { useHasPermission } from "@/features/auth/useAuth";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -31,11 +24,11 @@ import type { ApiError } from "@/lib/api-client";
 import { generalErrorMessage } from "@/lib/formErrors";
 
 import { categoryLabel, eventStatusLabel, eventStatusTone } from "./statusTone";
-import type { EventCategory, EventStatus } from "./types";
+import type { BuiltinEventCategory, EventCategory, EventStatus } from "./types";
 import { useCancelEvent, useDeleteEvent, useEventList, usePublishEvent } from "./useEventsCrud";
 
 const PAGE_SIZE = 25;
-const CATEGORIES: EventCategory[] = ["academic", "sports", "cultural", "meeting", "holiday", "other"];
+const CATEGORIES: BuiltinEventCategory[] = ["academic", "sports", "cultural", "meeting", "holiday", "other"];
 const STATUSES: EventStatus[] = ["draft", "published", "cancelled"];
 
 export function EventsListPage() {
@@ -136,20 +129,18 @@ export function EventsListPage() {
             />
           </div>
           <div className="w-full max-w-[160px]">
-            <Select
+            <CategorySelect
+              field="events.category"
+              allLabel="All categories"
+              builtin={CATEGORIES.map((value) => ({ value, label: categoryLabel(value) }))}
               value={category}
-              onChange={(e) => {
-                setCategory(e.target.value as EventCategory | "");
+              onChange={(value) => {
+                setCategory(value);
                 setPage(1);
               }}
-            >
-              <option value="">All categories</option>
-              {CATEGORIES.map((option) => (
-                <option key={option} value={option}>
-                  {categoryLabel(option)}
-                </option>
-              ))}
-            </Select>
+              otherText=""
+              onOtherTextChange={() => undefined}
+            />
           </div>
           <div className="w-full max-w-[160px]">
             <Select
@@ -187,84 +178,66 @@ export function EventsListPage() {
         <EmptyState icon={Calendar} title="No events found" description="Try adjusting your filters." />
       ) : data ? (
         <ScrollReveal>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <tr>
-                <TableHeaderCell>Title</TableHeaderCell>
-                <TableHeaderCell>When</TableHeaderCell>
-                <TableHeaderCell>Audience</TableHeaderCell>
-                <TableHeaderCell>Attendance</TableHeaderCell>
-                <TableHeaderCell>Status</TableHeaderCell>
-                <TableHeaderCell className="text-right">Actions</TableHeaderCell>
-              </tr>
-            </TableHead>
-            <TableBody>
-              {data.results.map((event) => (
-                <TableRowLink key={event.id} onClick={() => navigate(`/events/${event.id}`)}>
-                  <TableCell className="font-medium">{event.title}</TableCell>
-                  <TableCell>{new Date(event.start_datetime).toLocaleString()}</TableCell>
-                  <TableCell>{categoryLabel(event.category)}</TableCell>
-                  <TableCell>
-                    {event.registered_count}
-                    {event.capacity !== null && ` / ${event.capacity}`}
-                  </TableCell>
-                  <TableCell>
-                    <Badge tone={eventStatusTone(event.status)}>{eventStatusLabel(event.status)}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      {canUpdate && event.status === "draft" && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handlePublish(event.id);
-                          }}
-                          disabled={publishEvent.isPending}
-                          aria-label={`Publish ${event.title}`}
-                          className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-success)] disabled:opacity-40"
-                        >
-                          <Send className="size-4" aria-hidden="true" />
-                        </button>
-                      )}
-                      {canUpdate && event.status === "published" && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCancel(event.id, event.title);
-                          }}
-                          disabled={cancelEvent.isPending}
-                          aria-label={`Cancel ${event.title}`}
-                          className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-danger)] disabled:opacity-40"
-                        >
-                          <XCircle className="size-4" aria-hidden="true" />
-                        </button>
-                      )}
-                      {canDelete && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(event.id, event.title);
-                          }}
-                          aria-label={`Delete ${event.title}`}
-                          className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-danger)]"
-                        >
-                          <Trash2 className="size-4" aria-hidden="true" />
-                        </button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRowLink>
-              ))}
-            </TableBody>
-          </Table>
-          <div className="border-t border-[var(--color-border)]">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {data.results.map((event) => {
+              const canPublish = canUpdate && event.is_mine && event.status === "draft";
+              const canCancel = canUpdate && event.is_mine && event.status === "published";
+              const canRemove = canDelete && event.is_mine;
+              return (
+                <ImageCard
+                  key={event.id}
+                  image={event.image}
+                  fallbackIcon={Calendar}
+                  title={event.title}
+                  subtitle={new Date(event.start_datetime).toLocaleString()}
+                  chips={[
+                    event.category_label,
+                    `${event.registered_count}${event.capacity !== null ? ` / ${event.capacity}` : ""} attending`,
+                  ]}
+                  badge={<Badge tone={eventStatusTone(event.status)}>{eventStatusLabel(event.status)}</Badge>}
+                  description={event.description}
+                  meta={event.location ? <span>{event.location}</span> : undefined}
+                  dimmed={event.status === "cancelled"}
+                  onClick={() => navigate(`/events/${event.id}`)}
+                  actions={
+                    canPublish || canCancel || canRemove ? (
+                      <>
+                        {canPublish && (
+                          <CardAction
+                            label={`Publish ${event.title}`}
+                            icon={Send}
+                            tone="success"
+                            disabled={publishEvent.isPending}
+                            onClick={() => handlePublish(event.id)}
+                          />
+                        )}
+                        {canCancel && (
+                          <CardAction
+                            label={`Cancel ${event.title}`}
+                            icon={XCircle}
+                            tone="danger"
+                            disabled={cancelEvent.isPending}
+                            onClick={() => handleCancel(event.id, event.title)}
+                          />
+                        )}
+                        {canRemove && (
+                          <CardAction
+                            label={`Delete ${event.title}`}
+                            icon={Trash2}
+                            tone="danger"
+                            onClick={() => handleDelete(event.id, event.title)}
+                          />
+                        )}
+                      </>
+                    ) : undefined
+                  }
+                />
+              );
+            })}
+          </div>
+          <div className="mt-5 overflow-hidden rounded-xl border border-[var(--color-border)]">
             <Pagination page={page} pageSize={PAGE_SIZE} count={data.count} onPageChange={setPage} />
           </div>
-        </TableContainer>
         </ScrollReveal>
       ) : null}
 

@@ -3,7 +3,9 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Alert } from "@/components/ui/Alert";
+import { CategorySelect } from "@/components/ui/CategorySelect";
 import { Badge } from "@/components/ui/Badge";
+import { ImageCard } from "@/components/ui/ImageCard";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ExportCsvButton } from "@/components/ui/ExportCsvButton";
@@ -13,26 +15,17 @@ import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Select } from "@/components/ui/Select";
 import { FullPageSpinner, Spinner } from "@/components/ui/Spinner";
 import { StatRow } from "@/components/ui/StatRow";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableHeaderCell,
-  TableRowLink,
-} from "@/components/ui/Table";
 import { useHasPermission } from "@/features/auth/useAuth";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useSummaryStats } from "@/hooks/useSummaryStats";
 import type { ApiError } from "@/lib/api-client";
 
-import { categoryLabel, priorityLabel, priorityTone, statusLabel, statusTone } from "./statusTone";
-import type { ComplaintCategory, ComplaintPriority, ComplaintStatus } from "./types";
+import { categoryLabel, priorityLabel, statusLabel, statusTone } from "./statusTone";
+import type { BuiltinComplaintCategory, ComplaintCategory, ComplaintPriority, ComplaintStatus } from "./types";
 import { useComplaintList } from "./useComplaintsCrud";
 
 const PAGE_SIZE = 25;
-const CATEGORIES: ComplaintCategory[] = ["academic", "facility", "behavioral", "administrative", "other"];
+const CATEGORIES: BuiltinComplaintCategory[] = ["academic", "facility", "behavioral", "administrative", "other"];
 const STATUSES: ComplaintStatus[] = ["submitted", "under_review", "resolved", "rejected"];
 const PRIORITIES: ComplaintPriority[] = ["low", "normal", "high"];
 
@@ -97,20 +90,18 @@ export function ComplaintsListPage() {
             />
           </div>
           <div className="w-full max-w-[160px]">
-            <Select
+            <CategorySelect
+              field="complaints.category"
+              allLabel="All categories"
+              builtin={CATEGORIES.map((value) => ({ value, label: categoryLabel(value) }))}
               value={category}
-              onChange={(e) => {
-                setCategory(e.target.value as ComplaintCategory | "");
+              onChange={(value) => {
+                setCategory(value);
                 setPage(1);
               }}
-            >
-              <option value="">All categories</option>
-              {CATEGORIES.map((option) => (
-                <option key={option} value={option}>
-                  {categoryLabel(option)}
-                </option>
-              ))}
-            </Select>
+              otherText=""
+              onOtherTextChange={() => undefined}
+            />
           </div>
           <div className="w-full max-w-[160px]">
             <Select
@@ -162,41 +153,29 @@ export function ComplaintsListPage() {
         <EmptyState icon={MessageSquareWarning} title="No complaints found" description="Try adjusting your filters." />
       ) : data ? (
         <ScrollReveal>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <tr>
-                <TableHeaderCell>Subject</TableHeaderCell>
-                <TableHeaderCell>Category</TableHeaderCell>
-                {canViewAll && <TableHeaderCell>Submitted by</TableHeaderCell>}
-                <TableHeaderCell>Priority</TableHeaderCell>
-                <TableHeaderCell>Status</TableHeaderCell>
-              </tr>
-            </TableHead>
-            <TableBody>
-              {data.results.map((complaint) => (
-                <TableRowLink key={complaint.id} onClick={() => navigate(`/complaints/${complaint.id}`)}>
-                  <TableCell className="font-medium">{complaint.subject}</TableCell>
-                  <TableCell>{categoryLabel(complaint.category)}</TableCell>
-                  {canViewAll && (
-                    <TableCell>
-                      {complaint.submitted_by_name ?? <span className="text-[var(--color-text-muted)] italic">Anonymous</span>}
-                    </TableCell>
-                  )}
-                  <TableCell>
-                    <Badge tone={priorityTone(complaint.priority)}>{priorityLabel(complaint.priority)}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge tone={statusTone(complaint.status)}>{statusLabel(complaint.status)}</Badge>
-                  </TableCell>
-                </TableRowLink>
-              ))}
-            </TableBody>
-          </Table>
-          <div className="border-t border-[var(--color-border)]">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {data.results.map((complaint) => (
+              <ImageCard
+                key={complaint.id}
+                image={complaint.image}
+                fallbackIcon={MessageSquareWarning}
+                title={complaint.subject}
+                subtitle={
+                  canViewAll ? (complaint.submitted_by_name ?? "Anonymous") : new Date(complaint.created_at).toLocaleDateString()
+                }
+                chips={[complaint.category_label, `${priorityLabel(complaint.priority)} priority`]}
+                badge={<Badge tone={statusTone(complaint.status)}>{statusLabel(complaint.status)}</Badge>}
+                description={complaint.description}
+                meta={
+                  canViewAll ? <span>Submitted {new Date(complaint.created_at).toLocaleDateString()}</span> : undefined
+                }
+                onClick={() => navigate(`/complaints/${complaint.id}`)}
+              />
+            ))}
+          </div>
+          <div className="mt-5 overflow-hidden rounded-xl border border-[var(--color-border)]">
             <Pagination page={page} pageSize={PAGE_SIZE} count={data.count} onPageChange={setPage} />
           </div>
-        </TableContainer>
         </ScrollReveal>
       ) : null}
 

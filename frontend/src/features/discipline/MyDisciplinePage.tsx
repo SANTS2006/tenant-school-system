@@ -37,7 +37,7 @@ export function MyDisciplinePage() {
               <CardHeader className="flex-row items-center justify-between">
                 <div>
                   <CardTitle className="text-base font-semibold text-[var(--color-text)]">
-                    {statusLabel(incident.category)}
+                    {incident.category_label}
                   </CardTitle>
                   <p className="text-sm text-[var(--color-text-muted)]">
                     {new Date(incident.incident_date).toLocaleDateString()}

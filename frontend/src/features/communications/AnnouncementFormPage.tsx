@@ -10,6 +10,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Checkbox } from "@/components/ui/Checkbox";
+import { ImageField } from "@/components/ui/ImageField";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { FullPageSpinner } from "@/components/ui/Spinner";
@@ -60,6 +61,7 @@ const EMPTY_VALUES: FormValues = {
 const FIELD_KEYS = new Set([
   "title",
   "body",
+  "image",
   "target_type",
   "target_class",
   "target_section",
@@ -85,6 +87,10 @@ export function AnnouncementFormPage() {
   const updateAnnouncement = useUpdateAnnouncement(id ?? "");
   const mutation = isEditMode ? updateAnnouncement : createAnnouncement;
   const [generalError, setGeneralError] = useState<string | null>(null);
+  // Someone else's announcement: viewable, never editable (the server enforces this too).
+  const readOnly = isEditMode && !!announcement && !announcement.is_mine;
+  const [image, setImage] = useState<File | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   const {
     register,
@@ -117,9 +123,16 @@ export function AnnouncementFormPage() {
 
   const onSubmit = (values: FormValues) => {
     setGeneralError(null);
+    // An announcement needs a picture: required when creating, optional on edit (keeps the current one).
+    if (!isEditMode && !image) {
+      setImageError("An image is required.");
+      return;
+    }
+    setImageError(null);
     mutation.mutate(
       {
         title: values.title,
+        image: image ?? undefined,
         body: values.body,
         target_type: values.target_type,
         target_class: values.target_class || undefined,
@@ -171,9 +184,28 @@ export function AnnouncementFormPage() {
               {generalError}
             </Alert>
           )}
+          {readOnly && (
+            <Alert tone="warning" className="mb-4">
+              This announcement was created by {announcement?.created_by_name ?? "someone else"}, so only they can
+              edit, publish or delete it. You can read it here.
+            </Alert>
+          )}
           <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-4">
+          <fieldset disabled={readOnly} className="flex flex-col gap-4 border-0 p-0">
             <Input label="Title" error={errors.title?.message} {...register("title")} />
             <Input label="Body" error={errors.body?.message} {...register("body")} />
+            <ImageField
+              label="Image"
+              required
+              value={image}
+              onChange={(file) => {
+                setImage(file);
+                setImageError(null);
+              }}
+              existingUrl={announcement?.image}
+              error={imageError ?? undefined}
+              hint="Shown with the announcement. JPG, PNG, WEBP or GIF, up to 5MB."
+            />
             <Select label="Audience" error={errors.target_type?.message} {...register("target_type")}>
               {TARGET_TYPES.map((option) => (
                 <option key={option} value={option}>
@@ -214,14 +246,18 @@ export function AnnouncementFormPage() {
             <Checkbox label="Send email" hint="Also emails every resolved recipient via Brevo." {...register("send_email")} />
             <Checkbox label="Active" {...register("is_active")} />
 
+          </fieldset>
+
             <div className="mt-2 flex justify-end gap-3">
               <Button type="button" variant="secondary" onClick={() => navigate("/communications")}>
-                Cancel
+                {readOnly ? "Back" : "Cancel"}
               </Button>
-              <Button type="submit" isLoading={mutation.isPending}>
-                {!mutation.isPending && <Save className="size-4" aria-hidden="true" />}
-                Save
-              </Button>
+              {!readOnly && (
+                <Button type="submit" isLoading={mutation.isPending}>
+                  {!mutation.isPending && <Save className="size-4" aria-hidden="true" />}
+                  Save
+                </Button>
+              )}
             </div>
           </form>
         </CardContent>

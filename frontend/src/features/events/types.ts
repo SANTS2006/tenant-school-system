@@ -11,19 +11,25 @@ export type TargetType =
   | "parents"
   | "specific_users";
 
-export type EventCategory = "academic" | "sports" | "cultural" | "meeting" | "holiday" | "other";
+/** The built-in categories; a school can add more through "Other", so the value itself is any string. */
+export type BuiltinEventCategory = "academic" | "sports" | "cultural" | "meeting" | "holiday" | "other";
+export type EventCategory = string;
 export type EventStatus = "draft" | "published" | "cancelled";
 
 export interface Event {
   id: string;
   title: string;
   description: string;
+  image: string | null;
   category: EventCategory;
+  category_label: string;
   start_datetime: string;
   end_datetime: string;
   location: string;
   capacity: number | null;
   registered_count: number;
+  /** True when the viewer created it — only the creator may edit, publish, cancel or delete it. */
+  is_mine: boolean;
   status: EventStatus;
   target_type: TargetType;
   target_class: string | null;
@@ -41,6 +47,8 @@ export interface Event {
 export interface EventPayload {
   title: string;
   description?: string;
+  /** Required when creating; omit on edit to keep the current image. */
+  image?: File;
   category: EventCategory;
   start_datetime: string;
   end_datetime: string;

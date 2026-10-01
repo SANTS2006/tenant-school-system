@@ -1,6 +1,7 @@
 from django.db import models
 
 from apps.common.models import TimeStampedModel
+from apps.common.validators import validate_image_file
 from apps.tenants.models import TenantScopedModel
 
 
@@ -17,6 +18,11 @@ class Announcement(TenantScopedModel, TimeStampedModel):
 
     title = models.CharField(max_length=200)
     body = models.CharField(max_length=5000)
+    # Required when an announcement is created through the API (see AnnouncementSerializer), but
+    # nullable at the DB level so announcements that predate this field stay valid.
+    image = models.FileField(
+        upload_to="announcement_images/", null=True, blank=True, validators=[validate_image_file]
+    )
     target_type = models.CharField(max_length=20, choices=TargetType.choices, default=TargetType.SCHOOL)
     target_class = models.ForeignKey(
         "academics.SchoolClass", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
@@ -28,6 +34,11 @@ class Announcement(TenantScopedModel, TimeStampedModel):
         "academics.Department", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
     )
     send_email = models.BooleanField(default=False)
+    # Who created it — the only person who may edit, delete or publish it (see
+    # AnnouncementViewSet). `published_by` records who actually pressed Publish.
+    created_by = models.ForeignKey(
+        "users.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
     published_by = models.ForeignKey(
         "users.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
     )

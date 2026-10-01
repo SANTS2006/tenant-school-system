@@ -48,7 +48,7 @@ export function NotificationBell() {
     }
     setIsOpen(false);
     if (notification.link) {
-      navigate(notification.link);
+      navigate(`/notifications/${notification.id}`);
     }
   };
 

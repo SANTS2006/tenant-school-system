@@ -1,4 +1,5 @@
 import { apiClient } from "@/lib/api-client";
+import { toFormData } from "@/lib/formData";
 import type { PaginatedResponse } from "@/types/pagination";
 
 import type {
@@ -28,7 +29,7 @@ export async function getComplaint(id: string): Promise<Complaint> {
 }
 
 export async function createComplaint(values: ComplaintPayload): Promise<Complaint> {
-  const { data } = await apiClient.post<Complaint>("/complaints/", values);
+  const { data } = await apiClient.post<Complaint>("/complaints/", toFormData(values));
   return data;
 }
 

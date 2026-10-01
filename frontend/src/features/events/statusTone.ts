@@ -19,7 +19,7 @@ export function targetTypeLabel(targetType: TargetType): string {
   return TARGET_TYPE_LABELS[targetType];
 }
 
-const CATEGORY_LABELS: Record<EventCategory, string> = {
+const CATEGORY_LABELS: Record<string, string> = {
   academic: "Academic",
   sports: "Sports",
   cultural: "Cultural",

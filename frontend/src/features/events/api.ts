@@ -1,4 +1,5 @@
 import { apiClient } from "@/lib/api-client";
+import { toFormData } from "@/lib/formData";
 import type { PaginatedResponse } from "@/types/pagination";
 
 import type {
@@ -29,12 +30,12 @@ export async function getEvent(id: string): Promise<Event> {
 }
 
 export async function createEvent(values: EventPayload): Promise<Event> {
-  const { data } = await apiClient.post<Event>("/events/", values);
+  const { data } = await apiClient.post<Event>("/events/", toFormData(values));
   return data;
 }
 
 export async function updateEvent(id: string, values: EventPayload): Promise<Event> {
-  const { data } = await apiClient.patch<Event>(`/events/${id}/`, values);
+  const { data } = await apiClient.patch<Event>(`/events/${id}/`, toFormData(values));
   return data;
 }
 

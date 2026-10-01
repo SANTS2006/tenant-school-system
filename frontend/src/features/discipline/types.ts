@@ -1,10 +1,12 @@
-export type DisciplineCategory =
+/** The built-in categories; a school can add more through "Other", so the value itself is any string. */
+export type BuiltinDisciplineCategory =
   | "bullying"
   | "vandalism"
   | "tardiness"
   | "academic_dishonesty"
   | "fighting"
   | "other";
+export type DisciplineCategory = string;
 export type DisciplineSeverity = "minor" | "moderate" | "severe";
 export type DisciplineActionTaken = "none" | "warning" | "detention" | "suspension" | "expulsion";
 export type DisciplineStatus = "reported" | "under_review" | "resolved";
@@ -16,6 +18,7 @@ export interface DisciplineIncident {
   student: string;
   student_name: string;
   category: DisciplineCategory;
+  category_label: string;
   severity: DisciplineSeverity;
   incident_date: string;
   description: string;

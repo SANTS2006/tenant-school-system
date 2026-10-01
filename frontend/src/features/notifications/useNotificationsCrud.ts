@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type { ApiError } from "@/lib/api-client";
 
-import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from "./api";
+import { fetchNotifications, getNotification, markAllNotificationsRead, markNotificationRead } from "./api";
 import type { Notification, NotificationListParams } from "./types";
 
 interface PageParams {
@@ -30,6 +30,14 @@ export function useUnreadCount() {
     queryFn: () => fetchNotifications({ page_size: 1, is_read: false }),
     select: (data) => data.count,
     refetchInterval: 30_000,
+  });
+}
+
+export function useNotification(id: string | undefined) {
+  return useQuery<Notification, ApiError>({
+    queryKey: [...NOTIFICATIONS_KEY, "detail", id],
+    queryFn: () => getNotification(id as string),
+    enabled: !!id,
   });
 }
 

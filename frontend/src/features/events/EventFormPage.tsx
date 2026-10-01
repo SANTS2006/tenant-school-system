@@ -2,27 +2,30 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { Save } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
 import { z } from "zod";
 
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { CategorySelect } from "@/components/ui/CategorySelect";
+import { ImageField } from "@/components/ui/ImageField";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { FullPageSpinner } from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/Toast";
 import { fetchDepartments } from "@/features/academics/api";
 import { useAllSections, useSchoolClasses } from "@/features/academics/useAcademicsLookups";
+import { useResolveCategory } from "@/features/formoptions/useResolveCategory";
 import type { ApiError } from "@/lib/api-client";
 import { applyFieldErrors, generalErrorMessage } from "@/lib/formErrors";
 
 import { categoryLabel, targetTypeLabel } from "./statusTone";
-import type { EventCategory, TargetType } from "./types";
+import type { BuiltinEventCategory, TargetType } from "./types";
 import { useCreateEvent, useEvent, useUpdateEvent } from "./useEventsCrud";
 
-const CATEGORIES: EventCategory[] = ["academic", "sports", "cultural", "meeting", "holiday", "other"];
+const CATEGORIES: BuiltinEventCategory[] = ["academic", "sports", "cultural", "meeting", "holiday", "other"];
 const TARGET_TYPES: TargetType[] = [
   "school",
   "class",
@@ -38,7 +41,7 @@ const schema = z
   .object({
     title: z.string().min(1, "Title is required"),
     description: z.string(),
-    category: z.enum(["academic", "sports", "cultural", "meeting", "holiday", "other"]),
+    category: z.string().min(1, "Choose a category"),
     start_datetime: z.string().min(1, "Start date/time is required"),
     end_datetime: z.string().min(1, "End date/time is required"),
     location: z.string(),
@@ -69,7 +72,7 @@ const EMPTY_VALUES: FormValues = {
   target_department: "",
 };
 const FIELD_KEYS = new Set([
-  "title", "description", "category", "start_datetime", "end_datetime", "location", "capacity",
+  "title", "description", "image", "category", "start_datetime", "end_datetime", "location", "capacity",
   "target_type", "target_class", "target_section", "target_department",
 ]);
 
@@ -99,9 +102,14 @@ export function EventFormPage() {
   const updateEvent = useUpdateEvent(id ?? "");
   const mutation = isEditMode ? updateEvent : createEvent;
   const [generalError, setGeneralError] = useState<string | null>(null);
+  const [image, setImage] = useState<File | null>(null);
+  const [otherText, setOtherText] = useState("");
+  const resolveCategory = useResolveCategory("events.category");
+  const [imageError, setImageError] = useState<string | null>(null);
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     setError,
@@ -129,13 +137,28 @@ export function EventFormPage() {
     }
   }, [event, classes, sections, departments, reset]);
 
-  const onSubmit = (values: FormValues) => {
+  const onSubmit = async (values: FormValues) => {
     setGeneralError(null);
+    // An event needs a picture: required when creating, optional on edit (keeps the current one).
+    if (!isEditMode && !image) {
+      setImageError("An image is required.");
+      return;
+    }
+    setImageError(null);
+    let category: string;
+    try {
+      // "Other" + a typed name becomes a real option on the school's list first.
+      category = await resolveCategory(values.category, otherText);
+    } catch (err) {
+      setGeneralError(generalErrorMessage(err as ApiError));
+      return;
+    }
     mutation.mutate(
       {
         title: values.title,
+        image: image ?? undefined,
         description: values.description || undefined,
-        category: values.category,
+        category,
         start_datetime: values.start_datetime,
         end_datetime: values.end_datetime,
         location: values.location || undefined,
@@ -182,14 +205,35 @@ export function EventFormPage() {
           <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-4">
             <Input label="Title" error={errors.title?.message} {...register("title")} />
             <Input label="Description" error={errors.description?.message} {...register("description")} />
+            <ImageField
+              label="Event image"
+              required
+              value={image}
+              onChange={(file) => {
+                setImage(file);
+                setImageError(null);
+              }}
+              existingUrl={event?.image}
+              error={imageError ?? undefined}
+              hint="The event's cover picture. JPG, PNG, WEBP or GIF, up to 5MB."
+            />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Select label="Category" error={errors.category?.message} {...register("category")}>
-                {CATEGORIES.map((option) => (
-                  <option key={option} value={option}>
-                    {categoryLabel(option)}
-                  </option>
-                ))}
-              </Select>
+              <Controller
+                name="category"
+                control={control}
+                render={({ field }) => (
+                  <CategorySelect
+                    field="events.category"
+                    label="Category"
+                    builtin={CATEGORIES.map((value) => ({ value, label: categoryLabel(value) }))}
+                    value={field.value}
+                    onChange={field.onChange}
+                    otherText={otherText}
+                    onOtherTextChange={setOtherText}
+                    error={errors.category?.message}
+                  />
+                )}
+              />
               <Input label="Location" error={errors.location?.message} {...register("location")} />
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

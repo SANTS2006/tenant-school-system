@@ -14,7 +14,8 @@ class Notification(TenantScopedModel, TimeStampedModel):
     category = models.CharField(max_length=50)  # "announcement", "assignment", "fee_reminder", ...
     priority = models.CharField(max_length=10, choices=Priority.choices, default=Priority.NORMAL)
     title = models.CharField(max_length=200)
-    message = models.CharField(max_length=1000)
+    # Unbounded: the details page shows the full text (an announcement's whole body), not a teaser.
+    message = models.TextField()
     link = models.CharField(max_length=500, blank=True)
     is_read = models.BooleanField(default=False)
     read_at = models.DateTimeField(null=True, blank=True)

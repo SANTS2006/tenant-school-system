@@ -15,6 +15,11 @@ export async function fetchNotifications(
   return data;
 }
 
+export async function getNotification(id: string): Promise<Notification> {
+  const { data } = await apiClient.get<Notification>(`/notifications/${id}/`);
+  return data;
+}
+
 export async function markNotificationRead(id: string): Promise<Notification> {
   const { data } = await apiClient.post<{ notification: Notification }>(`/notifications/${id}/mark-read/`);
   return data.notification;

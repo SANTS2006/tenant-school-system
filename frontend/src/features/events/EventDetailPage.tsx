@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { Alert } from "@/components/ui/Alert";
+import { OpenFileButton } from "@/components/ui/FileViewer";
 import { BackArrowIcon } from "@/components/ui/BackArrowIcon";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -25,7 +26,7 @@ import { useCurrentUser, useHasPermission } from "@/features/auth/useAuth";
 import type { ApiError } from "@/lib/api-client";
 import { generalErrorMessage } from "@/lib/formErrors";
 
-import { categoryLabel, eventStatusLabel, eventStatusTone, targetTypeLabel } from "./statusTone";
+import { eventStatusLabel, eventStatusTone, targetTypeLabel } from "./statusTone";
 import type { EventMediaType } from "./types";
 import {
   useAttendees,
@@ -187,25 +188,25 @@ export function EventDetailPage() {
           Back to events
         </button>
         <div className="flex flex-wrap justify-end gap-2">
-          {canUpdate && (
+          {canUpdate && event.is_mine && (
             <Button variant="secondary" size="sm" onClick={() => navigate(`/events/${event.id}/edit`)}>
               <Pencil className="size-4" aria-hidden="true" />
               Edit
             </Button>
           )}
-          {canUpdate && event.status === "draft" && (
+          {canUpdate && event.is_mine && event.status === "draft" && (
             <Button size="sm" onClick={handlePublish} isLoading={publishEvent.isPending}>
               <Send className="size-4" aria-hidden="true" />
               Publish
             </Button>
           )}
-          {canUpdate && event.status === "published" && (
+          {canUpdate && event.is_mine && event.status === "published" && (
             <Button variant="danger" size="sm" onClick={handleCancel} isLoading={cancelEvent.isPending}>
               <XCircle className="size-4" aria-hidden="true" />
               Cancel event
             </Button>
           )}
-          {canDelete && (
+          {canDelete && event.is_mine && (
             <Button variant="danger" size="sm" onClick={handleDelete} isLoading={deleteEvent.isPending}>
               <Trash2 className="size-4" aria-hidden="true" />
               Delete
@@ -218,11 +219,20 @@ export function EventDetailPage() {
         <CardHeader className="flex-row items-center justify-between">
           <div>
             <CardTitle className="text-base font-semibold text-[var(--color-text)]">{event.title}</CardTitle>
-            <p className="text-sm text-[var(--color-text-muted)]">{categoryLabel(event.category)}</p>
+            <p className="text-sm text-[var(--color-text-muted)]">{event.category_label}</p>
           </div>
           <Badge tone={eventStatusTone(event.status)}>{eventStatusLabel(event.status)}</Badge>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {event.image && (
+            <OpenFileButton url={event.image} title={event.title} className="block w-full cursor-zoom-in sm:col-span-2">
+              <img
+                src={event.image}
+                alt={event.title}
+                className="max-h-72 w-full rounded-[var(--radius-md)] border border-[var(--color-border)] object-cover"
+              />
+            </OpenFileButton>
+          )}
           <Field label="Starts" value={new Date(event.start_datetime).toLocaleString()} />
           <Field label="Ends" value={new Date(event.end_datetime).toLocaleString()} />
           <Field label="Location" value={event.location} />
@@ -364,7 +374,9 @@ export function EventDetailPage() {
                     // eslint-disable-next-line jsx-a11y/media-has-caption
                     <video src={item.file} controls className="aspect-square w-full object-cover" />
                   ) : (
-                    <img src={item.file} alt={item.caption || "Event photo"} className="aspect-square w-full object-cover" />
+                    <OpenFileButton url={item.file} title={item.caption || "Event photo"} className="block w-full cursor-zoom-in">
+                      <img src={item.file} alt={item.caption || "Event photo"} className="aspect-square w-full object-cover" />
+                    </OpenFileButton>
                   )}
                   {item.caption && (
                     <p className="truncate bg-black/50 p-1.5 text-xs text-white">{item.caption}</p>

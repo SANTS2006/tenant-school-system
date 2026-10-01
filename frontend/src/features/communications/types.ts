@@ -15,6 +15,7 @@ export interface Announcement {
   id: string;
   title: string;
   body: string;
+  image: string | null;
   target_type: TargetType;
   target_class: string | null;
   target_class_name: string | null;
@@ -23,6 +24,10 @@ export interface Announcement {
   target_department: string | null;
   target_department_name: string | null;
   send_email: boolean;
+  created_by: string | null;
+  created_by_name: string | null;
+  /** True when the viewer created it — only the creator may edit, delete or publish it. */
+  is_mine: boolean;
   published_by: string | null;
   published_by_name: string | null;
   published_at: string | null;
@@ -34,6 +39,8 @@ export interface Announcement {
 export interface AnnouncementPayload {
   title: string;
   body: string;
+  /** Required when creating; omit on edit to keep the current image. */
+  image?: File;
   target_type: TargetType;
   target_class?: string;
   target_section?: string;

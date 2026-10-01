@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
+import { CardAction, ImageCard } from "@/components/ui/ImageCard";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -14,15 +15,6 @@ import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Select } from "@/components/ui/Select";
 import { FullPageSpinner, Spinner } from "@/components/ui/Spinner";
 import { StatRow } from "@/components/ui/StatRow";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableHeaderCell,
-  TableRowLink,
-} from "@/components/ui/Table";
 import { useToast } from "@/components/ui/Toast";
 import { useHasPermission } from "@/features/auth/useAuth";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -159,86 +151,72 @@ export function AnnouncementsListPage() {
         <EmptyState icon={Megaphone} title="No announcements found" description="Try adjusting your filters." />
       ) : data ? (
         <ScrollReveal>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <tr>
-                <TableHeaderCell>Title</TableHeaderCell>
-                <TableHeaderCell>Audience</TableHeaderCell>
-                <TableHeaderCell>Status</TableHeaderCell>
-                <TableHeaderCell className="text-right">Actions</TableHeaderCell>
-              </tr>
-            </TableHead>
-            <TableBody>
-              {data.results.map((announcement) => (
-                <TableRowLink
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {data.results.map((announcement) => {
+              const canPublish = canCreate && announcement.is_mine && !announcement.published_at;
+              const canRemove = canDelete && announcement.is_mine;
+              const hasRecipients = announcement.target_type === "specific_users";
+              return (
+                <ImageCard
                   key={announcement.id}
-                  onClick={() => navigate(`/communications/${announcement.id}/edit`)}
-                >
-                  <TableCell className="font-medium">{announcement.title}</TableCell>
-                  <TableCell>
-                    {targetTypeLabel(announcement.target_type)}
-                    {announcement.target_class_name && ` — ${announcement.target_class_name}`}
-                    {announcement.target_section_name && ` — ${announcement.target_section_name}`}
-                    {announcement.target_department_name && ` — ${announcement.target_department_name}`}
-                  </TableCell>
-                  <TableCell>
+                  image={announcement.image}
+                  fallbackIcon={Megaphone}
+                  title={announcement.title}
+                  subtitle={
+                    [
+                      targetTypeLabel(announcement.target_type),
+                      announcement.target_class_name,
+                      announcement.target_section_name,
+                      announcement.target_department_name,
+                    ]
+                      .filter(Boolean)
+                      .join(" — ")
+                  }
+                  chips={announcement.created_by_name ? [`By ${announcement.created_by_name}`] : undefined}
+                  badge={
                     <Badge tone={publishedTone(announcement.published_at)}>
                       {announcement.published_at ? "Published" : "Draft"}
                     </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      {announcement.target_type === "specific_users" && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/communications/${announcement.id}/recipients`);
-                          }}
-                          aria-label={`Manage recipients for ${announcement.title}`}
-                          className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-primary)]"
-                        >
-                          <Users className="size-4" aria-hidden="true" />
-                        </button>
-                      )}
-                      {canCreate && !announcement.published_at && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handlePublish(announcement.id);
-                          }}
-                          disabled={publishAnnouncement.isPending}
-                          aria-label={`Publish ${announcement.title}`}
-                          className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-success)] disabled:opacity-40"
-                        >
-                          <Send className="size-4" aria-hidden="true" />
-                        </button>
-                      )}
-                      {canDelete && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(announcement.id, announcement.title);
-                          }}
-                          aria-label={`Delete ${announcement.title}`}
-                          className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-danger)]"
-                        >
-                          <Trash2 className="size-4" aria-hidden="true" />
-                        </button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRowLink>
-              ))}
-            </TableBody>
-          </Table>
-          <div className="border-t border-[var(--color-border)]">
+                  }
+                  description={announcement.body}
+                  onClick={() => navigate(`/communications/${announcement.id}/edit`)}
+                  actions={
+                    hasRecipients || canPublish || canRemove ? (
+                      <>
+                        {hasRecipients && (
+                          <CardAction
+                            label={`Manage recipients for ${announcement.title}`}
+                            icon={Users}
+                            onClick={() => navigate(`/communications/${announcement.id}/recipients`)}
+                          />
+                        )}
+                        {canPublish && (
+                          <CardAction
+                            label={`Publish ${announcement.title}`}
+                            icon={Send}
+                            tone="success"
+                            disabled={publishAnnouncement.isPending}
+                            onClick={() => handlePublish(announcement.id)}
+                          />
+                        )}
+                        {canRemove && (
+                          <CardAction
+                            label={`Delete ${announcement.title}`}
+                            icon={Trash2}
+                            tone="danger"
+                            onClick={() => handleDelete(announcement.id, announcement.title)}
+                          />
+                        )}
+                      </>
+                    ) : undefined
+                  }
+                />
+              );
+            })}
+          </div>
+          <div className="mt-5 overflow-hidden rounded-xl border border-[var(--color-border)]">
             <Pagination page={page} pageSize={PAGE_SIZE} count={data.count} onPageChange={setPage} />
           </div>
-        </TableContainer>
         </ScrollReveal>
       ) : null}
 

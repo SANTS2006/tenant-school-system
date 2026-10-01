@@ -2,31 +2,44 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from apps.common.validators import validate_image_file, validate_video_file
+from apps.formoptions.fields import OptionLabelField, OptionValueField
 
 from .models import Event, EventMedia, EventRecipient, EventRegistration
 
 
 class EventSerializer(serializers.ModelSerializer):
+    category = OptionValueField("events.category", required=False, default="other")
+    category_label = OptionLabelField("events.category", "category", read_only=True)
     target_class_name = serializers.CharField(source="target_class.name", read_only=True, default=None)
     target_section_name = serializers.SerializerMethodField()
     target_department_name = serializers.CharField(source="target_department.name", read_only=True, default=None)
     created_by_name = serializers.CharField(source="created_by.full_name", read_only=True, default=None)
     registered_count = serializers.IntegerField(read_only=True)
+    # True when the viewer created it — the only person offered Edit / Publish / Cancel / Delete.
+    is_mine = serializers.SerializerMethodField()
 
     class Meta:
         model = Event
         fields = [
-            "id", "title", "description", "category", "start_datetime", "end_datetime", "location",
+            "id", "title", "description", "image", "category", "category_label", "start_datetime", "end_datetime", "location",
             "capacity", "registered_count", "status", "target_type", "target_class", "target_class_name",
             "target_section", "target_section_name", "target_department", "target_department_name",
-            "created_by", "created_by_name", "created_at", "updated_at",
+            "created_by", "created_by_name", "is_mine", "created_at", "updated_at",
         ]
         read_only_fields = ["id", "status", "created_by", "created_at", "updated_at"]
+
+    def get_is_mine(self, obj):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        return bool(user and user.is_authenticated and (obj.created_by_id is None or obj.created_by_id == user.id))
 
     def get_target_section_name(self, obj):
         return str(obj.target_section) if obj.target_section_id else None
 
     def validate(self, attrs):
+        # An event needs a cover image when it is created; an edit may keep the one it has.
+        if self.instance is None and not attrs.get("image"):
+            raise serializers.ValidationError({"image": "An image is required."})
         start = attrs.get("start_datetime", getattr(self.instance, "start_datetime", None))
         end = attrs.get("end_datetime", getattr(self.instance, "end_datetime", None))
         if start and end and end < start:

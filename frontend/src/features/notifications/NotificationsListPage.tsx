@@ -59,9 +59,7 @@ export function NotificationsListPage() {
           showToast({ title: "Could not mark as read", description: generalErrorMessage(err), tone: "danger" }),
       });
     }
-    if (notification.link) {
-      navigate(notification.link);
-    }
+    navigate(`/notifications/${notification.id}`);
   };
 
   const handleMarkAllRead = () => {

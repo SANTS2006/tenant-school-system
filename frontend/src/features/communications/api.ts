@@ -1,4 +1,5 @@
 import { apiClient } from "@/lib/api-client";
+import { toFormData } from "@/lib/formData";
 import type { PaginatedResponse } from "@/types/pagination";
 
 import type {
@@ -30,12 +31,12 @@ export async function getAnnouncement(id: string): Promise<Announcement> {
 }
 
 export async function createAnnouncement(values: AnnouncementPayload): Promise<Announcement> {
-  const { data } = await apiClient.post<Announcement>("/communications/announcements/", values);
+  const { data } = await apiClient.post<Announcement>("/communications/announcements/", toFormData(values));
   return data;
 }
 
 export async function updateAnnouncement(id: string, values: AnnouncementPayload): Promise<Announcement> {
-  const { data } = await apiClient.patch<Announcement>(`/communications/announcements/${id}/`, values);
+  const { data } = await apiClient.patch<Announcement>(`/communications/announcements/${id}/`, toFormData(values));
   return data;
 }
 

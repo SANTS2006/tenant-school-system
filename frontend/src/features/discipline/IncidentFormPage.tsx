@@ -2,18 +2,20 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { Save } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
 import { z } from "zod";
 
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { CategorySelect } from "@/components/ui/CategorySelect";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { FullPageSpinner } from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/Toast";
+import { useResolveCategory } from "@/features/formoptions/useResolveCategory";
 import { listStudents } from "@/features/students/api";
 import type { ApiError } from "@/lib/api-client";
 import { applyFieldErrors, generalErrorMessage } from "@/lib/formErrors";
@@ -23,7 +25,7 @@ import { useCreateIncident, useIncident, useUpdateIncident } from "./useDiscipli
 
 const schema = z.object({
   student: z.string().min(1, "Student is required"),
-  category: z.enum(["bullying", "vandalism", "tardiness", "academic_dishonesty", "fighting", "other"]),
+  category: z.string().min(1, "Choose a category"),
   severity: z.enum(["minor", "moderate", "severe"]),
   incident_date: z.string().min(1, "Incident date is required"),
   description: z.string().min(1, "Description is required"),
@@ -77,9 +79,12 @@ export function IncidentFormPage() {
   const updateIncident = useUpdateIncident(id ?? "");
   const mutation = isEditMode ? updateIncident : createIncident;
   const [generalError, setGeneralError] = useState<string | null>(null);
+  const [otherText, setOtherText] = useState("");
+  const resolveCategory = useResolveCategory("discipline.category");
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     setError,
@@ -115,12 +120,20 @@ export function IncidentFormPage() {
     }
   }, [incident, reset]);
 
-  const onSubmit = (values: FormValues) => {
+  const onSubmit = async (values: FormValues) => {
     setGeneralError(null);
+    let category: string;
+    try {
+      // "Other" + a typed name becomes a real option on the school's list first.
+      category = await resolveCategory(values.category, otherText);
+    } catch (err) {
+      setGeneralError(generalErrorMessage(err as ApiError));
+      return;
+    }
     mutation.mutate(
       {
         student: values.student,
-        category: values.category,
+        category,
         severity: values.severity,
         incident_date: values.incident_date,
         description: values.description,
@@ -182,13 +195,22 @@ export function IncidentFormPage() {
               ))}
             </Select>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Select label="Category" error={errors.category?.message} {...register("category")}>
-                {CATEGORIES.map((option) => (
-                  <option key={option} value={option}>
-                    {statusLabel(option)}
-                  </option>
-                ))}
-              </Select>
+              <Controller
+                name="category"
+                control={control}
+                render={({ field }) => (
+                  <CategorySelect
+                    field="discipline.category"
+                    label="Category"
+                    builtin={CATEGORIES.map((value) => ({ value, label: statusLabel(value) }))}
+                    value={field.value}
+                    onChange={field.onChange}
+                    otherText={otherText}
+                    onOtherTextChange={setOtherText}
+                    error={errors.category?.message}
+                  />
+                )}
+              />
               <Select label="Severity" error={errors.severity?.message} {...register("severity")}>
                 {SEVERITIES.map((option) => (
                   <option key={option} value={option}>

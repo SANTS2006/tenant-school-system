@@ -2,7 +2,7 @@ import type { BadgeTone } from "@/components/ui/Badge";
 
 import type { ComplaintCategory, ComplaintPriority, ComplaintStatus } from "./types";
 
-const CATEGORY_LABELS: Record<ComplaintCategory, string> = {
+const CATEGORY_LABELS: Record<string, string> = {
   academic: "Academic",
   facility: "Facility",
   behavioral: "Behavioral",

@@ -7,7 +7,7 @@ from rest_framework.response import Response
 
 from apps.audit.services import log_action
 from apps.authorization.permissions import require_permission
-from apps.common.views import TenantScopedModelViewSet
+from apps.common.views import CreatorOnlyActionsMixin, TenantScopedModelViewSet
 from apps.tenants.services import get_current_school
 
 from . import services
@@ -36,7 +36,11 @@ def _ok(message="", **extra):
     return Response({"success": True, "message": message, "code": "OK", "errors": [], **extra})
 
 
-class EventViewSet(TenantScopedModelViewSet):
+class EventViewSet(CreatorOnlyActionsMixin, TenantScopedModelViewSet):
+    # Anyone with the right permission can see an event and register for it, but only its creator
+    # edits, publishes, cancels or deletes it.
+    creator_only_actions = {"update", "partial_update", "destroy", "publish", "cancel"}
+    creator_only_message = "You can only edit, publish, cancel or delete events you created."
     serializer_class = EventSerializer
     filterset_fields = ["category", "status", "target_type"]
     search_fields = ["title", "description", "location"]

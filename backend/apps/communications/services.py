@@ -73,36 +73,58 @@ def resolve_recipients(announcement: Announcement):
     return []
 
 
+def _email_announcement(announcement_id) -> int:
+    """Emails every resolved recipient of an already-published announcement. Runs in the
+    background (see publish_announcement); loads everything fresh because it executes outside the
+    request that triggered it, where there is no tenant context."""
+    from django.utils.html import escape
+    from django.template.defaultfilters import linebreaks_filter
+
+    from apps.common.email import send_email
+
+    announcement = Announcement.unscoped_objects.select_related("school").get(pk=announcement_id)
+    sent = 0
+    for user in resolve_recipients(announcement):
+        if user.email and send_email(
+            to_email=user.email,
+            to_name=user.full_name,
+            subject=announcement.title,
+            html_content=linebreaks_filter(escape(announcement.body)),
+            school=announcement.school,
+        ):
+            sent += 1
+    return sent
+
+
 def publish_announcement(announcement: Announcement) -> int:
-    """Resolves the audience, creates one Notification per recipient, and — only if
-    the announcement opted in — emails each recipient too. Returns the recipient count."""
+    """Resolves the audience, creates one Notification per recipient and marks the announcement
+    published — all quickly, inside one transaction — then, only if it opted in, emails each
+    recipient in the background. Returns the recipient count.
+
+    The email loop used to run inline *before* `published_at` was saved: with a school-sized
+    audience (one Brevo call per person) it outlasted the web worker's request time limit, which
+    killed the request after the in-app notifications had been created but before the announcement
+    was marked published — "notification received, error shown, still a draft"."""
+    from django.db import transaction
+
+    from apps.common.background import run_in_background
+
     recipients = resolve_recipients(announcement)
 
-    notify_bulk(
-        recipients=recipients,
-        category="announcement",
-        title=announcement.title,
-        message=announcement.body[:500],
-        link=f"/announcements/{announcement.id}",
-        priority="normal",
-    )
+    with transaction.atomic():
+        notify_bulk(
+            recipients=recipients,
+            category="announcement",
+            title=announcement.title,
+            message=announcement.body,
+            link=f"/announcements/{announcement.id}",
+            priority="normal",
+        )
+        announcement.published_at = timezone.now()
+        announcement.save(update_fields=["published_at", "published_by", "updated_at"])
 
     if announcement.send_email:
-        from django.utils.html import escape
-        from django.utils.text import linebreaks
-
-        from apps.common.email import send_email
-
-        for user in recipients:
-            if user.email:
-                send_email(
-                    to_email=user.email,
-                    to_name=user.full_name,
-                    subject=announcement.title,
-                    html_content=linebreaks(escape(announcement.body)),
-                    school=user.school,
-                )
-
-    announcement.published_at = timezone.now()
-    announcement.save(update_fields=["published_at", "updated_at"])
+        transaction.on_commit(
+            lambda: run_in_background(f"Emailing announcement {announcement.id}", _email_announcement, announcement.id)
+        )
     return len(recipients)

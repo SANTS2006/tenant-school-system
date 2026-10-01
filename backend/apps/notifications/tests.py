@@ -97,3 +97,25 @@ class TestNotificationServices:
         mark_read(notification)
 
         assert notification.read_at == first_read_at
+
+
+class TestNotificationDetails:
+    def test_details_return_the_full_message_not_a_teaser(self, api_client):
+        school = SchoolFactory()
+        me = UserFactory(school=school)
+        long_message = "Line one.\n" + ("A long announcement body. " * 120)  # well past the old 1000-char cap
+        notification = NotificationFactory(school=school, recipient=me, message=long_message)
+        _login(api_client, me)
+
+        response = api_client.get(f"/api/v1/notifications/{notification.id}/")
+
+        assert response.status_code == 200
+        assert response.data["message"] == long_message
+
+    def test_cannot_open_someone_elses_notification(self, api_client):
+        school = SchoolFactory()
+        me = UserFactory(school=school)
+        theirs = NotificationFactory(school=school, recipient=UserFactory(school=school))
+        _login(api_client, me)
+
+        assert api_client.get(f"/api/v1/notifications/{theirs.id}/").status_code == 404

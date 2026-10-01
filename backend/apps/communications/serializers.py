@@ -8,19 +8,35 @@ class AnnouncementSerializer(serializers.ModelSerializer):
     target_section_name = serializers.SerializerMethodField()
     target_department_name = serializers.CharField(source="target_department.name", read_only=True, default=None)
     published_by_name = serializers.CharField(source="published_by.full_name", read_only=True, default=None)
+    created_by_name = serializers.CharField(source="created_by.full_name", read_only=True, default=None)
+    # True when the viewer created it — the only person offered Edit / Delete / Publish.
+    is_mine = serializers.SerializerMethodField()
 
     class Meta:
         model = Announcement
         fields = [
-            "id", "title", "body", "target_type", "target_class", "target_class_name",
+            "id", "title", "body", "image", "target_type", "target_class", "target_class_name",
             "target_section", "target_section_name", "target_department", "target_department_name",
-            "send_email", "published_by", "published_by_name", "published_at", "is_active",
+            "send_email", "created_by", "created_by_name", "is_mine", "published_by", "published_by_name",
+            "published_at", "is_active",
             "created_at", "updated_at",
         ]
-        read_only_fields = ["id", "published_by", "published_at", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_by", "published_by", "published_at", "created_at", "updated_at"]
 
     def get_target_section_name(self, obj):
         return str(obj.target_section) if obj.target_section_id else None
+
+    def get_is_mine(self, obj):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        # No recorded creator = legacy row, open to anyone with the permission (see CreatorOnlyActionsMixin).
+        return bool(user and user.is_authenticated and (obj.created_by_id is None or obj.created_by_id == user.id))
+
+    def validate(self, attrs):
+        # An announcement needs an image when it is created; an edit may keep the one it has.
+        if self.instance is None and not attrs.get("image"):
+            raise serializers.ValidationError({"image": "An image is required."})
+        return attrs
 
     def _same_school(self, value, label):
         request = self.context["request"]

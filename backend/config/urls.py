@@ -50,6 +50,7 @@ urlpatterns = [
     path("api/v1/quizzes/", include("apps.quizzes.urls")),
     path("api/v1/idcards/", include("apps.idcards.urls")),
     path("api/v1/meetings/", include("apps.meetings.urls")),
+    path("api/v1/form-options/", include("apps.formoptions.urls")),
 ]
 
 # See ADMIN_URL in settings: never exposed at the guessable default path in production.
