@@ -1,6 +1,7 @@
 from django.db import models
 
 from apps.common.models import TimeStampedModel
+from apps.common.validators import validate_image_file
 from apps.tenants.models import TenantScopedModel
 
 
@@ -34,6 +35,8 @@ class Complaint(TenantScopedModel, TimeStampedModel):
     category = models.CharField(max_length=20, choices=Category.choices, default=Category.OTHER)
     subject = models.CharField(max_length=200)
     description = models.CharField(max_length=5000)
+    # Optional supporting photo (e.g. the damaged desks being reported).
+    image = models.FileField(upload_to="complaint_images/", null=True, blank=True, validators=[validate_image_file])
     priority = models.CharField(max_length=10, choices=Priority.choices, default=Priority.NORMAL)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.SUBMITTED)
     # Soft anonymity: the real submitter is always stored (accountability, spam prevention), but

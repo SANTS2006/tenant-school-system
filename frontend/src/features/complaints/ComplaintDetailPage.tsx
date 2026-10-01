@@ -12,12 +12,11 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { FullPageSpinner, Spinner } from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/Toast";
-import { useHasPermission } from "@/features/auth/useAuth";
 import { useStaffList } from "@/features/staff/useStaffCrud";
 import type { ApiError } from "@/lib/api-client";
 import { generalErrorMessage } from "@/lib/formErrors";
 
-import { categoryLabel, priorityLabel, priorityTone, statusLabel, statusTone } from "./statusTone";
+import { priorityLabel, priorityTone, statusLabel, statusTone } from "./statusTone";
 import {
   useAssignComplaint,
   useComplaint,
@@ -43,7 +42,6 @@ export function ComplaintDetailPage() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const confirm = useConfirm();
-  const canManage = useHasPermission("complaints.manage");
 
   const { data: complaint, isLoading, isError, error } = useComplaint(id);
   const { data: responses, isLoading: isLoadingResponses } = useComplaintResponses(id);
@@ -135,7 +133,7 @@ export function ComplaintDetailPage() {
         <CardHeader className="flex-row items-center justify-between">
           <div>
             <CardTitle className="text-base font-semibold text-[var(--color-text)]">{complaint.subject}</CardTitle>
-            <p className="text-sm text-[var(--color-text-muted)]">{categoryLabel(complaint.category)}</p>
+            <p className="text-sm text-[var(--color-text-muted)]">{complaint.category_label}</p>
           </div>
           <div className="flex gap-2">
             <Badge tone={priorityTone(complaint.priority)}>{priorityLabel(complaint.priority)}</Badge>
@@ -146,6 +144,13 @@ export function ComplaintDetailPage() {
           <div className="sm:col-span-2">
             <Field label="Description" value={complaint.description} />
           </div>
+          {complaint.image && (
+            <img
+              src={complaint.image}
+              alt="Attached to the complaint"
+              className="max-h-72 rounded-[var(--radius-md)] border border-[var(--color-border)] object-contain sm:col-span-2"
+            />
+          )}
           <Field
             label="Submitted by"
             value={complaint.submitted_by_name ?? (complaint.is_anonymous ? "Anonymous" : null)}
@@ -160,7 +165,7 @@ export function ComplaintDetailPage() {
         </CardContent>
       </Card>
 
-      {canManage && !isClosed && (
+      {complaint.can_act && !isClosed && (
         <Card>
           <CardHeader>
             <CardTitle>Staff actions</CardTitle>

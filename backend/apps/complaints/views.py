@@ -17,6 +17,7 @@ from apps.tenants.services import get_current_school
 from apps.users.models import User
 
 from .models import Complaint, ComplaintResponse
+from .rules import can_act_on_complaint
 from .serializers import (
     AssignComplaintSerializer,
     ComplaintResponseSerializer,
@@ -92,6 +93,7 @@ class ComplaintViewSet(TenantScopedModelViewSet):
     @action(detail=True, methods=["post"])
     def assign(self, request, pk=None):
         complaint = self.get_object()
+        self._require_can_act(request, complaint)
         serializer = AssignComplaintSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         assignee = get_object_or_404(User, pk=serializer.validated_data["assigned_to"], school=get_current_school())
@@ -118,8 +120,14 @@ class ComplaintViewSet(TenantScopedModelViewSet):
     def reject(self, request, pk=None):
         return self._close(request, pk, Complaint.Status.REJECTED, "rejected")
 
+    @staticmethod
+    def _require_can_act(request, complaint):
+        if not can_act_on_complaint(request.user, complaint):
+            raise PermissionDenied("Only the person this complaint was addressed to can act on it.")
+
     def _close(self, request, pk, new_status, past_tense):
         complaint = self.get_object()
+        self._require_can_act(request, complaint)
         if complaint.status in (Complaint.Status.RESOLVED, Complaint.Status.REJECTED):
             return Response(
                 {

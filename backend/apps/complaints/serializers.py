@@ -1,24 +1,33 @@
 from rest_framework import serializers
 
 from .models import Complaint, ComplaintResponse
+from apps.formoptions.fields import OptionLabelField, OptionValueField
+
+from .rules import can_act_on_complaint
 
 
 class ComplaintSerializer(serializers.ModelSerializer):
+    category = OptionValueField("complaints.category", required=False, default="other")
+    category_label = OptionLabelField("complaints.category", "category", read_only=True)
     submitted_by = serializers.SerializerMethodField()
     submitted_by_name = serializers.SerializerMethodField()
     assigned_to_name = serializers.CharField(source="assigned_to.full_name", read_only=True, default=None)
     addressed_to_name = serializers.CharField(source="addressed_to.full_name", read_only=True, default=None)
+    # Computed per viewer (see rules.can_act_on_complaint) — the client can't work this out itself
+    # for an anonymous complaint, where the submitter's identity is masked.
+    can_act = serializers.SerializerMethodField()
 
     class Meta:
         model = Complaint
         fields = [
-            "id", "submitted_by", "submitted_by_name", "category", "subject", "description",
+            "id", "submitted_by", "submitted_by_name", "category", "category_label", "subject", "description", "image",
             "priority", "status", "is_anonymous", "addressed_to", "addressed_to_name",
             "assigned_to", "assigned_to_name", "resolution_notes", "resolved_at",
-            "created_at", "updated_at",
+            "created_at", "updated_at", "can_act",
         ]
         read_only_fields = [
             "id", "status", "assigned_to", "resolution_notes", "resolved_at", "created_at", "updated_at",
+            "can_act",
         ]
 
     def validate_addressed_to(self, value):
@@ -28,6 +37,11 @@ class ComplaintSerializer(serializers.ModelSerializer):
         if value.school_id != request.user.school_id:
             raise serializers.ValidationError("Must belong to your own school.")
         return value
+
+    def get_can_act(self, obj):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        return bool(user and user.is_authenticated and can_act_on_complaint(user, obj))
 
     def _identity_hidden(self, obj) -> bool:
         if not obj.is_anonymous:
