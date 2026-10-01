@@ -104,6 +104,26 @@ class TestParsing:
         with pytest.raises(QuizFileError):
             parse_quiz_file(_txt("hello there\n"))
 
+    def test_title_and_instructions_before_first_question_are_ignored(self):
+        text = (
+            "INTRODUCTION TO CHEMISTRY - SSS 1\n"
+            "Answer all 2 questions.\n\n"
+            "1. A?\nA) x*\nB) y\n"
+            "2. B?\nA) x\nB) y*\n"
+        )
+        questions = parse_quiz_file(_txt(text))
+        assert [q["text"] for q in questions] == ["A?", "B?"]
+
+    def test_wrapped_lines_headings_and_answer_lines(self):
+        text = (
+            "1. Symbol for\nsodium?\nA) Na*\nB) So\n\n"
+            "SECTION B\n"
+            "2. Water?\nA. H2O\nB. CO2\nAnswer: A\n"
+        )
+        questions = parse_quiz_file(_txt(text))
+        assert questions[0]["text"] == "Symbol for sodium?"
+        assert [o["is_correct"] for o in questions[1]["options"]] == [True, False]
+
     def test_empty_file_rejected(self):
         with pytest.raises(QuizFileError, match="No questions"):
             parse_quiz_file(_txt("\n\n"))

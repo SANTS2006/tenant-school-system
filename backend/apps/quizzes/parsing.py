@@ -20,6 +20,11 @@ Expected format (works equally well typed in Notepad or Word, saved as .txt or .
 - The correct option has a trailing "*" (with or without a space before it) — exactly one
   option per question must be marked this way.
 - Blank lines between questions are optional; extra blank lines are ignored.
+- Anything before the first question (a title, "Answer all questions" instructions) is ignored.
+- A line that is neither a question nor an option continues the previous one (a question or
+  option wrapped over two lines); an ALL-CAPS line after the options (a "SECTION B" heading) is
+  skipped.
+- Instead of a trailing "*", the answer may be given on its own line: "Answer: B".
 
 No third-party dependency for .docx: it's a zip archive of XML, and every visible paragraph of
 text lives in <w:t> runs inside <w:p> paragraphs in word/document.xml — extracting those with the
@@ -33,6 +38,7 @@ from io import BytesIO
 
 QUESTION_LINE = re.compile(r"^\s*(\d+)[.)]\s*(.+)$")
 OPTION_LINE = re.compile(r"^\s*([A-Za-z])[.)]\s*(.+?)\s*(\*)?\s*$")
+ANSWER_LINE = re.compile(r"^\s*(?:correct\s+)?answer\s*[:\-]\s*\(?([A-Za-z])\)?\.?\s*$", re.IGNORECASE)
 
 
 class QuizFileError(ValueError):
@@ -89,22 +95,35 @@ def parse_quiz_file(file) -> list[dict]:
             continue
 
         question_match = QUESTION_LINE.match(line)
-        option_match = OPTION_LINE.match(line) if not question_match else None
+        answer_match = ANSWER_LINE.match(line) if not question_match else None
+        option_match = OPTION_LINE.match(line) if not (question_match or answer_match) else None
 
         if question_match:
             current = {"text": question_match.group(2).strip(), "points": 1, "options": []}
             questions.append(current)
+        elif answer_match:
+            if current is None or not current["options"]:
+                continue
+            letter_index = ord(answer_match.group(1).upper()) - ord("A")
+            if 0 <= letter_index < len(current["options"]):
+                for i, option in enumerate(current["options"]):
+                    option["is_correct"] = i == letter_index
         elif option_match:
             if current is None:
-                raise QuizFileError(f'Found an option ("{line}") before any question.')
+                continue  # a lettered line in the preamble (e.g. "A. Instructions") — not an option
             current["options"].append(
                 {"text": option_match.group(2).strip(), "is_correct": option_match.group(3) == "*"}
             )
+        elif current is None:
+            continue  # title / instructions before the first question
+        elif current["options"]:
+            if line.isupper():
+                continue  # a section heading such as "SECTION B"
+            current["options"][-1]["text"] += " " + line.rstrip("*").strip()
+            if line.endswith("*"):
+                current["options"][-1]["is_correct"] = True
         else:
-            raise QuizFileError(
-                f'Could not read this line — it\'s neither a numbered question nor a lettered '
-                f'option: "{line}"'
-            )
+            current["text"] += " " + line
 
     if not questions:
         raise QuizFileError("No questions were found in this file.")
