@@ -1,4 +1,6 @@
 // Regenerates the PWA icons in public/icons from public/nts-logo.webp (run: npm run icons).
+// `sharp` is installed on demand (--no-save) rather than being a project dependency: it is only needed
+// when the logo changes, and keeping it out of package.json keeps it out of every production build.
 // "any" icons show the wide logo large on a white square; the maskable icon keeps it inside the
 // central ~60% "safe zone" so platforms that crop to a circle/squircle never cut the letters.
 import sharp from "sharp";
