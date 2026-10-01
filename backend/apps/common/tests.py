@@ -109,6 +109,7 @@ class TestSingleOriginSpaServing:
         # uploaded files (Cloudinary) must be fetchable for downloads and embeddable for the PDF viewer
         assert "https://res.cloudinary.com" in csp.split("connect-src")[1].split(";")[0]
         assert "https://res.cloudinary.com" in csp.split("frame-src")[1].split(";")[0]
+        assert "manifest-src 'self'" in csp and "worker-src 'self'" in csp
         assert "no-cache" in response["Cache-Control"]
         assert "camera=(self" in response["Permissions-Policy"]
 

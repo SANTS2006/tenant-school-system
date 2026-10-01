@@ -29,6 +29,7 @@ SPA_CONTENT_SECURITY_POLICY = (
     "font-src 'self'; "
     "connect-src 'self' https://res.cloudinary.com https://*.daily.co wss://*.daily.co; "
     "frame-src https://res.cloudinary.com https://*.daily.co; "
+    "manifest-src 'self'; worker-src 'self'; "
     "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; "
     "upgrade-insecure-requests"
 )
@@ -54,6 +55,13 @@ def whitenoise_headers(headers, path, url):
     """WhiteNoise hook (WHITENOISE_ADD_HEADERS_FUNCTION): runs for each static file it serves."""
     if str(path).endswith(".html"):
         apply_document_headers(headers)
+    elif url in ("/sw.js", "/manifest.webmanifest"):
+        # The service worker and manifest must always be revalidated, or a new deploy (and the new
+        # worker that carries it) could sit behind a stale cache for days. The worker controls the
+        # whole site, so it is explicitly allowed the "/" scope.
+        headers["Cache-Control"] = "no-cache"
+        if url == "/sw.js":
+            headers["Service-Worker-Allowed"] = "/"
     elif url.startswith("/assets/"):
         # Vite fingerprints these names by content, so they can be cached forever.
         headers["Cache-Control"] = "public, max-age=31536000, immutable"

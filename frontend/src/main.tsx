@@ -13,6 +13,10 @@ import "@fontsource/poppins/600.css";
 import "@fontsource/poppins/700.css";
 import "./index.css";
 import { queryClient } from "./lib/query-client";
+import { PwaPrompts } from "./pwa/PwaPrompts";
+import { initPwa } from "./pwa/pwaStore";
+
+initPwa();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -22,6 +26,7 @@ createRoot(document.getElementById("root")!).render(
           <FileViewerProvider>
             <BrowserRouter>
               <App />
+              <PwaPrompts />
             </BrowserRouter>
           </FileViewerProvider>
         </ConfirmProvider>

@@ -80,6 +80,8 @@ STORAGES = {  # noqa: F405
 # HTML shell always gets the CSP/cache headers.
 WHITENOISE_ROOT = FRONTEND_DIST_DIR  # noqa: F405
 WHITENOISE_INDEX_FILE = False
+# The PWA manifest's own media type (Python's mimetypes doesn't always know ".webmanifest").
+WHITENOISE_MIMETYPES = {".webmanifest": "application/manifest+json"}
 def WHITENOISE_ADD_HEADERS_FUNCTION(headers, path, url):  # noqa: N802 - WhiteNoise wants a callable, not a dotted path
     from apps.common.spa import whitenoise_headers
 
