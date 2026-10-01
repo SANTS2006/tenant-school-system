@@ -96,6 +96,7 @@ LOCAL_APPS = [
     "apps.quizzes",
     "apps.idcards",
     "apps.meetings",
+    "apps.formoptions",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -222,7 +223,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # it alone is now a silent no-op, `default_storage` only ever looks at
 # STORAGES["default"]["BACKEND"]. Must mutate STORAGES directly.
 STORAGES = {
-    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "default": {"BACKEND": "apps.common.storage.ShortNameFileSystemStorage"},
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
 }
 
@@ -237,7 +238,7 @@ if CLOUDINARY_STORAGE["CLOUD_NAME"]:
     # with a Cloudinary "Invalid image file" error. Every FileField in this
     # codebase (assignment/submission attachments, etc.) is an arbitrary
     # document, not necessarily an image.
-    STORAGES["default"]["BACKEND"] = "cloudinary_storage.storage.RawMediaCloudinaryStorage"
+    STORAGES["default"]["BACKEND"] = "apps.common.storage.ShortNameRawMediaCloudinaryStorage"
 
 # ---------------------------------------------------------------------------
 # Brevo (transactional email)

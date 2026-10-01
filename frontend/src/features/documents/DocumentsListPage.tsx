@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Alert } from "@/components/ui/Alert";
+import { OpenFileButton } from "@/components/ui/FileViewer";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -191,17 +192,14 @@ export function DocumentsListPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <a
-                        href={document.file}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        aria-label={`View ${document.title}`}
-                        title="View"
+                      <OpenFileButton
+                        url={document.file}
+                        title={document.title}
+                        ariaLabel={`View ${document.title}`}
                         className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-primary)]"
                       >
                         <Eye className="size-4" aria-hidden="true" />
-                      </a>
+                      </OpenFileButton>
                       <button
                         type="button"
                         onClick={(e) => {

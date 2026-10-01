@@ -2,6 +2,7 @@ import { CheckCircle2, FileCheck, Paperclip, Pencil, Trash2 } from "lucide-react
 import { useNavigate, useParams } from "react-router-dom";
 
 import { Alert } from "@/components/ui/Alert";
+import { OpenFileButton } from "@/components/ui/FileViewer";
 import { BackArrowIcon } from "@/components/ui/BackArrowIcon";
 import { Badge } from "@/components/ui/Badge";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -135,16 +136,14 @@ export function SubmissionsListPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <a
-                      href={submission.attachment}
-                      target="_blank"
-                      rel="noreferrer"
+                    <OpenFileButton
+                      url={submission.attachment}
+                      title={`${submission.student_name ?? "Submission"} attachment`}
                       className="flex items-center gap-1 text-[var(--color-primary)]"
-                      onClick={(e) => e.stopPropagation()}
                     >
                       <Paperclip className="size-3.5" aria-hidden="true" />
                       View
-                    </a>
+                    </OpenFileButton>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">

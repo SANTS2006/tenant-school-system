@@ -106,6 +106,9 @@ class TestSingleOriginSpaServing:
         csp = response["Content-Security-Policy"]
         assert "script-src 'self'" in csp and "unsafe-inline'" not in csp.split("style-src-attr")[0]
         assert "frame-ancestors 'none'" in csp
+        # uploaded files (Cloudinary) must be fetchable for downloads and embeddable for the PDF viewer
+        assert "https://res.cloudinary.com" in csp.split("connect-src")[1].split(";")[0]
+        assert "https://res.cloudinary.com" in csp.split("frame-src")[1].split(";")[0]
         assert "no-cache" in response["Cache-Control"]
         assert "camera=(self" in response["Permissions-Policy"]
 

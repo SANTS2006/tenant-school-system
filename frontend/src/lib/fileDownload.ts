@@ -1,14 +1,41 @@
+/** What kind of thing a stored file is, judged from its URL's extension — decides how the in-app
+ * viewer shows it (see components/ui/FileViewer.tsx). */
+export type FileKind = "image" | "pdf" | "video" | "audio" | "text" | "other";
+
+const IMAGE_EXT = new Set(["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg", "avif"]);
+const VIDEO_EXT = new Set(["mp4", "webm", "mov", "m4v", "ogv"]);
+const AUDIO_EXT = new Set(["mp3", "wav", "ogg", "m4a", "aac"]);
+const TEXT_EXT = new Set(["txt", "csv", "md", "json", "log"]);
+
+export function fileExtension(url: string): string {
+  const path = url.split(/[?#]/)[0];
+  const match = /\.([A-Za-z0-9]{1,8})$/.exec(path);
+  return match ? match[1].toLowerCase() : "";
+}
+
+export function fileKind(url: string): FileKind {
+  const ext = fileExtension(url);
+  if (IMAGE_EXT.has(ext)) return "image";
+  if (ext === "pdf") return "pdf";
+  if (VIDEO_EXT.has(ext)) return "video";
+  if (AUDIO_EXT.has(ext)) return "audio";
+  if (TEXT_EXT.has(ext)) return "text";
+  return "other";
+}
+
+/** A sensible file name for saving: the title the user sees, plus the stored file's own extension if
+ * the title doesn't already end with it (a document titled "Term report" becomes "Term report.pdf"). */
+export function downloadName(url: string, title?: string): string {
+  const ext = fileExtension(url);
+  const base = (title || decodeURIComponent(url.split(/[?#]/)[0].split("/").pop() || "file")).trim();
+  if (!ext || base.toLowerCase().endsWith(`.${ext}`)) return base;
+  return `${base}.${ext}`;
+}
+
 /**
- * Turns an uploaded file's URL into one that actually downloads when navigated to, instead of
- * opening inline in the browser (the default for a PDF or image).
- *
- * Almost every uploaded file in this app (documents, subject materials, photos, ...) is stored
- * on Cloudinary in production — the plain HTML `download` attribute doesn't reliably force a
- * download for a cross-origin URL like that (browsers are free to ignore it), so for a Cloudinary
- * URL this instead inserts Cloudinary's own `fl_attachment` delivery flag, which makes Cloudinary
- * itself respond with `Content-Disposition: attachment` — that works regardless of origin. A
- * same-origin URL (local dev's FileSystemStorage, served under this app's own domain) doesn't
- * need any of this — the `download` attribute already works there, so the URL is returned as-is.
+ * Turns an uploaded file's URL into one that downloads when navigated to, for the fallback path below.
+ * Uploaded files live on Cloudinary in production; its `fl_attachment` delivery flag makes Cloudinary
+ * answer with `Content-Disposition: attachment`. A same-origin URL (local dev) needs nothing.
  */
 export function downloadableFileUrl(url: string, filename?: string): string {
   if (!url.includes("res.cloudinary.com") || !url.includes("/upload/")) {
@@ -18,16 +45,39 @@ export function downloadableFileUrl(url: string, filename?: string): string {
   return url.replace("/upload/", `/upload/${flag}/`);
 }
 
-/** Triggers a download of `url` (see `downloadableFileUrl`) without navigating the current page
- * away from it — for a download *button* distinct from a "view" link on the same file. */
-export function triggerFileDownload(url: string, filename?: string): void {
+function saveBlob(blob: Blob, filename: string): void {
+  const objectUrl = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  link.href = downloadableFileUrl(url, filename);
-  if (filename) {
-    link.download = filename;
-  }
-  link.rel = "noreferrer";
+  link.href = objectUrl;
+  link.download = filename;
   document.body.appendChild(link);
   link.click();
   link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+}
+
+/**
+ * Saves a file to the user's device. The file is fetched and saved from a blob, which is the only way
+ * to be sure of a real download with the right name for a cross-origin file (the HTML `download`
+ * attribute is ignored across origins, and opening the URL just shows images/PDFs in the browser).
+ * If the fetch isn't possible (blocked, offline, host without CORS) it falls back to a navigation to
+ * Cloudinary's attachment URL. Resolves to whether the blob download worked.
+ */
+export async function triggerFileDownload(url: string, title?: string): Promise<boolean> {
+  const filename = downloadName(url, title);
+  try {
+    const response = await fetch(url, { credentials: "omit" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    saveBlob(await response.blob(), filename);
+    return true;
+  } catch {
+    const link = document.createElement("a");
+    link.href = downloadableFileUrl(url, filename);
+    link.download = filename;
+    link.rel = "noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    return false;
+  }
 }

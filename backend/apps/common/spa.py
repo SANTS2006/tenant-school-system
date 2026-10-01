@@ -17,7 +17,9 @@ from django.http import FileResponse, Http404, JsonResponse
 from django.views.defaults import page_not_found
 
 # No inline script, no eval, no third-party script: an XSS bug would find almost nothing to run.
-# Cloudinary hosts uploaded images/videos; Daily.co hosts the live-lesson room (iframe + signalling).
+# Cloudinary hosts uploaded files: images/video are shown directly (img/media-src), and the in-app file
+# viewer also fetches them to save as a download or preview text (connect-src) and shows PDFs in an
+# iframe (frame-src). Daily.co hosts the live-lesson room (iframe + signalling).
 SPA_CONTENT_SECURITY_POLICY = (
     "default-src 'self'; "
     "script-src 'self'; "
@@ -25,8 +27,8 @@ SPA_CONTENT_SECURITY_POLICY = (
     "img-src 'self' data: blob: https://res.cloudinary.com; "
     "media-src 'self' blob: https://res.cloudinary.com; "
     "font-src 'self'; "
-    "connect-src 'self' https://*.daily.co wss://*.daily.co; "
-    "frame-src https://*.daily.co; "
+    "connect-src 'self' https://res.cloudinary.com https://*.daily.co wss://*.daily.co; "
+    "frame-src https://res.cloudinary.com https://*.daily.co; "
     "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; "
     "upgrade-insecure-requests"
 )

@@ -1,6 +1,7 @@
 import { Download, FileText, Lock } from "lucide-react";
 
 import { Alert } from "@/components/ui/Alert";
+import { OpenFileButton } from "@/components/ui/FileViewer";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { FullPageSpinner } from "@/components/ui/Spinner";
 import type { ApiError } from "@/lib/api-client";
@@ -37,11 +38,10 @@ export function MyDocumentsPage() {
               key={document.id}
               className="flex items-center gap-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-3 transition-colors hover:border-[var(--color-primary)]"
             >
-              <a
-                href={document.file}
-                target="_blank"
-                rel="noreferrer"
-                className="flex min-w-0 flex-1 items-center gap-3"
+              <OpenFileButton
+                url={document.file}
+                title={document.title}
+                className="flex min-w-0 flex-1 items-center gap-3 text-left"
               >
                 <FileText className="size-5 shrink-0 text-[var(--color-primary)]" aria-hidden="true" />
                 <div className="min-w-0 flex-1">
@@ -51,7 +51,7 @@ export function MyDocumentsPage() {
                     {document.description && ` · ${document.description}`}
                   </p>
                 </div>
-              </a>
+              </OpenFileButton>
               {document.is_confidential && (
                 <Lock className="size-4 shrink-0 text-[var(--color-text-muted)]" aria-hidden="true" />
               )}

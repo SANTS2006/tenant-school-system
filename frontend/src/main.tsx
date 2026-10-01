@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 
 import App from "./App";
 import { ConfirmProvider } from "./components/ui/ConfirmDialog";
+import { FileViewerProvider } from "./components/ui/FileViewer";
 import { ToastProvider } from "./components/ui/Toast";
 import "@fontsource/poppins/400.css";
 import "@fontsource/poppins/500.css";
@@ -18,9 +19,11 @@ createRoot(document.getElementById("root")!).render(
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
         <ConfirmProvider>
-          <BrowserRouter>
-            <App />
-          </BrowserRouter>
+          <FileViewerProvider>
+            <BrowserRouter>
+              <App />
+            </BrowserRouter>
+          </FileViewerProvider>
         </ConfirmProvider>
       </ToastProvider>
     </QueryClientProvider>

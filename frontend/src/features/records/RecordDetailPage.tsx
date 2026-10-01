@@ -2,6 +2,7 @@ import { Download, FileText, Pencil, Trash2 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { Alert } from "@/components/ui/Alert";
+import { OpenFileButton } from "@/components/ui/FileViewer";
 import { BackArrowIcon } from "@/components/ui/BackArrowIcon";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -116,23 +117,22 @@ export function RecordDetailPage() {
           </CardHeader>
           <CardContent>
             {isImageFile(record.file) ? (
-              <a href={record.file} target="_blank" rel="noreferrer" className="block">
+              <OpenFileButton url={record.file} title={record.title} className="block w-full cursor-zoom-in">
                 <img
                   src={record.file}
                   alt={record.title}
                   className="max-h-96 w-full rounded-[var(--radius-md)] border border-[var(--color-border)] object-contain"
                 />
-              </a>
+              </OpenFileButton>
             ) : (
-              <a
-                href={record.file}
-                target="_blank"
-                rel="noreferrer"
+              <OpenFileButton
+                url={record.file}
+                title={record.title}
                 className="flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-4 py-3 text-sm font-medium text-[var(--color-primary)] hover:underline"
               >
                 <FileText className="size-5" aria-hidden="true" />
                 Open attachment
-              </a>
+              </OpenFileButton>
             )}
           </CardContent>
         </Card>

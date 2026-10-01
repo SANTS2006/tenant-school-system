@@ -1,13 +1,11 @@
 import { Download, FileText } from "lucide-react";
 
+import { OpenFileButton } from "@/components/ui/FileViewer";
+import { cn } from "@/lib/cn";
 import { triggerFileDownload } from "@/lib/fileDownload";
 
-import { cn } from "@/lib/cn";
-
-/** One uploaded file, shown as a clickable name (opens it in a new tab — the browser's own
- * viewer for an image/PDF counts as "viewing it in app") with a separate Download button next to
- * it that always saves the file instead, regardless of whether the browser would otherwise show
- * it inline. Used everywhere a document/material/attachment is listed. */
+/** One uploaded file, shown as a clickable name (opens it in the in-app viewer) with a separate
+ * Download button next to it that saves the file to the device. Used everywhere a document/material/attachment is listed. */
 export function FileLink({
   url,
   label,
@@ -20,14 +18,13 @@ export function FileLink({
   return (
     <div className={cn("flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-3", className)}>
       <FileText className="size-4 shrink-0 text-[var(--color-primary)]" aria-hidden="true" />
-      <a
-        href={url}
-        target="_blank"
-        rel="noreferrer"
-        className="min-w-0 flex-1 truncate text-sm font-medium text-[var(--color-text)] hover:text-[var(--color-primary)]"
+      <OpenFileButton
+        url={url}
+        title={label}
+        className="min-w-0 flex-1 truncate text-left text-sm font-medium text-[var(--color-text)] hover:text-[var(--color-primary)]"
       >
         {label}
-      </a>
+      </OpenFileButton>
       <button
         type="button"
         onClick={(e) => {

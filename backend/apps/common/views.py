@@ -158,3 +158,25 @@ class TenantScopedModelViewSet(SummaryStatsMixin, ExportMixin, TenantContextMixi
 
 class TenantScopedReadOnlyViewSet(SummaryStatsMixin, ExportMixin, TenantContextMixin, viewsets.ReadOnlyModelViewSet):
     pass
+
+
+class CreatorOnlyActionsMixin:
+    """Restricts the listed actions on a single object to the person who created it, on top of the
+    normal permission-code check — holding `events.update` lets you edit *your own* events, not
+    everyone's. Everyone with the view permission still reads it. A row with no recorded creator
+    (data from before the creator was tracked) stays open to anyone who passes the permission check,
+    so nothing is orphaned. Set `creator_only_actions` and, if it isn't `created_by_id`, `creator_field`."""
+
+    creator_only_actions: set = set()
+    creator_field = "created_by_id"
+    creator_only_message = "Only the person who created this can do that."
+
+    def get_object(self):
+        obj = super().get_object()
+        if self.action in self.creator_only_actions:
+            owner_id = getattr(obj, self.creator_field, None)
+            if owner_id is not None and owner_id != self.request.user.id:
+                from rest_framework.exceptions import PermissionDenied
+
+                raise PermissionDenied(self.creator_only_message)
+        return obj

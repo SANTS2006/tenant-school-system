@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { Alert } from "@/components/ui/Alert";
+import { OpenFileButton } from "@/components/ui/FileViewer";
 import { BackArrowIcon } from "@/components/ui/BackArrowIcon";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -189,14 +190,13 @@ export function LessonDetailPage() {
                     )}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <a
-                      href={material.file}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block truncate text-sm font-medium text-[var(--color-text)] hover:text-[var(--color-primary)]"
+                    <OpenFileButton
+                      url={material.file}
+                      title={material.title}
+                      className="block max-w-full truncate text-left text-sm font-medium text-[var(--color-text)] hover:text-[var(--color-primary)]"
                     >
                       {material.title}
-                    </a>
+                    </OpenFileButton>
                     <p className="truncate text-xs text-[var(--color-text-muted)]">
                       Uploaded by {material.uploaded_by_name} · {new Date(material.created_at).toLocaleDateString()}
                     </p>
