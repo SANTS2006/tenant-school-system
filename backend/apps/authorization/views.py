@@ -41,8 +41,9 @@ class RoleViewSet(TenantScopedModelViewSet):
     roles. A system role can never be renamed away from its seeded identity or deleted (its slug
     is load-bearing — several features key scoping off e.g. `role__slug="teacher"`), but ANY
     role's permission set — system or custom — can be edited via the `permissions` action; doing
-    so flips `is_system` off so a later `resync_role_permissions` run (see deploy/start.sh, which
-    runs it on every deploy) never overwrites an admin's own customization.
+    marks it `customized`, so a later `resync_role_permissions` run (see deploy/start.sh, which runs it
+    on every deploy) adds newly introduced default permissions to it but never removes or overwrites
+    what the school chose.
     """
 
     serializer_class = RoleSerializer
@@ -102,9 +103,11 @@ class RoleViewSet(TenantScopedModelViewSet):
         RolePermission.unscoped_objects.bulk_create(
             [RolePermission(school=school, role=role, permission=p) for p in permissions]
         )
-        if role.is_system:
-            role.is_system = False
-            role.save(update_fields=["is_system"])
+        # Kept as a system role (it still can't be deleted or renamed), but flagged so a later resync
+        # adds newly introduced default permissions to it without taking away the school's choices.
+        role.customized = True
+        role.known_permission_codes = sorted(Permission.objects.values_list("code", flat=True))
+        role.save(update_fields=["customized", "known_permission_codes", "updated_at"])
 
         log_action(
             action="roles.permissions_updated",

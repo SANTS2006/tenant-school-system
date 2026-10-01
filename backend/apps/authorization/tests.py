@@ -91,7 +91,7 @@ class TestRoleManagement:
         assert rows["academics.view"] is True
         assert rows["staff.delete"] is False
 
-    def test_set_permissions_replaces_the_role_and_demotes_it_from_system(self, api_client):
+    def test_set_permissions_replaces_the_role_and_marks_it_customized(self, api_client):
         school, admin = _school_admin()
         _login(api_client, admin)
         teacher_role = Role.unscoped_objects.get(school=school, slug="teacher")
@@ -106,8 +106,50 @@ class TestRoleManagement:
         assert response.status_code == 200, response.data
 
         teacher_role.refresh_from_db()
-        assert teacher_role.is_system is False
+        assert teacher_role.is_system is True  # still a protected default role...
+        assert teacher_role.customized is True  # ...but its permissions are now the school's own
         assert set(teacher_role.permissions.values_list("code", flat=True)) == {"library.view"}
+
+    def test_resync_keeps_a_schools_edits_but_adds_newly_introduced_defaults(self, api_client, monkeypatch):
+        school, admin = _school_admin()
+        _login(api_client, admin)
+        teacher_role = Role.unscoped_objects.get(school=school, slug="teacher")
+        library_view = Permission.objects.get(code="library.view")
+        # the school keeps ONLY library.view on the teacher role...
+        api_client.post(
+            f"/api/v1/roles/{teacher_role.id}/set-permissions/", {"permission_ids": [str(library_view.id)]}, format="json"
+        )
+        # ...then a release introduces a new permission that teachers get by default
+        Permission.objects.create(code="newmodule.view", name="View the new module", module="newmodule")
+        from . import services as auth_services
+
+        spec = dict(auth_services.DEFAULT_ROLE_PERMISSION_PREFIXES)
+        spec["teacher"] = {"include": [*spec["teacher"]["include"], "newmodule."], "exclude": []}
+        monkeypatch.setattr(auth_services, "DEFAULT_ROLE_PERMISSION_PREFIXES", spec)
+
+        seed_default_roles_for_school(school)  # what a deploy runs
+
+        teacher_role.refresh_from_db()
+        granted = set(teacher_role.permissions.values_list("code", flat=True))
+        assert "library.view" in granted  # the school's choice survives
+        assert "students.view" not in granted  # a default the school removed is NOT quietly granted back
+        assert "newmodule.view" in granted  # but a newly introduced default is added
+        assert teacher_role.is_system is True and teacher_role.customized is True
+
+        seed_default_roles_for_school(school)  # idempotent
+        assert set(teacher_role.permissions.values_list("code", flat=True)) == granted
+
+    def test_resync_still_fully_syncs_an_untouched_default_role(self):
+        seed_permission_catalog()
+        school = SchoolFactory()
+        seed_default_roles_for_school(school)
+        teacher_role = Role.unscoped_objects.get(school=school, slug="teacher")
+        extra = Permission.objects.get(code="salary.view")
+        teacher_role.role_permissions.create(school=school, permission=extra)  # drift on an untouched role
+
+        seed_default_roles_for_school(school)
+
+        assert "salary.view" not in set(teacher_role.permissions.values_list("code", flat=True))
 
     def test_cannot_manage_another_schools_role(self, api_client):
         school_a, admin_a = _school_admin()

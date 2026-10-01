@@ -64,11 +64,15 @@ def seed_default_roles_for_school(school):
     with transaction.atomic():
         for slug, spec in DEFAULT_ROLE_PERMISSION_PREFIXES.items():
             include, exclude = _normalize_spec(spec)
-            role, _ = Role.unscoped_objects.update_or_create(
-                school=school,
-                slug=slug,
-                defaults={"name": DEFAULT_ROLE_NAMES[slug], "is_system": True, "is_active": True},
-            )
+            role = Role.unscoped_objects.filter(school=school, slug=slug).first()
+            if role is None:
+                role = Role.unscoped_objects.create(
+                    school=school, slug=slug, name=DEFAULT_ROLE_NAMES[slug], is_system=True, is_active=True
+                )
+            elif not role.customized:
+                # An untouched default role is re-pinned to the code's version of it.
+                role.name, role.is_system, role.is_active = DEFAULT_ROLE_NAMES[slug], True, True
+                role.save(update_fields=["name", "is_system", "is_active", "updated_at"])
             desired_ids = {
                 p.id
                 for p in all_permissions
@@ -79,7 +83,17 @@ def seed_default_roles_for_school(school):
                 RolePermission.unscoped_objects.filter(role=role).values_list("permission_id", flat=True)
             )
             to_add = desired_ids - existing_ids
-            to_remove = existing_ids - desired_ids
+            if role.customized:
+                # Keep exactly what the school chose. Only permissions introduced since it was last
+                # customized/synced are offered (added if the code's defaults include them).
+                known = set(role.known_permission_codes)
+                code_by_id = {p.id: p.code for p in all_permissions}
+                to_add = {pid for pid in to_add if code_by_id[pid] not in known}
+                to_remove = set()
+                role.known_permission_codes = sorted(code_by_id.values())
+                role.save(update_fields=["known_permission_codes", "updated_at"])
+            else:
+                to_remove = existing_ids - desired_ids
             if to_add:
                 RolePermission.unscoped_objects.bulk_create(
                     [RolePermission(school=school, role=role, permission_id=pid) for pid in to_add]
@@ -88,9 +102,9 @@ def seed_default_roles_for_school(school):
                 RolePermission.unscoped_objects.filter(role=role, permission_id__in=to_remove).delete()
 
         # A system role dropped from the catalog (e.g. Registrar, IT Administrator) must not linger
-        # in existing schools — remove it (and, by cascade, its permissions and assignments). Only
-        # `is_system` rows are ever touched, so a school's own custom roles are unaffected.
-        Role.unscoped_objects.filter(school=school, is_system=True).exclude(
+        # in existing schools — remove it (and, by cascade, its permissions and assignments) — unless
+        # the school customized it. A school's own custom roles (is_system=False) are never touched.
+        Role.unscoped_objects.filter(school=school, is_system=True, customized=False).exclude(
             slug__in=DEFAULT_ROLE_PERMISSION_PREFIXES.keys()
         ).delete()
 

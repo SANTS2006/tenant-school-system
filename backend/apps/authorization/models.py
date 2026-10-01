@@ -35,6 +35,14 @@ class Role(TenantScopedModel, TimeStampedModel):
     slug = models.SlugField(max_length=100)
     description = models.CharField(max_length=255, blank=True)
     is_system = models.BooleanField(default=False)
+    # True once an admin has edited a default role's permissions. A customized role is never reset to
+    # the code defaults by `resync_role_permissions`/deploys: new default permissions are still ADDED
+    # to it, but nothing the school granted is taken away.
+    customized = models.BooleanField(default=False)
+    # The permission codes that existed in the catalog when this role was last customized or synced.
+    # A sync adds to a customized role only codes that are NOT in here — i.e. permissions introduced
+    # since — so a default the school deliberately removed isn't quietly granted back at every deploy.
+    known_permission_codes = models.JSONField(default=list, blank=True)
     is_active = models.BooleanField(default=True)
 
     permissions = models.ManyToManyField(Permission, through="RolePermission", related_name="roles")
