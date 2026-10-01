@@ -7,7 +7,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Select } from "@/components/ui/Select";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/toastContext";
 import { useStaffLookup } from "@/features/staff/useStaffLookups";
 import { listStudents } from "@/features/students/api";
 import type { ApiError } from "@/lib/api-client";

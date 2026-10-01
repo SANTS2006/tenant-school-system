@@ -5,7 +5,7 @@ import { Alert } from "@/components/ui/Alert";
 import { BackArrowIcon } from "@/components/ui/BackArrowIcon";
 import { Button } from "@/components/ui/Button";
 import { FullPageSpinner, Spinner } from "@/components/ui/Spinner";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/toastContext";
 import { useCurrentUser, useHasPermission } from "@/features/auth/useAuth";
 import { LogoBadge } from "@/layouts/AppShell";
 import type { ApiError } from "@/lib/api-client";

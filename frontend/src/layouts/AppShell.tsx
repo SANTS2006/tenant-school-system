@@ -1,9 +1,10 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, Menu, School, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { FullPageSpinner } from "@/components/ui/Spinner";
 import { isNavItemVisible, useActiveRole, useCurrentUser } from "@/features/auth/useAuth";
 import { NotificationBell } from "@/features/notifications/NotificationBell";
 import { useActingSchool } from "@/hooks/useActingSchool";
@@ -279,7 +280,9 @@ export function AppShell() {
           </div>
         </header>
         <main className="flex-1 overflow-y-auto p-3 sm:p-4">
-          <Outlet />
+          <Suspense fallback={<FullPageSpinner />}>
+            <Outlet />
+          </Suspense>
         </main>
         <Footer schoolName={user?.school?.name} />
       </div>

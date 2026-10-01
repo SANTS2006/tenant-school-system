@@ -18,7 +18,7 @@ import {
   TableHeaderCell,
   TableRow,
 } from "@/components/ui/Table";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/toastContext";
 import { useSubjectList, useSubjectOfferingList } from "@/features/academics/useAcademicsCrud";
 import { useAllSections } from "@/features/academics/useAcademicsLookups";
 import { useHasPermission, useHasRole } from "@/features/auth/useAuth";

@@ -1,5 +1,4 @@
 import { Save, Send } from "lucide-react";
-import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { Alert } from "@/components/ui/Alert";
@@ -7,7 +6,7 @@ import { BackArrowIcon } from "@/components/ui/BackArrowIcon";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { useConfirm } from "@/components/ui/confirmContext";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { FullPageSpinner } from "@/components/ui/Spinner";
 import {
@@ -19,8 +18,9 @@ import {
   TableHeaderCell,
   TableRow,
 } from "@/components/ui/Table";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/toastContext";
 import type { ApiError } from "@/lib/api-client";
+import { useStateFromSource } from "@/hooks/useStateFromSource";
 
 import { useAssessment, useAssessmentScores, useSaveAssessmentScores } from "./useAcademicsCrud";
 
@@ -50,21 +50,16 @@ export function AssessmentGradeEntryPage() {
   const { data: scoresData, isLoading: isLoadingScores } = useAssessmentScores(id);
   const saveScores = useSaveAssessmentScores(id ?? "");
 
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [marks, setMarks] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    if (scoresData) {
-      const next: Record<string, string> = {};
-      const nextMarks: Record<string, string> = {};
-      for (const row of scoresData.rows) {
-        next[row.student] = row.raw_score ?? "";
-        nextMarks[row.student] = row.discretionary_mark ?? "";
-      }
-      setValues(next);
-      setMarks(nextMarks);
-    }
-  }, [scoresData]);
+  const [values, setValues] = useStateFromSource(scoresData, (loaded) => {
+    const next: Record<string, string> = {};
+    for (const row of loaded?.rows ?? []) next[row.student] = row.raw_score ?? "";
+    return next;
+  });
+  const [marks, setMarks] = useStateFromSource(scoresData, (loaded) => {
+    const next: Record<string, string> = {};
+    for (const row of loaded?.rows ?? []) next[row.student] = row.discretionary_mark ?? "";
+    return next;
+  });
 
   const maxScore = Number(scoresData?.max_score ?? assessment?.max_score ?? 0);
   const weight = scoresData?.weight ?? assessment?.weight ?? 0;

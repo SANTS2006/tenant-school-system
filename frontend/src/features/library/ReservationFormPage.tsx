@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { Save } from "lucide-react";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 
@@ -10,7 +10,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Select } from "@/components/ui/Select";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/toastContext";
 import { useStaffLookup } from "@/features/staff/useStaffLookups";
 import { listStudents } from "@/features/students/api";
 import type { ApiError } from "@/lib/api-client";
@@ -43,7 +43,7 @@ export function ReservationFormPage() {
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     setError,
     formState: { errors },
   } = useForm<FormValues>({
@@ -51,7 +51,7 @@ export function ReservationFormPage() {
     defaultValues: { book: "", borrower_type: "student", borrower: "" },
   });
 
-  const borrowerType = watch("borrower_type");
+  const borrowerType = useWatch({ control, name: "borrower_type" });
 
   const onSubmit = (values: FormValues) => {
     setGeneralError(null);

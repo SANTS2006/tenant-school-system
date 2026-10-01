@@ -7,7 +7,7 @@ import { BackArrowIcon } from "@/components/ui/BackArrowIcon";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { FullPageSpinner, Spinner } from "@/components/ui/Spinner";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/toastContext";
 import type { ApiError } from "@/lib/api-client";
 
 import { useSubjectsHomePath } from "./useSubjectsHomePath";

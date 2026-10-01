@@ -10,7 +10,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Select } from "@/components/ui/Select";
 import { FullPageSpinner, Spinner } from "@/components/ui/Spinner";
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeaderCell } from "@/components/ui/Table";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/toastContext";
 import { useAllSections } from "@/features/academics/useAcademicsLookups";
 import { useSubjectOfferingList } from "@/features/academics/useAcademicsCrud";
 import { useStaffLookup } from "@/features/staff/useStaffLookups";

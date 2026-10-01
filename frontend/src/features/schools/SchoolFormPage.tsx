@@ -11,9 +11,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { FullPageSpinner } from "@/components/ui/Spinner";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/toastContext";
 import type { ApiError } from "@/lib/api-client";
 import { applyFieldErrors, generalErrorMessage } from "@/lib/formErrors";
+import { useStateFromSource } from "@/hooks/useStateFromSource";
 
 import { useCreateSchool, useSchool, useUpdateSchool } from "./useSchoolsCrud";
 
@@ -102,7 +103,7 @@ export function SchoolFormPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoPreview, setLogoPreview] = useStateFromSource(school, (loaded) => loaded?.logo ?? null);
   const [logoError, setLogoError] = useState<string | undefined>();
 
   useEffect(() => {
@@ -129,7 +130,6 @@ export function SchoolFormPage() {
 
   useEffect(() => {
     if (school) {
-      setLogoPreview(school.logo);
       reset({
         name: school.name,
         slug: school.slug,

@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { Save } from "lucide-react";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 
@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/toastContext";
 import { useAllSections, useSchoolClasses, useSubjects } from "@/features/academics/useAcademicsLookups";
 import { listStudents } from "@/features/students/api";
 import type { ApiError } from "@/lib/api-client";
@@ -75,7 +75,7 @@ export function LiveSessionFormPage() {
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     setError,
     formState: { errors },
   } = useForm<FormValues>({
@@ -88,7 +88,7 @@ export function LiveSessionFormPage() {
     },
   });
 
-  const targetType = watch("target_type");
+  const targetType = useWatch({ control, name: "target_type" });
   // The roster picker (specific-students mode) only makes sense for one class at a time —
   // it's the first one selected.
   const rosterClassId = selectedClassIds[0];

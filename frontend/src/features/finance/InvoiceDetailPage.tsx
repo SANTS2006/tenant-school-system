@@ -6,7 +6,7 @@ import { BackArrowIcon } from "@/components/ui/BackArrowIcon";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { useConfirm } from "@/components/ui/confirmContext";
 import { FullPageSpinner } from "@/components/ui/Spinner";
 import {
   Table,
@@ -17,7 +17,7 @@ import {
   TableHeaderCell,
   TableRow,
 } from "@/components/ui/Table";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/toastContext";
 import { useTermList } from "@/features/academics/useAcademicsCrud";
 import { useAcademicYears } from "@/features/academics/useAcademicsLookups";
 import { useHasPermission } from "@/features/auth/useAuth";

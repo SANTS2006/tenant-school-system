@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/toastContext";
 
 import { AudiencePicker } from "./AudiencePicker";
 import { EMPTY_AUDIENCE, type AudienceState, hasAudience, toAudiencePayload } from "./audience";

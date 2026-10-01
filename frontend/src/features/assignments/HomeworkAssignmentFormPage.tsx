@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { FullPageSpinner } from "@/components/ui/Spinner";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/toastContext";
 import { useAllSections, useSchoolClasses, useSubjects } from "@/features/academics/useAcademicsLookups";
 import type { ApiError } from "@/lib/api-client";
 import { applyFieldErrors, generalErrorMessage } from "@/lib/formErrors";

@@ -11,12 +11,13 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { PasswordInput } from "@/components/ui/PasswordInput";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/toastContext";
 import { TwoFactorCard } from "@/features/auth/TwoFactorCard";
 import { useChangePassword, useCurrentUser, useHasPermission, useLogout, useUpdateCurrentUser } from "@/features/auth/useAuth";
 import { useMySchool, useUpdateMySchool } from "@/features/schools/useSchoolsCrud";
 import type { ApiError } from "@/lib/api-client";
 import { applyFieldErrors, generalErrorMessage } from "@/lib/formErrors";
+import { useStateFromSource } from "@/hooks/useStateFromSource";
 
 const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_PHOTO_TYPES = "image/jpeg,image/png,image/gif,image/webp";
@@ -52,7 +53,7 @@ function ProfileCard() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoPreview, setPhotoPreview] = useStateFromSource(user, (loaded) => loaded?.photo ?? null);
   const [photoError, setPhotoError] = useState<string | undefined>();
 
   const {
@@ -74,7 +75,6 @@ function ProfileCard() {
         email: user.email,
         phone_number: user.phone_number,
       });
-      setPhotoPreview(user.photo);
     }
   }, [user, reset]);
 

@@ -1,9 +1,10 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Bell, LayoutDashboard, Menu, School as SchoolIcon, Settings, Shield, X } from "lucide-react";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { Navigate, NavLink, Outlet } from "react-router-dom";
 
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { FullPageSpinner } from "@/components/ui/Spinner";
 import { useCurrentUser } from "@/features/auth/useAuth";
 import { NotificationBell } from "@/features/notifications/NotificationBell";
 import { cn } from "@/lib/cn";
@@ -123,7 +124,9 @@ export function PlatformShell() {
           </div>
         </header>
         <main className="flex-1 overflow-y-auto p-3 sm:p-4">
-          <Outlet />
+          <Suspense fallback={<FullPageSpinner />}>
+            <Outlet />
+          </Suspense>
         </main>
         <Footer />
       </div>

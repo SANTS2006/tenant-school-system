@@ -11,9 +11,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { FullPageSpinner } from "@/components/ui/Spinner";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/toastContext";
 import { useDepartmentList } from "@/features/academics/useAcademicsCrud";
 import type { ApiError } from "@/lib/api-client";
+import { useStateFromSource } from "@/hooks/useStateFromSource";
 
 import { useStaffMember, useUpdateStaff } from "./useStaffCrud";
 
@@ -63,7 +64,7 @@ export function StaffEditPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoPreview, setPhotoPreview] = useStateFromSource(staff, (loaded) => loaded?.photo ?? null);
   const [photoError, setPhotoError] = useState<string | undefined>();
 
   useEffect(() => {
@@ -90,7 +91,6 @@ export function StaffEditPage() {
 
   useEffect(() => {
     if (staff) {
-      setPhotoPreview(staff.photo);
       reset({
         staff_id: staff.staff_id,
         department: staff.department ?? "",

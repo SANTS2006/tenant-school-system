@@ -10,9 +10,10 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { FullPageSpinner } from "@/components/ui/Spinner";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/toastContext";
 import type { ApiError } from "@/lib/api-client";
 import { applyFieldErrors, generalErrorMessage } from "@/lib/formErrors";
+import { useStateFromSource } from "@/hooks/useStateFromSource";
 
 import { useCreateGuardian, useGuardian, useUpdateGuardian } from "./useParentsCrud";
 
@@ -61,7 +62,7 @@ export function GuardianFormPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoPreview, setPhotoPreview] = useStateFromSource(guardian, (loaded) => loaded?.photo ?? null);
   const [photoError, setPhotoError] = useState<string | undefined>();
 
   useEffect(() => {
@@ -88,7 +89,6 @@ export function GuardianFormPage() {
 
   useEffect(() => {
     if (guardian) {
-      setPhotoPreview(guardian.photo);
       reset({
         first_name: guardian.first_name,
         last_name: guardian.last_name,

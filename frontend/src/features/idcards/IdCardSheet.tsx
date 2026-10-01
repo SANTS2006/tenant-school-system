@@ -3,25 +3,10 @@ import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui/Button";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/toastContext";
 
 import { IdCardBack, IdCardFront } from "./IdCardFaces";
 import type { IdCard } from "./types";
-
-// Printing goes through the app-wide rule in index.css (`body * { visibility: hidden }` with
-// `[data-printable-root]` switched back on), so the cards are rendered in a portal mounted straight
-// on <body> and marked with that attribute — no modal transform/overflow ancestor can clip or
-// offset them. The app itself (#root) is removed from the print layout so it adds no blank pages.
-const PRINT_CSS = `
-.idcard-print-root { display: none; }
-@media print {
-  @page { margin: 10mm; }
-  #root { display: none !important; }
-  .idcard-print-root { display: block !important; }
-  .idcard-print-pair { display: flex; gap: 8mm; break-inside: avoid; page-break-inside: avoid; margin-bottom: 8mm; }
-  .idcard-print-pair > * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-}
-`;
 
 function CardPair({ card }: { card: IdCard }) {
   return (
@@ -88,7 +73,6 @@ export function IdCardSheet({ cards }: { cards: IdCard[] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <style>{PRINT_CSS}</style>
       <div className="flex flex-wrap gap-2">
         <Button type="button" size="sm" onClick={() => window.print()}>
           <Printer className="size-4" aria-hidden="true" /> Print

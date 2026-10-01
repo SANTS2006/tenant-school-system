@@ -1,5 +1,4 @@
 import { Save } from "lucide-react";
-import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { Alert } from "@/components/ui/Alert";
@@ -18,8 +17,9 @@ import {
   TableHeaderCell,
   TableRow,
 } from "@/components/ui/Table";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/toastContext";
 import type { ApiError } from "@/lib/api-client";
+import { useStateFromSource } from "@/hooks/useStateFromSource";
 
 import type { PassStatus } from "./types";
 import { useSubjectsHomePath } from "./useSubjectsHomePath";
@@ -49,17 +49,13 @@ export function SubjectResultsPage() {
   const { data: resultsData, isLoading: isLoadingResults } = useSubjectResults(id);
   const saveResults = useSaveSubjectResults(id ?? "");
 
-  const [values, setValues] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    if (resultsData) {
-      const next: Record<string, string> = {};
-      for (const row of resultsData.rows) {
-        next[row.student] = row.exam_score ?? "";
-      }
-      setValues(next);
+  const [values, setValues] = useStateFromSource(resultsData, (loaded) => {
+    const next: Record<string, string> = {};
+    for (const row of loaded?.rows ?? []) {
+      next[row.student] = row.exam_score ?? "";
     }
-  }, [resultsData]);
+    return next;
+  });
 
   const examMaxScore = resultsData?.exam_max_score ?? offering?.exam_max_score ?? "100";
 

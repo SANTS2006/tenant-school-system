@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Save } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
 import { z } from "zod";
 
@@ -12,10 +12,11 @@ import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { FullPageSpinner } from "@/components/ui/Spinner";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/toastContext";
 import { useStaffList } from "@/features/staff/useStaffCrud";
 import type { ApiError } from "@/lib/api-client";
 import { applyFieldErrors, generalErrorMessage } from "@/lib/formErrors";
+import { useStateFromSource } from "@/hooks/useStateFromSource";
 
 import { useAcademicYears, useSchoolClasses, useSubjects } from "./useAcademicsLookups";
 import {
@@ -72,7 +73,7 @@ export function SubjectOfferingFormPage() {
 
   // Creating: one or more classes, each becoming its own offering with the same subject/
   // teacher/weighting. Editing: exactly one, since an existing offering IS one specific class.
-  const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
+  const [selectedClasses, setSelectedClasses] = useStateFromSource(offering, (loaded) => (loaded ? [loaded.school_class] : []));
   const [classesTouched, setClassesTouched] = useState(false);
   const toggleClass = (classId: string) => {
     setClassesTouched(true);
@@ -89,12 +90,12 @@ export function SubjectOfferingFormPage() {
     register,
     handleSubmit,
     reset,
-    watch,
+    control,
     setError,
     formState: { errors },
   } = useForm<z.input<typeof schema>, unknown, FormValues>({ resolver: zodResolver(schema), defaultValues: EMPTY_VALUES });
 
-  const selectedAcademicYear = watch("academic_year");
+  const selectedAcademicYear = useWatch({ control, name: "academic_year" });
   const { data: terms } = useTermList({ page_size: 100, academic_year: selectedAcademicYear || undefined });
 
   useEffect(() => {
@@ -110,12 +111,11 @@ export function SubjectOfferingFormPage() {
         pass_mark: offering.pass_mark,
         status: offering.status,
       });
-      setSelectedClasses([offering.school_class]);
     }
   }, [offering, reset]);
 
-  const caWeight = watch("ca_weight_percent");
-  const examWeight = watch("exam_weight_percent");
+  const caWeight = useWatch({ control, name: "ca_weight_percent" });
+  const examWeight = useWatch({ control, name: "exam_weight_percent" });
   const totalWeight = Number(caWeight || 0) + Number(examWeight || 0);
 
   const [isSubmitting, setIsSubmitting] = useState(false);

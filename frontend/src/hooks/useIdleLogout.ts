@@ -19,9 +19,12 @@ const ACTIVITY_EVENTS = ["mousedown", "mousemove", "keydown", "touchstart", "scr
  */
 export function useIdleLogout(enabled: boolean, onIdle: () => void) {
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
-  const lastActivity = useRef(Date.now());
+  const lastActivity = useRef(0); // set to "now" when the effect starts (never during render)
   const onIdleRef = useRef(onIdle);
-  onIdleRef.current = onIdle;
+
+  useEffect(() => {
+    onIdleRef.current = onIdle;
+  });
 
   useEffect(() => {
     if (!enabled) return;

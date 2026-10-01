@@ -1,5 +1,5 @@
 import { Lock, Save } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { Alert } from "@/components/ui/Alert";
@@ -9,9 +9,10 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { FullPageSpinner } from "@/components/ui/Spinner";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/toastContext";
 import { useHasPermission } from "@/features/auth/useAuth";
 import type { ApiError } from "@/lib/api-client";
+import { useStateFromSource } from "@/hooks/useStateFromSource";
 
 import { useRole, useRolePermissions, useSetRolePermissions } from "./useRolesCrud";
 
@@ -28,13 +29,10 @@ export function RoleDetailPage() {
   const { data: permissions, isLoading: isLoadingPermissions } = useRolePermissions(id);
   const setPermissions = useSetRolePermissions(id ?? "");
 
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    if (permissions) {
-      setSelected(new Set(permissions.filter((p) => p.granted).map((p) => p.id)));
-    }
-  }, [permissions]);
+  const [selected, setSelected] = useStateFromSource(
+    permissions,
+    (loaded) => new Set<string>((loaded ?? []).filter((p) => p.granted).map((p) => p.id)),
+  );
 
   const grouped = useMemo(() => {
     const byModule = new Map<string, typeof permissions>();

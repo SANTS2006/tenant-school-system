@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { FileText, Plus, Save, Trash2, Video } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { z } from "zod";
 
@@ -13,12 +13,13 @@ import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { FullPageSpinner, Spinner } from "@/components/ui/Spinner";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/toastContext";
 import { useAllSections, useSchoolClasses, useSubjects } from "@/features/academics/useAcademicsLookups";
 import { useCurrentUser } from "@/features/auth/useAuth";
 import { listStudents } from "@/features/students/api";
 import type { ApiError } from "@/lib/api-client";
 import { applyFieldErrors, generalErrorMessage } from "@/lib/formErrors";
+import { useStateFromSource } from "@/hooks/useStateFromSource";
 
 import type { MaterialType } from "./types";
 import {
@@ -78,14 +79,11 @@ export function LessonFormPage() {
   const { data: existingEnrollments } = useLessonEnrollmentList(id);
   const createEnrollment = useCreateLessonEnrollment();
   const deleteEnrollment = useDeleteLessonEnrollment();
-  const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
+  const [selectedStudentIds, setSelectedStudentIds] = useStateFromSource(
+    existingEnrollments,
+    (loaded) => new Set<string>((loaded ?? []).map((e) => e.student)),
+  );
   const [syncingEnrollments, setSyncingEnrollments] = useState(false);
-
-  useEffect(() => {
-    if (existingEnrollments) {
-      setSelectedStudentIds(new Set(existingEnrollments.map((e) => e.student)));
-    }
-  }, [existingEnrollments]);
 
   const toggleStudent = (studentId: string) => {
     setSelectedStudentIds((prev) => {
@@ -127,7 +125,7 @@ export function LessonFormPage() {
     register,
     handleSubmit,
     reset,
-    watch,
+    control,
     setValue,
     setError,
     formState: { errors },
@@ -145,8 +143,8 @@ export function LessonFormPage() {
     },
   });
 
-  const targetType = watch("target_type");
-  const rosterClassId = watch("school_class");
+  const targetType = useWatch({ control, name: "target_type" });
+  const rosterClassId = useWatch({ control, name: "school_class" });
 
   const { data: roster } = useQuery({
     queryKey: ["students", "roster-for-lesson", rosterClassId],

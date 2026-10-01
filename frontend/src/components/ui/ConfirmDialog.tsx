@@ -1,30 +1,15 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle, HelpCircle } from "lucide-react";
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { cn } from "@/lib/cn";
 
 import { Button } from "./Button";
-
-export type ConfirmTone = "danger" | "neutral";
-
-export interface ConfirmOptions {
-  title: string;
-  description?: string;
-  confirmLabel?: string;
-  cancelLabel?: string;
-  tone?: ConfirmTone;
-}
+import { ConfirmContext, type ConfirmOptions } from "./confirmContext";
 
 interface PendingConfirm extends ConfirmOptions {
   resolve: (value: boolean) => void;
 }
-
-interface ConfirmContextValue {
-  confirm: (options: ConfirmOptions) => Promise<boolean>;
-}
-
-const ConfirmContext = createContext<ConfirmContextValue | null>(null);
 
 export function ConfirmProvider({ children }: { children: ReactNode }) {
   const [pending, setPending] = useState<PendingConfirm | null>(null);
@@ -124,12 +109,4 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
       </AnimatePresence>
     </ConfirmContext.Provider>
   );
-}
-
-export function useConfirm(): (options: ConfirmOptions) => Promise<boolean> {
-  const context = useContext(ConfirmContext);
-  if (!context) {
-    throw new Error("useConfirm must be used within a ConfirmProvider");
-  }
-  return context.confirm;
 }

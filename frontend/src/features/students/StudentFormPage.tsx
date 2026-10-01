@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Camera, Save, User } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
 import { z } from "zod";
 
@@ -11,9 +11,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { FullPageSpinner } from "@/components/ui/Spinner";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/toastContext";
 import { useAcademicYears, useSchoolClasses, useSections } from "@/features/academics/useAcademicsLookups";
 import type { ApiError } from "@/lib/api-client";
+import { useStateFromSource } from "@/hooks/useStateFromSource";
 
 import type { StudentPayload } from "./types";
 import { useCreateStudent, useStudent, useUpdateStudent } from "./useStudents";
@@ -111,17 +112,17 @@ export function StudentFormPage() {
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     reset,
     formState: { errors },
   } = useForm<StudentFormValues>({ resolver: zodResolver(studentSchema), defaultValues: EMPTY_VALUES });
 
-  const selectedClass = watch("current_class");
+  const selectedClass = useWatch({ control, name: "current_class" });
   const { data: sections } = useSections(selectedClass ? { school_class: selectedClass } : undefined);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoPreview, setPhotoPreview] = useStateFromSource(student, (loaded) => loaded?.photo ?? null);
   const [photoError, setPhotoError] = useState<string | undefined>();
 
   useEffect(() => {
@@ -141,7 +142,6 @@ export function StudentFormPage() {
         current_class: student.current_class ?? "",
         current_section: student.current_section ?? "",
       });
-      setPhotoPreview(student.photo);
     }
   }, [student, reset]);
 

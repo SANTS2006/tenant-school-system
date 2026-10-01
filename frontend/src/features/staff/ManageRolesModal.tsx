@@ -1,12 +1,12 @@
 import { Save } from "lucide-react";
-import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Modal } from "@/components/ui/Modal";
 import { Spinner } from "@/components/ui/Spinner";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/toastContext";
 import { useRoles } from "@/features/authorization/useRoles";
+import { useStateFromSource } from "@/hooks/useStateFromSource";
 
 import type { Staff } from "./types";
 import { useSetStaffRoles } from "./useStaffCrud";
@@ -23,11 +23,7 @@ export function ManageRolesModal({
   const { showToast } = useToast();
   const { data: roles, isLoading } = useRoles();
   const setStaffRoles = useSetStaffRoles();
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (staff) setSelectedIds(staff.roles.map((role) => role.id));
-  }, [staff]);
+  const [selectedIds, setSelectedIds] = useStateFromSource(staff, (loaded) => loaded?.roles.map((role) => role.id) ?? []);
 
   if (!staff) return null;
 

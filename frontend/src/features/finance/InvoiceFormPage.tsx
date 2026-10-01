@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/toastContext";
 import { useTermList } from "@/features/academics/useAcademicsCrud";
 import { useAcademicYears } from "@/features/academics/useAcademicsLookups";
 import { useFeeCategoryList } from "@/features/finance/useFeesCrud";

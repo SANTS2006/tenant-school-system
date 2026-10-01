@@ -1,26 +1,14 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle2, X, XCircle } from "lucide-react";
-import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useMemo, useState } from "react";
 
 import { cn } from "@/lib/cn";
 
-export type ToastTone = "success" | "danger";
-
-interface ToastInput {
-  title: string;
-  description?: string;
-  tone?: ToastTone;
-}
+import { ToastContext, type ToastInput } from "./toastContext";
 
 interface ToastItem extends ToastInput {
   id: string;
 }
-
-interface ToastContextValue {
-  showToast: (toast: ToastInput) => void;
-}
-
-const ToastContext = createContext<ToastContextValue | null>(null);
 
 const AUTO_DISMISS_MS = 4000;
 
@@ -85,12 +73,4 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       </div>
     </ToastContext.Provider>
   );
-}
-
-export function useToast(): ToastContextValue {
-  const context = useContext(ToastContext);
-  if (!context) {
-    throw new Error("useToast must be used within a ToastProvider");
-  }
-  return context;
 }

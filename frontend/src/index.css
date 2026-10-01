@@ -185,3 +185,33 @@ body {
     display: none !important;
   }
 }
+
+/* ID cards (features/idcards/IdCardSheet.tsx). Printing goes through the scoped-print rule above: the
+ * cards are rendered in a portal on <body> marked data-printable-root, and the app itself (#root) is
+ * dropped from the print layout so it adds no blank pages. Lives here, not in an inline <style>, because
+ * the production Content-Security-Policy forbids inline style elements. */
+.idcard-print-root {
+  display: none;
+}
+@media print {
+  @page {
+    margin: 10mm;
+  }
+  #root {
+    display: none !important;
+  }
+  .idcard-print-root {
+    display: block !important;
+  }
+  .idcard-print-pair {
+    display: flex;
+    gap: 8mm;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 8mm;
+  }
+  .idcard-print-pair > * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

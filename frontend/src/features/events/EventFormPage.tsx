@@ -14,7 +14,7 @@ import { ImageField } from "@/components/ui/ImageField";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { FullPageSpinner } from "@/components/ui/Spinner";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/toastContext";
 import { fetchDepartments } from "@/features/academics/api";
 import { useAllSections, useSchoolClasses } from "@/features/academics/useAcademicsLookups";
 import { useResolveCategory } from "@/features/formoptions/useResolveCategory";

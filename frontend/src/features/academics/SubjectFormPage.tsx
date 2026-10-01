@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Save } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
 import { z } from "zod";
@@ -11,8 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
 import { FullPageSpinner } from "@/components/ui/Spinner";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/toastContext";
 import type { ApiError } from "@/lib/api-client";
+import { useStateFromSource } from "@/hooks/useStateFromSource";
 
 import { useCreateSubject, useDepartmentList, useSubject, useUpdateSubject } from "./useAcademicsCrud";
 
@@ -40,7 +41,7 @@ export function SubjectFormPage() {
   // A subject can be offered by more than one department, so this is a checkbox group rather
   // than a react-hook-form-registered field — the same pattern the photo picker elsewhere in
   // this app uses for a value that isn't a plain input.
-  const [selectedDepartments, setSelectedDepartments] = useState<string[]>([]);
+  const [selectedDepartments, setSelectedDepartments] = useStateFromSource(subject, (loaded) => loaded?.departments ?? []);
   const toggleDepartment = (departmentId: string) => {
     setSelectedDepartments((current) =>
       current.includes(departmentId) ? current.filter((id) => id !== departmentId) : [...current, departmentId],
@@ -57,7 +58,6 @@ export function SubjectFormPage() {
   useEffect(() => {
     if (subject) {
       reset({ name: subject.name, code: subject.code });
-      setSelectedDepartments(subject.departments);
     }
   }, [subject, reset]);
 
