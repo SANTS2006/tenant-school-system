@@ -267,6 +267,7 @@ export function AppRoutes() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/apply/:schoolSlug" element={<PublicApplyPage />} />
+        <Route path="/apply/:schoolSlug/:kind" element={<PublicApplyPage />} />
         <Route path="/verify-card/:token" element={<PublicVerifyCardPage />} />
       </Route>
 

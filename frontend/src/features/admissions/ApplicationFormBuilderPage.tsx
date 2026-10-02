@@ -1,4 +1,4 @@
-import { Check, Copy, ExternalLink, Link2, Plus, Save, Trash2 } from "lucide-react";
+import { Plus, Save, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { Alert } from "@/components/ui/Alert";
@@ -13,6 +13,7 @@ import { useHasPermission } from "@/features/auth/useAuth";
 import type { ApiError } from "@/lib/api-client";
 import { generalErrorMessage } from "@/lib/formErrors";
 
+import { ApplicationLinks } from "./ApplicationLinks";
 import { CHOICE_TYPES, type ApplicationKind, type CustomFieldConfig, type CustomFieldType, type FormConfig } from "./types";
 import { useFormConfig, useSaveFormConfig } from "./useAdmissionsCrud";
 
@@ -266,63 +267,20 @@ function KindEditor({ kind, config }: { kind: ApplicationKind; config: FormConfi
 export function ApplicationFormBuilderPage() {
   const { data, isLoading, isError, error } = useFormConfig();
   const [kind, setKind] = useState<ApplicationKind>("student");
-  const [copied, setCopied] = useState(false);
 
   if (isLoading) return <FullPageSpinner />;
   if (isError || !data) return <Alert tone="danger">{(error as ApiError)?.message ?? "Could not load the form."}</Alert>;
-
-  const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(data.apply_url);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard blocked (e.g. insecure origin) — the link is in the box to copy by hand.
-    }
-  };
 
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-xl font-semibold text-[var(--color-text)]">Application form</h1>
         <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-          Build the public form applicants fill in, and share its link.
+          Share each form's link or QR code, and build the questions applicants answer.
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Link2 className="size-4" aria-hidden="true" /> Application link
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <p className="text-sm text-[var(--color-text-muted)]">
-            Anyone with this link can apply — it opens the form below, with a choice between student and staff applicant.
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              readOnly
-              aria-label="Application link"
-              value={data.apply_url}
-              onFocus={(e) => e.currentTarget.select()}
-              className="min-w-0 flex-1 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-3 py-2 text-sm text-[var(--color-text)]"
-            />
-            <Button variant="secondary" size="sm" onClick={copyLink}>
-              {copied ? <Check className="size-4" aria-hidden="true" /> : <Copy className="size-4" aria-hidden="true" />}
-              {copied ? "Copied" : "Copy link"}
-            </Button>
-            <a
-              href={data.apply_url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex h-8 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 text-sm text-[var(--color-text)] hover:bg-[var(--color-bg-subtle)]"
-            >
-              <ExternalLink className="size-4" aria-hidden="true" /> Preview
-            </a>
-          </div>
-        </CardContent>
-      </Card>
+      <ApplicationLinks baseUrl={data.apply_url} />
 
       <div className="flex gap-2">
         {(["student", "staff"] as ApplicationKind[]).map((option) => (

@@ -1,10 +1,10 @@
-import { CheckCircle2, Paperclip, School as SchoolIcon, Upload } from "lucide-react";
+import { Briefcase, CheckCircle2, GraduationCap, Paperclip, School as SchoolIcon, Upload } from "lucide-react";
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
 
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Card, CardContent } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { FullPageSpinner } from "@/components/ui/Spinner";
@@ -21,12 +21,13 @@ const FULL_WIDTH_TYPES = new Set(["textarea", "files"]);
 type Errors = Record<string, string>;
 
 export function PublicApplyPage() {
-  const { schoolSlug } = useParams<{ schoolSlug: string }>();
+  const { schoolSlug, kind: kindParam } = useParams<{ schoolSlug: string; kind: string }>();
+  // Each kind of applicant has its own link (/apply/<school>/student or /staff), so there's nothing to switch.
+  const kind: ApplicationKind = kindParam === "staff" ? "staff" : "student";
   const { data: school, isLoading: isLoadingSchool, isError: schoolNotFound } = useSchoolBranding(schoolSlug);
   const { data: options } = usePublicApplicationOptions(schoolSlug);
   const submitApplication = useSubmitPublicApplication();
 
-  const [kind, setKind] = useState<ApplicationKind>("student");
   // One bag of answers keyed by field key — standard questions and the school's own extra ones alike.
   const [values, setValues] = useState<Record<string, string>>({});
   const [files, setFiles] = useState<File[]>([]);
@@ -43,6 +44,10 @@ export function PublicApplyPage() {
     setValues((prev) => ({ ...prev, [key]: value }));
     setErrors((prev) => (prev[key] ? { ...prev, [key]: "" } : prev));
   };
+
+  if (kindParam !== "student" && kindParam !== "staff") {
+    return <Navigate to={`/apply/${schoolSlug}/student`} replace />;
+  }
 
   if (isLoadingSchool) {
     return <FullPageSpinner />;
@@ -72,12 +77,6 @@ export function PublicApplyPage() {
       </Card>
     );
   }
-
-  const switchKind = (next: ApplicationKind) => {
-    setKind(next);
-    setErrors({});
-    setGeneralError(null);
-  };
 
   const validate = (): Errors => {
     const found: Errors = {};
@@ -360,44 +359,38 @@ export function PublicApplyPage() {
   const enabledFields = form?.fields.filter((field) => field.enabled) ?? [];
 
   return (
-    <Card className="w-full max-w-2xl">
-      <CardHeader>
-        <div className="flex items-center gap-3">
-          {school.logo ? (
-            <img src={school.logo} alt="" className="size-10 rounded-[var(--radius-md)] object-cover" />
-          ) : (
-            <SchoolIcon className="size-8 text-[var(--color-primary)]" aria-hidden="true" />
-          )}
-          <div>
-            <CardTitle>Apply to {school.name}</CardTitle>
-            <p className="text-sm text-[var(--color-text-muted)]">Submit your application below.</p>
-          </div>
+    <Card className="w-full max-w-2xl overflow-hidden">
+      <div className="flex items-center gap-3 border-b border-[var(--color-border)] bg-[color-mix(in_srgb,var(--color-primary)_8%,transparent)] px-4 py-5 sm:gap-4 sm:px-6">
+        {school.logo ? (
+          <img src={school.logo} alt="" className="size-12 shrink-0 rounded-[var(--radius-md)] object-cover sm:size-14" />
+        ) : (
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-[var(--radius-md)] bg-[var(--color-primary)] text-white sm:size-14">
+            <SchoolIcon className="size-6" aria-hidden="true" />
+          </span>
+        )}
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-[var(--color-text-muted)]">{school.name}</p>
+          <h1 className="flex items-center gap-2 text-lg font-semibold text-[var(--color-text)] sm:text-xl">
+            {kind === "student" ? (
+              <GraduationCap className="size-5 shrink-0 text-[var(--color-primary)]" aria-hidden="true" />
+            ) : (
+              <Briefcase className="size-5 shrink-0 text-[var(--color-primary)]" aria-hidden="true" />
+            )}
+            {kind === "student" ? "Student application" : "Staff application"}
+          </h1>
+          <p className="text-sm text-[var(--color-text-muted)]">
+            {kind === "student" ? "Tell us about the applicant and their guardian." : "Tell us about yourself and the role you want."}
+            {" "}Fields marked <span className="text-[var(--color-danger)]">*</span> are required.
+          </p>
         </div>
-      </CardHeader>
-      <CardContent>
+      </div>
+      <CardContent className="px-4 py-5 sm:px-6">
         {generalError && (
           <Alert tone="danger" className="mb-4">
             {generalError}
           </Alert>
         )}
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
-          <div className="flex gap-2">
-            {(["student", "staff"] as ApplicationKind[]).map((option) => (
-              <button
-                key={option}
-                type="button"
-                onClick={() => switchKind(option)}
-                className={`flex-1 rounded-[var(--radius-md)] border px-4 py-2 text-sm font-medium capitalize transition-colors ${
-                  kind === option
-                    ? "border-[var(--color-primary)] bg-[color-mix(in_srgb,var(--color-primary)_10%,transparent)] text-[var(--color-primary)]"
-                    : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
-                }`}
-              >
-                {option} applicant
-              </button>
-            ))}
-          </div>
-
           {!form ? (
             <FullPageSpinner />
           ) : (
