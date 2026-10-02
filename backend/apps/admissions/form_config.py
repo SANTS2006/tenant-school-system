@@ -41,7 +41,11 @@ STANDARD_FIELDS: dict[str, list[dict]] = {
 # Mandatory unless the school says otherwise — and for the locked fields, always.
 DEFAULT_REQUIRED = {"first_name", "last_name", "email", "applying_for_class", "applying_for_role"}
 
-CUSTOM_TYPES = {"text", "textarea", "number", "date", "select"}
+# What an admin can ask for beyond the standard questions. "select" is a dropdown, "radio" shows all
+# the choices at once for picking one, "multiselect" lets the applicant tick several, "checkbox" is a
+# single yes/no tick (e.g. "I agree"), and "file" asks for an upload.
+CUSTOM_TYPES = {"text", "textarea", "number", "date", "email", "phone", "select", "radio", "multiselect", "checkbox", "file"}
+CHOICE_TYPES = {"select", "radio", "multiselect"}
 MAX_CUSTOM_FIELDS = 20
 
 
@@ -94,7 +98,7 @@ def save_config(school, kind: str, *, fields: dict, custom_fields: list) -> dict
         if field_type not in CUSTOM_TYPES:
             raise FormConfigError(f'Unknown question type "{field_type}".')
         options = []
-        if field_type == "select":
+        if field_type in CHOICE_TYPES:
             options = [str(o).strip() for o in item.get("options", []) if str(o).strip()]
             if len(options) < 2 or len(options) > 30:
                 raise FormConfigError(f'"{label}" needs between 2 and 30 choices.')

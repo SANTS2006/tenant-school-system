@@ -13,15 +13,21 @@ import { useHasPermission } from "@/features/auth/useAuth";
 import type { ApiError } from "@/lib/api-client";
 import { generalErrorMessage } from "@/lib/formErrors";
 
-import type { ApplicationKind, CustomFieldConfig, CustomFieldType, FormConfig } from "./types";
+import { CHOICE_TYPES, type ApplicationKind, type CustomFieldConfig, type CustomFieldType, type FormConfig } from "./types";
 import { useFormConfig, useSaveFormConfig } from "./useAdmissionsCrud";
 
 const CUSTOM_TYPE_LABELS: Record<CustomFieldType, string> = {
   text: "Short answer",
-  textarea: "Long answer",
+  textarea: "Long answer (paragraph)",
   number: "Number",
   date: "Date",
-  select: "Multiple choice",
+  email: "Email address",
+  phone: "Phone number",
+  select: "Dropdown (pick one)",
+  radio: "Choose one (all choices shown)",
+  multiselect: "Choose several (tick boxes)",
+  checkbox: "Single tick box (e.g. “I agree”)",
+  file: "File upload",
 };
 
 type FieldChoices = Record<string, { enabled: boolean; required: boolean }>;
@@ -81,7 +87,7 @@ function KindEditor({ kind, config }: { kind: ApplicationKind; config: FormConfi
       ...q,
       label: q.label.trim(),
       options:
-        q.type === "select"
+        CHOICE_TYPES.includes(q.type)
           ? (draft.optionText[i] ?? "")
               .split("\n")
               .map((o) => o.trim())
@@ -225,7 +231,12 @@ function KindEditor({ kind, config }: { kind: ApplicationKind; config: FormConfi
                   )}
                 </div>
               </div>
-              {question.type === "select" && (
+              {question.type === "file" && (
+                <p className="text-xs text-[var(--color-text-muted)]">
+                  Applicants upload one or more files (documents, images, PDF; up to 10 MB each).
+                </p>
+              )}
+              {CHOICE_TYPES.includes(question.type) && (
                 <Textarea
                   label="Choices (one per line)"
                   rows={3}

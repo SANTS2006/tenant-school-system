@@ -80,8 +80,8 @@ export function useInviteApplicationsToInterview() {
 
 export function useBulkAcceptApplications() {
   const queryClient = useQueryClient();
-  return useMutation<BulkAcceptResult, ApiError, string[]>({
-    mutationFn: bulkAcceptApplications,
+  return useMutation<BulkAcceptResult, ApiError, { applicationIds: string[]; numbers: Record<string, string> }>({
+    mutationFn: ({ applicationIds, numbers }) => bulkAcceptApplications(applicationIds, numbers),
     onSuccess: () => invalidateApplications(queryClient),
   });
 }

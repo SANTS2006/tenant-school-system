@@ -29,7 +29,7 @@ def apply_url(school, request=None) -> str:
     return f"{frontend_base_url(request).rstrip('/')}/apply/{school.slug}"
 
 
-def submit_application(*, school, kind, documents=None, **fields) -> Application:
+def submit_application(*, school, kind, documents=None, custom_files=None, **fields) -> Application:
     """The public, unauthenticated entry point — `school` is resolved explicitly by the view (see
     PublicApplyView), never read off a request.user, since there isn't one."""
     application = Application.objects.create(school=school, kind=kind, **fields)
@@ -37,6 +37,13 @@ def submit_application(*, school, kind, documents=None, **fields) -> Application
         ApplicationDocument.objects.create(
             school=school, application=application, title=upload.name, file=upload
         )
+    # Files answering the school's own "file upload" questions: titled by the question they answer.
+    for key, (label, uploads) in (custom_files or {}).items():
+        for upload in uploads:
+            ApplicationDocument.objects.create(
+                school=school, application=application, title=f"{label}: {upload.name}"[:200],
+                question_key=key, file=upload,
+            )
     return application
 
 
@@ -74,13 +81,6 @@ def reject_applications(application_ids, *, school, reason, actor):
     return applications
 
 
-def _next_admission_number(school) -> str:
-    from apps.students.models import Student
-
-    count = Student.unscoped_objects.filter(school=school).count()
-    return f"APP-{count + 1:05d}"
-
-
 def _create_user_without_email(*, email, first_name, last_name, school):
     """Mirrors the account-creation half of apps.users.services.invite_user, deliberately without
     calling it directly — invite_user sends its own "your account is ready" email, but the
@@ -99,17 +99,64 @@ def _create_user_without_email(*, email, first_name, last_name, school):
     return user, password
 
 
+def _link_guardian(application, student):
+    """Turns the guardian details a student applicant gave into a Guardian record linked to the new
+    student — done at acceptance, never at submission, so a rejected or abandoned application leaves
+    nothing behind in the parents module. An existing guardian (same email, or same name and phone)
+    is reused rather than duplicated, so a parent of two accepted siblings stays one person."""
+    from apps.parents.models import Guardian, StudentGuardian
+
+    name = (application.guardian_name or "").strip()
+    email = (application.guardian_email or "").strip()
+    phone = (application.guardian_phone or "").strip()
+    if not (name or email or phone):
+        return None
+
+    school = application.school
+    guardian = None
+    if email:
+        guardian = Guardian.unscoped_objects.filter(school=school, email__iexact=email).first()
+    if guardian is None and name and phone:
+        first, _, last = name.partition(" ")
+        guardian = Guardian.unscoped_objects.filter(
+            school=school, first_name__iexact=first, last_name__iexact=last.strip(), phone_number=phone
+        ).first()
+    if guardian is None:
+        first, _, last = (name or email or "Guardian").partition(" ")
+        guardian = Guardian.unscoped_objects.create(
+            school=school, first_name=first[:150], last_name=last.strip()[:150], email=email, phone_number=phone[:32],
+        )
+    StudentGuardian.unscoped_objects.get_or_create(
+        school=school, student=student, guardian=guardian,
+        defaults={"relationship": StudentGuardian.Relationship.GUARDIAN, "is_primary": True},
+    )
+    return guardian
+
+
+def _clean_number(value, label):
+    number = (value or "").strip()
+    if not number:
+        raise ApplicationAcceptError(f"Enter the {label} first.")
+    if len(number) > 50:
+        raise ApplicationAcceptError(f"The {label} can be at most 50 characters.")
+    return number
+
+
 @transaction.atomic
-def accept_student_application(application, *, actor, request=None):
+def accept_student_application(application, *, actor, request=None, admission_number=None):
     from apps.students.models import Student
     from apps.students.services import provision_student_account
 
     if application.applying_for_class_id is None:
         raise ApplicationAcceptError("No class was specified on this application.")
+    admission_number = _clean_number(admission_number, "admission number")
+    taken = Student.unscoped_objects.filter(school=application.school, admission_number__iexact=admission_number).first()
+    if taken is not None:
+        raise ApplicationAcceptError(f'Admission number "{admission_number}" already belongs to {taken.full_name}.')
 
     student = Student.objects.create(
         school=application.school,
-        admission_number=_next_admission_number(application.school),
+        admission_number=admission_number,
         first_name=application.first_name,
         middle_name=application.middle_name,
         last_name=application.last_name,
@@ -128,6 +175,8 @@ def accept_student_application(application, *, actor, request=None):
             "Could not create a sign-in account — a school-issued address for this student "
             "already exists."
         ) from exc
+
+    _link_guardian(application, student)
 
     if user is not None:
         password = generate_default_password(application.school)
@@ -152,11 +201,15 @@ def accept_student_application(application, *, actor, request=None):
 
 
 @transaction.atomic
-def accept_staff_application(application, *, actor, request=None):
+def accept_staff_application(application, *, actor, request=None, staff_number=None):
     from apps.staff.models import Staff
 
     if application.applying_for_role_id is None:
         raise ApplicationAcceptError("No role was specified on this application.")
+    staff_number = _clean_number(staff_number, "staff number")
+    taken = Staff.unscoped_objects.filter(school=application.school, staff_id__iexact=staff_number).select_related("user").first()
+    if taken is not None:
+        raise ApplicationAcceptError(f'Staff number "{staff_number}" already belongs to {taken.user.full_name}.')
 
     try:
         user, password = _create_user_without_email(
@@ -174,6 +227,7 @@ def accept_staff_application(application, *, actor, request=None):
     staff = Staff.objects.create(
         school=application.school,
         user=user,
+        staff_id=staff_number,
         job_title=application.job_title,
         qualification=application.qualification,
         hire_date=timezone.now().date(),
@@ -203,7 +257,8 @@ def accept_staff_application(application, *, actor, request=None):
     return staff
 
 
-def accept_application(application, *, actor, request=None):
+def accept_application(application, *, actor, request=None, number=None):
+    """`number` is the admission number (student) or staff number (staff) the admin entered."""
     if application.kind == Application.Kind.STUDENT:
-        return accept_student_application(application, actor=actor, request=request)
-    return accept_staff_application(application, actor=actor, request=request)
+        return accept_student_application(application, actor=actor, request=request, admission_number=number)
+    return accept_staff_application(application, actor=actor, request=request, staff_number=number)

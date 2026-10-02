@@ -4,6 +4,8 @@ from apps.academics.models import SchoolClass
 from apps.authorization.models import Role
 from apps.common.validators import validate_upload_file
 
+from django.core.exceptions import ValidationError as DjangoValidationError
+
 from . import form_config
 from .models import Application, ApplicationDocument
 
@@ -11,7 +13,7 @@ from .models import Application, ApplicationDocument
 class ApplicationDocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = ApplicationDocument
-        fields = ["id", "title", "file", "created_at"]
+        fields = ["id", "title", "question_key", "file", "created_at"]
         read_only_fields = ["id", "created_at"]
 
 
@@ -55,6 +57,13 @@ class ApplicationSerializer(serializers.ModelSerializer):
 
 class BulkApplicationIdsSerializer(serializers.Serializer):
     application_ids = serializers.ListField(child=serializers.UUIDField(), allow_empty=False)
+
+
+class BulkAcceptSerializer(BulkApplicationIdsSerializer):
+    """Accepting needs the number each person will be known by: an admission number for a student, a
+    staff number for a staff member. `numbers` maps application id -> that number."""
+
+    numbers = serializers.DictField(child=serializers.CharField(max_length=50, allow_blank=True), required=False, default=dict)
 
 
 class BulkRejectSerializer(BulkApplicationIdsSerializer):
@@ -163,24 +172,67 @@ class PublicApplicationSubmitSerializer(serializers.Serializer):
         raw = attrs.get("custom_answers") or {}
         if not isinstance(raw, dict):
             raise serializers.ValidationError({"custom_answers": "Invalid answers."})
+        request = self.context.get("request")
+        uploads = request.FILES if request is not None else {}
         answers = {}
+        custom_files = {}
         for question in config["custom_fields"]:
-            value = str(raw.get(question["key"], "") or "").strip()
-            if not value:
-                if question["required"]:
-                    errors[question["key"]] = "This question is required."
-                continue
-            if question["type"] == "select" and value not in question["options"]:
-                errors[question["key"]] = "Choose one of the listed options."
-                continue
-            if question["type"] == "number":
-                try:
-                    float(value)
-                except ValueError:
-                    errors[question["key"]] = "Enter a number."
+            key, kind = question["key"], question["type"]
+            if kind == "file":
+                files = uploads.getlist(f"file_{key}") if hasattr(uploads, "getlist") else []
+                if not files:
+                    if question["required"]:
+                        errors[key] = "Please upload a file."
                     continue
-            answers[question["key"]] = {"label": question["label"], "value": value[:2000]}
+                try:
+                    for upload in files:
+                        validate_upload_file(upload)
+                except DjangoValidationError as exc:
+                    errors[key] = "; ".join(exc.messages)
+                    continue
+                custom_files[key] = (question["label"], files)
+                answers[key] = {"label": question["label"], "value": ", ".join(f.name for f in files)[:2000]}
+                continue
+
+            value = raw.get(key, "")
+            if isinstance(value, (list, tuple)):  # a multiple-choice question sends a list
+                values = [str(v).strip() for v in value if str(v).strip()]
+            else:
+                values = [str(value or "").strip()] if str(value or "").strip() else []
+
+            if kind == "checkbox":
+                ticked = bool(values) and values[0].lower() in ("true", "yes", "1", "on")
+                if question["required"] and not ticked:
+                    errors[key] = "This box must be ticked."
+                    continue
+                answers[key] = {"label": question["label"], "value": "Yes" if ticked else "No"}
+                continue
+
+            if not values:
+                if question["required"]:
+                    errors[key] = "This question is required."
+                continue
+            if kind in ("select", "radio") and (len(values) != 1 or values[0] not in question["options"]):
+                errors[key] = "Choose one of the listed options."
+                continue
+            if kind == "multiselect" and any(v not in question["options"] for v in values):
+                errors[key] = "Choose only from the listed options."
+                continue
+            if kind == "number":
+                try:
+                    float(values[0])
+                except ValueError:
+                    errors[key] = "Enter a number."
+                    continue
+            if kind == "email":
+                try:
+                    serializers.EmailField().run_validation(values[0])
+                except serializers.ValidationError:
+                    errors[key] = "Enter a valid email address."
+                    continue
+            answers[key] = {"label": question["label"], "value": ", ".join(values)[:2000]}
         if errors:
             raise serializers.ValidationError(errors)
         attrs["custom_answers"] = answers
+        attrs["custom_files"] = custom_files
         return attrs

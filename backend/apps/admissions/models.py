@@ -101,6 +101,9 @@ class Application(TenantScopedModel, TimeStampedModel):
 class ApplicationDocument(TenantScopedModel, TimeStampedModel):
     application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name="documents")
     title = models.CharField(max_length=200, blank=True)
+    # Set when the file answers one of the school's own "file upload" questions (see form_config);
+    # blank for the general "supporting documents" upload.
+    question_key = models.CharField(max_length=20, blank=True)
     file = models.FileField(upload_to="admission_documents/", validators=[validate_upload_file])
 
     class Meta:

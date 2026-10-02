@@ -13,6 +13,7 @@ from . import form_config, services
 from .models import Application
 from .serializers import (
     ApplicationSerializer,
+    BulkAcceptSerializer,
     BulkApplicationIdsSerializer,
     BulkRejectSerializer,
     InviteInterviewSerializer,
@@ -95,12 +96,13 @@ class PublicApplyView(APIView):
         if school is None:
             return _error("School not found.", status.HTTP_404_NOT_FOUND)
 
-        serializer = PublicApplicationSubmitSerializer(data=request.data, context={"school": school})
+        serializer = PublicApplicationSubmitSerializer(data=request.data, context={"school": school, "request": request})
         serializer.is_valid(raise_exception=True)
         data = dict(serializer.validated_data)
         documents = data.pop("documents", [])
+        custom_files = data.pop("custom_files", {})
 
-        application = services.submit_application(school=school, documents=documents, **data)
+        application = services.submit_application(school=school, documents=documents, custom_files=custom_files, **data)
         return Response(
             {
                 "success": True,
@@ -172,16 +174,26 @@ class ApplicationViewSet(TenantScopedModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="bulk-accept")
     def bulk_accept(self, request):
-        serializer = BulkApplicationIdsSerializer(data=request.data)
+        serializer = BulkAcceptSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         school = get_current_school()
+        numbers = {str(k): (v or "").strip() for k, v in serializer.validated_data["numbers"].items()}
         applications = Application.objects.filter(
             pk__in=serializer.validated_data["application_ids"], school=school
         )
         accepted, skipped = [], []
+        used_in_batch: dict[tuple[str, str], str] = {}  # (kind, number) -> who in this batch already has it
         for application in applications:
+            number = numbers.get(str(application.id), "")
+            claim = (application.kind, number.lower())
+            if number and claim in used_in_batch:
+                skipped.append({"id": str(application.id), "name": application.full_name,
+                                "reason": f'"{number}" is already being given to {used_in_batch[claim]} in this batch.'})
+                continue
             try:
-                services.accept_application(application, actor=request.user, request=request)
+                services.accept_application(application, actor=request.user, request=request, number=number)
+                if number:
+                    used_in_batch[claim] = application.full_name
                 accepted.append(str(application.id))
             except services.ApplicationAcceptError as exc:
                 skipped.append({"id": str(application.id), "name": application.full_name, "reason": str(exc)})

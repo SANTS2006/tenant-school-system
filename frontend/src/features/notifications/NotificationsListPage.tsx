@@ -164,10 +164,10 @@ export function NotificationsListPage() {
                           aria-label="Unread"
                         />
                       )}
-                      <div className="min-w-0">
-                        <p className="font-medium text-[var(--color-text)]">{notification.title}</p>
-                        <p className="text-xs text-[var(--color-text-muted)]">{notification.message}</p>
-                      </div>
+                      {/* Just the title here — the full message is on the notification's own page. */}
+                      <p className={`min-w-0 truncate text-[var(--color-text)] ${notification.is_read ? "" : "font-semibold"}`}>
+                        {notification.title}
+                      </p>
                     </div>
                   </TableCell>
                   <TableCell>{categoryLabel(notification.category)}</TableCell>

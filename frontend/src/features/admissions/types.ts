@@ -113,7 +113,21 @@ export interface FormFieldConfig {
   required: boolean;
 }
 
-export type CustomFieldType = "text" | "textarea" | "number" | "date" | "select";
+export type CustomFieldType =
+  | "text"
+  | "textarea"
+  | "number"
+  | "date"
+  | "email"
+  | "phone"
+  | "select"
+  | "radio"
+  | "multiselect"
+  | "checkbox"
+  | "file";
+
+/** Question types that offer a list of choices the admin writes. */
+export const CHOICE_TYPES: CustomFieldType[] = ["select", "radio", "multiselect"];
 
 /** A question the school added itself. `key` is assigned by the server when first saved. */
 export interface CustomFieldConfig {
@@ -168,6 +182,9 @@ export interface PublicApplicationPayload {
   job_title?: string;
   qualification?: string;
   years_of_experience?: number;
-  custom_answers?: Record<string, string>;
+  /** Answers to the school's own questions; a multiple-choice question sends a list. */
+  custom_answers?: Record<string, string | string[]>;
+  /** Uploads answering the school's own file questions, by question key. */
+  custom_files?: Record<string, File[]>;
   documents?: File[];
 }

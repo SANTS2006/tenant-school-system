@@ -259,7 +259,7 @@ class TestBulkAccept:
 
         response = api_client.post(
             "/api/v1/admissions/applications/bulk-accept/",
-            {"application_ids": [str(application.id)]},
+            {"application_ids": [str(application.id)], "numbers": {str(application.id): "ADM-100"}},
             format="json",
         )
 
@@ -273,6 +273,9 @@ class TestBulkAccept:
         assert student.current_class_id == school_class.id
         assert student.user_id is not None
         assert application.created_student_id == student.id
+        assert student.admission_number == "ADM-100"
+        # the sign-in email follows the school's usual student format, built from that admission number
+        assert student.user.email == "ak" + "adm100" + "@" + "".join(w[0] for w in school.name.split()).lower() + ".edu.sl"
 
     def test_accepts_a_staff_application(self, api_client):
         school, admin = _school_administrator()
@@ -290,7 +293,7 @@ class TestBulkAccept:
 
         response = api_client.post(
             "/api/v1/admissions/applications/bulk-accept/",
-            {"application_ids": [str(application.id)]},
+            {"application_ids": [str(application.id)], "numbers": {str(application.id): "T-007"}},
             format="json",
         )
 
@@ -302,6 +305,7 @@ class TestBulkAccept:
         staff = Staff.unscoped_objects.get(school=school, user=user)
         assert staff.employment_status == Staff.EmploymentStatus.ACTIVE
         assert staff.job_title == "Mathematics Teacher"
+        assert staff.staff_id == "T-007"
         assert UserRole.unscoped_objects.filter(user=user, role=teacher_role).exists()
 
     def test_skips_a_student_application_with_no_class_specified(self, api_client):
@@ -339,7 +343,7 @@ class TestBulkAccept:
 
         response = api_client.post(
             "/api/v1/admissions/applications/bulk-accept/",
-            {"application_ids": [str(application.id)]},
+            {"application_ids": [str(application.id)], "numbers": {str(application.id): "T-008"}},
             format="json",
         )
 
@@ -472,3 +476,200 @@ class TestApplicationFormBuilder:
         response = api_client.get("/api/v1/admissions/form-config/")
         assert response.status_code == 200
         assert response.data["apply_url"].endswith(f"/apply/{school.slug}")
+
+
+class TestAcceptanceNumbersAndGuardian:
+    def _student_application(self, school, **extra):
+        school_class = SchoolClassFactory(school=school)
+        return Application.objects.create(
+            school=school, kind="student", first_name="Ama", last_name="Koroma", email="ama@example.test",
+            applying_for_class=school_class, **extra,
+        )
+
+    def _accept(self, api_client, applications_and_numbers):
+        return api_client.post(
+            "/api/v1/admissions/applications/bulk-accept/",
+            {
+                "application_ids": [str(a.id) for a, _ in applications_and_numbers],
+                "numbers": {str(a.id): n for a, n in applications_and_numbers},
+            },
+            format="json",
+        )
+
+    def test_an_admission_number_is_required_to_accept(self, api_client):
+        school, admin = _school_administrator()
+        application = self._student_application(school)
+        _login(api_client, admin)
+
+        response = self._accept(api_client, [(application, "")])
+
+        assert response.data["accepted"] == 0
+        assert "admission number" in response.data["skipped"][0]["reason"]
+        application.refresh_from_db()
+        assert application.status == Application.Status.SUBMITTED
+        assert not Student.unscoped_objects.filter(school=school).exists()
+
+    def test_a_student_and_a_staff_applicant_are_numbered_separately_in_one_batch(self, api_client):
+        school, admin = _school_administrator()
+        student_app = self._student_application(school)
+        staff_app = Application.objects.create(
+            school=school, kind="staff", first_name="Kofi", last_name="Mensah", email="kofi@example.test",
+            applying_for_role=Role.unscoped_objects.get(school=school, slug="teacher"),
+        )
+        _login(api_client, admin)
+
+        # the same number is fine across kinds — a student's admission number and a staff number are different series
+        response = self._accept(api_client, [(student_app, "0042"), (staff_app, "0042")])
+
+        assert response.data["accepted"] == 2, response.data
+        assert Student.unscoped_objects.get(school=school).admission_number == "0042"
+        assert Staff.unscoped_objects.get(school=school).staff_id == "0042"
+
+    def test_a_number_already_in_use_is_refused(self, api_client):
+        school, admin = _school_administrator()
+        Student.unscoped_objects.create(school=school, admission_number="ADM-1", first_name="Old", last_name="Student")
+        application = self._student_application(school)
+        _login(api_client, admin)
+
+        response = self._accept(api_client, [(application, "adm-1")])  # compared ignoring case
+
+        assert response.data["accepted"] == 0
+        assert "already belongs to Old Student" in response.data["skipped"][0]["reason"]
+
+    def test_the_same_number_twice_in_one_batch_is_refused_for_the_second(self, api_client):
+        school, admin = _school_administrator()
+        first = self._student_application(school)
+        second = Application.objects.create(
+            school=school, kind="student", first_name="Kwame", last_name="Boateng", email="kwame@example.test",
+            applying_for_class=first.applying_for_class,
+        )
+        _login(api_client, admin)
+
+        response = self._accept(api_client, [(first, "A1"), (second, "A1")])
+
+        assert response.data["accepted"] == 1
+        assert len(response.data["skipped"]) == 1
+
+    def test_guardian_is_created_and_linked_only_on_acceptance(self, api_client):
+        from apps.parents.models import Guardian, StudentGuardian
+
+        school, admin = _school_administrator()
+        application = self._student_application(
+            school, guardian_name="Mary Koroma", guardian_phone="0777", guardian_email="mary@example.test"
+        )
+        assert not Guardian.unscoped_objects.filter(school=school).exists()  # nothing at submission time
+        _login(api_client, admin)
+
+        self._accept(api_client, [(application, "ADM-5")])
+
+        guardian = Guardian.unscoped_objects.get(school=school)
+        assert (guardian.first_name, guardian.last_name, guardian.email, guardian.phone_number) == (
+            "Mary", "Koroma", "mary@example.test", "0777",
+        )
+        student = Student.unscoped_objects.get(school=school)
+        link = StudentGuardian.unscoped_objects.get(student=student, guardian=guardian)
+        assert link.is_primary is True
+
+    def test_an_existing_guardian_is_reused_for_a_sibling(self, api_client):
+        from apps.parents.models import Guardian, StudentGuardian
+
+        school, admin = _school_administrator()
+        first = self._student_application(school, guardian_name="Mary Koroma", guardian_email="mary@example.test")
+        second = Application.objects.create(
+            school=school, kind="student", first_name="Kai", last_name="Koroma", email="kai@example.test",
+            applying_for_class=first.applying_for_class, guardian_name="Mary Koroma", guardian_email="MARY@example.test",
+        )
+        _login(api_client, admin)
+
+        self._accept(api_client, [(first, "S1"), (second, "S2")])
+
+        assert Guardian.unscoped_objects.filter(school=school).count() == 1
+        assert StudentGuardian.unscoped_objects.filter(guardian__school=school).count() == 2
+
+    def test_a_rejected_application_leaves_no_guardian_behind(self, api_client):
+        from apps.parents.models import Guardian
+
+        school, admin = _school_administrator()
+        application = self._student_application(school, guardian_name="Mary Koroma", guardian_email="mary@example.test")
+        _login(api_client, admin)
+        api_client.post(
+            "/api/v1/admissions/applications/bulk-reject/", {"application_ids": [str(application.id)]}, format="json"
+        )
+        assert not Guardian.unscoped_objects.filter(school=school).exists()
+
+
+class TestMoreQuestionTypes:
+    def _configure(self, api_client, admin, custom_fields):
+        _login(api_client, admin)
+        saved = api_client.put("/api/v1/admissions/form-config/student/", {"custom_fields": custom_fields}, format="json")
+        assert saved.status_code == 200, saved.data
+        api_client.logout()
+        return [q["key"] for q in saved.data["config"]["custom_fields"]]
+
+    def _submit(self, api_client, school, answers=None, **extra):
+        import json
+
+        school_class = SchoolClassFactory(school=school)
+        payload = {
+            "kind": "student", "first_name": "Ama", "last_name": "Koroma", "email": "ama@example.test",
+            "applying_for_class": str(school_class.id), **extra,
+        }
+        if answers is not None:
+            payload["custom_answers"] = json.dumps(answers)
+        return api_client.post(f"/api/v1/admissions/apply/{school.slug}/", payload, format="multipart")
+
+    def test_dropdown_radio_multiselect_checkbox_email_and_phone(self, api_client):
+        school, admin = _school_administrator()
+        keys = self._configure(api_client, admin, [
+            {"label": "House", "type": "select", "options": ["Red", "Blue"], "required": True},
+            {"label": "Transport", "type": "radio", "options": ["Bus", "Walk"]},
+            {"label": "Clubs", "type": "multiselect", "options": ["Chess", "Drama", "Choir"]},
+            {"label": "I agree to the rules", "type": "checkbox", "required": True},
+            {"label": "Parent email", "type": "email"},
+            {"label": "Parent phone", "type": "phone"},
+        ])
+        house, transport, clubs, agree, email, phone = keys
+
+        bad = self._submit(api_client, school, {house: "Green", agree: "true"})
+        assert bad.status_code == 400
+        unticked = self._submit(api_client, school, {house: "Red"})
+        assert unticked.status_code == 400 and agree in str(unticked.data)
+        bad_club = self._submit(api_client, school, {house: "Red", agree: "true", clubs: ["Chess", "Football"]})
+        assert bad_club.status_code == 400
+        bad_email = self._submit(api_client, school, {house: "Red", agree: "true", email: "nope"})
+        assert bad_email.status_code == 400
+
+        ok = self._submit(
+            api_client, school,
+            {house: "Red", transport: "Bus", clubs: ["Chess", "Choir"], agree: "true", email: "p@example.test", phone: "0777"},
+        )
+        assert ok.status_code == 201, ok.data
+        stored = Application.unscoped_objects.get(school=school).custom_answers
+        assert stored[house]["value"] == "Red"
+        assert stored[clubs]["value"] == "Chess, Choir"
+        assert stored[agree]["value"] == "Yes"
+
+    def test_file_upload_question_stores_the_file_against_the_question(self, api_client):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        school, admin = _school_administrator()
+        (key,) = self._configure(api_client, admin, [{"label": "Birth certificate", "type": "file", "required": True}])
+
+        missing = self._submit(api_client, school, {})
+        assert missing.status_code == 400 and key in str(missing.data)
+
+        ok = self._submit(api_client, school, {}, **{f"file_{key}": SimpleUploadedFile("birth.pdf", b"%PDF-1.4 x")})
+        assert ok.status_code == 201, ok.data
+        application = Application.unscoped_objects.get(school=school)
+        document = ApplicationDocument.unscoped_objects.get(application=application)
+        assert document.question_key == key
+        assert document.title.startswith("Birth certificate")
+
+    def test_choice_questions_still_need_their_choices(self, api_client):
+        school, admin = _school_administrator()
+        _login(api_client, admin)
+        response = api_client.put(
+            "/api/v1/admissions/form-config/student/",
+            {"custom_fields": [{"label": "Pick", "type": "radio", "options": ["Only one"]}]}, format="json",
+        )
+        assert response.status_code == 400

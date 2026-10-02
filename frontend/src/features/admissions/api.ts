@@ -44,9 +44,14 @@ export async function inviteApplicationsToInterview(
   return data;
 }
 
-export async function bulkAcceptApplications(applicationIds: string[]): Promise<BulkAcceptResult> {
+/** `numbers` maps application id -> the admission number (student) or staff number (staff) entered. */
+export async function bulkAcceptApplications(
+  applicationIds: string[],
+  numbers: Record<string, string>,
+): Promise<BulkAcceptResult> {
   const { data } = await apiClient.post<BulkAcceptResult>("/admissions/applications/bulk-accept/", {
     application_ids: applicationIds,
+    numbers,
   });
   return data;
 }
@@ -73,7 +78,7 @@ export async function submitPublicApplication(
   onProgress?: (percent: number) => void,
 ): Promise<{ application_id: string }> {
   const formData = new FormData();
-  const { documents, ...fields } = values;
+  const { documents, custom_files: customFiles, ...fields } = values;
   for (const [key, value] of Object.entries(fields)) {
     if (value === undefined || value === null || value === "") continue;
     // The school's extra-question answers are an object — sent as a JSON string the server parses.
@@ -81,6 +86,9 @@ export async function submitPublicApplication(
   }
   for (const file of documents ?? []) {
     formData.append("documents", file);
+  }
+  for (const [key, files] of Object.entries(customFiles ?? {})) {
+    for (const file of files) formData.append(`file_${key}`, file);
   }
   const { data } = await apiClient.post<{ application_id: string }>(
     `/admissions/apply/${schoolSlug}/`,

@@ -31,12 +31,12 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { useSummaryStats } from "@/hooks/useSummaryStats";
 import type { ApiError } from "@/lib/api-client";
 
+import { AcceptApplicationsDialog, type Applicant } from "./AcceptApplicationsDialog";
 import { InterviewInviteModal } from "./InterviewInviteModal";
 import { applicationStatusLabel, applicationStatusTone } from "./statusTone";
 import type { ApplicationKind, ApplicationStatus } from "./types";
 import {
   useApplicationList,
-  useBulkAcceptApplications,
   useBulkRejectApplications,
   useBulkShortlistApplications,
   useDeleteApplication,
@@ -88,17 +88,29 @@ export function ApplicationsListPage() {
   const { data: stats } = useSummaryStats("admissions/applications", filterParams);
   const deleteApplication = useDeleteApplication();
   const bulkShortlist = useBulkShortlistApplications();
-  const bulkAccept = useBulkAcceptApplications();
+  // What the Accept dialog needs about each selected applicant. Kept alongside the ids because a
+  // selection can span pages, and only the current page's rows are in memory.
+  const [selectedInfo, setSelectedInfo] = useState<Record<string, Applicant>>({});
+  const [acceptOpen, setAcceptOpen] = useState(false);
   const bulkReject = useBulkRejectApplications();
 
   const pageIds = data?.results.map((application) => application.id) ?? [];
   const allSelectedOnPage = pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
 
-  const toggleOne = (id: string) => {
-    setSelectedIds((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]));
+  const toggleOne = (application: { id: string; full_name: string; kind: ApplicationKind }) => {
+    setSelectedInfo((info) => ({ ...info, [application.id]: { id: application.id, name: application.full_name, kind: application.kind } }));
+    setSelectedIds((current) =>
+      current.includes(application.id) ? current.filter((x) => x !== application.id) : [...current, application.id],
+    );
   };
 
   const toggleAllOnPage = () => {
+    setSelectedInfo((info) => ({
+      ...info,
+      ...Object.fromEntries(
+        (data?.results ?? []).map((a) => [a.id, { id: a.id, name: a.full_name, kind: a.kind } satisfies Applicant]),
+      ),
+    }));
     setSelectedIds((current) =>
       allSelectedOnPage ? current.filter((id) => !pageIds.includes(id)) : [...new Set([...current, ...pageIds])],
     );
@@ -116,26 +128,6 @@ export function ApplicationsListPage() {
         setSelectedIds([]);
       },
       onError: (err) => showToast({ title: "Could not shortlist", description: err.message, tone: "danger" }),
-    });
-  };
-
-  const handleAccept = async () => {
-    const ok = await confirm({
-      title: `Accept ${selectedIds.length} applicant(s)?`,
-      description:
-        "Each accepted applicant gets a real Student/Staff record and a school account, and is emailed their sign-in details.",
-    });
-    if (!ok) return;
-    bulkAccept.mutate(selectedIds, {
-      onSuccess: ({ accepted, skipped }) => {
-        showToast({
-          title: `Accepted ${accepted} applicant(s)`,
-          description: skipped.length > 0 ? `${skipped.length} skipped: ${skipped.map((s) => `${s.name} (${s.reason})`).join("; ")}` : undefined,
-          tone: skipped.length > 0 ? "danger" : "success",
-        });
-        setSelectedIds([]);
-      },
-      onError: (err) => showToast({ title: "Could not accept applicants", description: err.message, tone: "danger" }),
     });
   };
 
@@ -247,7 +239,7 @@ export function ApplicationsListPage() {
           <Button variant="secondary" size="sm" onClick={() => setInterviewModalOpen(true)}>
             Invite to interview
           </Button>
-          <Button variant="secondary" size="sm" onClick={handleAccept} isLoading={bulkAccept.isPending}>
+          <Button variant="secondary" size="sm" onClick={() => setAcceptOpen(true)}>
             Accept
           </Button>
           <Button variant="danger" size="sm" onClick={() => setRejectModalOpen(true)}>
@@ -301,7 +293,7 @@ export function ApplicationsListPage() {
                           type="checkbox"
                           aria-label={`Select ${application.full_name}`}
                           checked={selectedIds.includes(application.id)}
-                          onChange={() => toggleOne(application.id)}
+                          onChange={() => toggleOne(application)}
                           className="size-4 rounded border-[var(--color-border)]"
                         />
                       </TableCell>
@@ -349,6 +341,13 @@ export function ApplicationsListPage() {
           <Spinner />
         </div>
       )}
+
+      <AcceptApplicationsDialog
+        open={acceptOpen}
+        onClose={() => setAcceptOpen(false)}
+        applicants={selectedIds.map((id) => selectedInfo[id]).filter(Boolean)}
+        onDone={() => setSelectedIds([])}
+      />
 
       <InterviewInviteModal
         open={interviewModalOpen}

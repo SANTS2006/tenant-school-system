@@ -49,7 +49,7 @@ export const TableHeaderCell = forwardRef<HTMLTableCellElement, ThHTMLAttributes
     <th
       ref={ref}
       className={cn(
-        "px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]",
+        "whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]",
         className,
       )}
       {...props}
@@ -58,9 +58,23 @@ export const TableHeaderCell = forwardRef<HTMLTableCellElement, ThHTMLAttributes
 );
 TableHeaderCell.displayName = "TableHeaderCell";
 
+/** A table cell keeps its content on one line. The container scrolls sideways when the columns don't
+ * all fit, and a single very long value is cut off with an ellipsis (its full text is the tooltip) rather
+ * than stretching the whole table. A column that genuinely needs to wrap can opt out with
+ * `className="whitespace-normal"` (and `max-w-none` to lift the width cap). */
 export const TableCell = forwardRef<HTMLTableCellElement, TdHTMLAttributes<HTMLTableCellElement>>(
-  ({ className, ...props }, ref) => (
-    <td ref={ref} className={cn("px-4 py-3 text-[var(--color-text)]", className)} {...props} />
+  ({ className, title, children, ...props }, ref) => (
+    <td
+      ref={ref}
+      title={title ?? (typeof children === "string" ? children : undefined)}
+      className={cn(
+        "max-w-[22rem] overflow-hidden text-ellipsis whitespace-nowrap px-4 py-3 text-[var(--color-text)]",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </td>
   ),
 );
 TableCell.displayName = "TableCell";

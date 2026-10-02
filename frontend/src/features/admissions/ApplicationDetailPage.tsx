@@ -1,14 +1,18 @@
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { Alert } from "@/components/ui/Alert";
 import { BackArrowIcon } from "@/components/ui/BackArrowIcon";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { FileLink } from "@/components/ui/FileLink";
 import { FullPageSpinner } from "@/components/ui/Spinner";
+import { useHasPermission } from "@/features/auth/useAuth";
 import type { ApiError } from "@/lib/api-client";
 
+import { AcceptApplicationsDialog } from "./AcceptApplicationsDialog";
 import { applicationStatusLabel, applicationStatusTone } from "./statusTone";
 import { useApplication } from "./useAdmissionsCrud";
 
@@ -25,6 +29,8 @@ export function ApplicationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: application, isLoading, isError, error } = useApplication(id);
+  const canUpdate = useHasPermission("admissions.update");
+  const [acceptOpen, setAcceptOpen] = useState(false);
 
   if (isLoading) {
     return <FullPageSpinner />;
@@ -50,8 +56,22 @@ export function ApplicationDetailPage() {
           <h1 className="text-xl font-semibold text-[var(--color-text)]">{application.full_name}</h1>
           <p className="mt-1 text-sm capitalize text-[var(--color-text-muted)]">{application.kind} applicant</p>
         </div>
-        <Badge tone={applicationStatusTone(application.status)}>{applicationStatusLabel(application.status)}</Badge>
+        <div className="flex flex-wrap items-center gap-3">
+          <Badge tone={applicationStatusTone(application.status)}>{applicationStatusLabel(application.status)}</Badge>
+          {canUpdate && application.status !== "accepted" && application.status !== "rejected" && (
+            <Button size="sm" onClick={() => setAcceptOpen(true)}>
+              Accept
+            </Button>
+          )}
+        </div>
       </div>
+
+      <AcceptApplicationsDialog
+        open={acceptOpen}
+        onClose={() => setAcceptOpen(false)}
+        applicants={[{ id: application.id, name: application.full_name, kind: application.kind }]}
+        onDone={() => navigate("/admissions/applications")}
+      />
 
       <Card>
         <CardHeader>
