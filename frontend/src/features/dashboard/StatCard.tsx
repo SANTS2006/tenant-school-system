@@ -28,13 +28,13 @@ export function StatCard({
 }) {
   return (
     <Card>
-      <CardContent className="flex items-start gap-4">
-        <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-[var(--radius-md)]", toneClasses[tone])}>
+      <CardContent className="flex items-start gap-3 p-3.5 sm:gap-4 sm:p-5">
+        <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl sm:size-12 sm:rounded-2xl", toneClasses[tone])}>
           <Icon className="size-5" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm text-[var(--color-text-muted)]">{label}</p>
-          <p className="mt-0.5 truncate text-2xl font-semibold text-[var(--color-text)]">{value}</p>
+          <p className="mt-0.5 truncate text-2xl font-bold tracking-tight text-[var(--color-text)]">{value}</p>
           {footnote && <p className="mt-0.5 truncate text-xs text-[var(--color-text-muted)]">{footnote}</p>}
         </div>
       </CardContent>

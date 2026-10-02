@@ -80,11 +80,11 @@ function SidebarContent({
 
   return (
     <>
-      <div className="flex h-16 shrink-0 items-center gap-2.5 border-b border-[var(--color-border)] px-5">
+      <div className="flex h-16 shrink-0 items-center gap-3 border-b border-white/10 px-5">
         <LogoBadge logoUrl={schoolLogo} />
-        <span className="truncate text-sm font-semibold text-[var(--color-text)]">{schoolName}</span>
+        <span className="truncate text-sm font-semibold tracking-tight text-white">{schoolName}</span>
       </div>
-      <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-3">
+      <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-3 [scrollbar-color:rgba(255,255,255,0.18)_transparent]">
         {navItems.map(({ to, label, icon: Icon, children }) => {
           if (!children || children.length === 0) {
             return (
@@ -94,14 +94,14 @@ function SidebarContent({
                 onClick={onNavigate}
                 className={({ isActive }) =>
                   cn(
-                    "flex items-center gap-2.5 rounded-[var(--radius-md)] px-3 py-2 text-sm font-medium transition-all duration-200",
+                    "flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5 text-sm font-medium transition-all duration-200",
                     isActive
-                      ? "bg-[image:var(--gradient-primary)] text-white shadow-[0_6px_18px_-6px_color-mix(in_srgb,var(--color-primary)_60%,transparent)]"
-                      : "text-[var(--color-text-muted)] hover:translate-x-0.5 hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-text)]",
+                      ? "bg-[image:var(--gradient-primary)] text-white shadow-[0_8px_20px_-8px_rgba(99,102,241,0.9)]"
+                      : "text-indigo-100/70 hover:bg-white/8 hover:text-white",
                   )
                 }
               >
-                <Icon className="size-4" aria-hidden="true" />
+                <Icon className="size-[1.1rem]" aria-hidden="true" />
                 {label}
               </NavLink>
             );
@@ -117,13 +117,13 @@ function SidebarContent({
                 onClick={() => toggle(to)}
                 aria-expanded={isOpen}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-[var(--radius-md)] px-3 py-2 text-sm font-medium transition-all duration-200",
+                  "flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5 text-sm font-medium transition-all duration-200",
                   isModuleActive
-                    ? "bg-[var(--color-bg-subtle)] text-[var(--color-text)]"
-                    : "text-[var(--color-text-muted)] hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-text)]",
+                    ? "bg-white/10 text-white"
+                    : "text-indigo-100/70 hover:bg-white/8 hover:text-white",
                 )}
               >
-                <Icon className="size-4 shrink-0" aria-hidden="true" />
+                <Icon className="size-[1.1rem] shrink-0" aria-hidden="true" />
                 <span className="flex-1 text-left">{label}</span>
                 <ChevronDown
                   className={cn("size-3.5 shrink-0 transition-transform duration-200", !isOpen && "-rotate-90")}
@@ -139,7 +139,7 @@ function SidebarContent({
                     transition={{ duration: 0.2, ease: "easeOut" }}
                     className="overflow-hidden"
                   >
-                    <div className="ml-4 flex flex-col gap-0.5 border-l border-[var(--color-border)] py-1 pl-3">
+                    <div className="ml-4 flex flex-col gap-0.5 border-l border-white/15 py-1 pl-3">
                       {children.map((child) => (
                         <NavLink
                           key={child.to}
@@ -149,8 +149,8 @@ function SidebarContent({
                             cn(
                               "rounded-[var(--radius-md)] px-3 py-1.5 text-sm transition-colors duration-200",
                               isActive
-                                ? "bg-[var(--color-primary)]/10 font-medium text-[var(--color-primary)]"
-                                : "text-[var(--color-text-muted)] hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-text)]",
+                                ? "bg-white/12 font-semibold text-white"
+                                : "text-indigo-100/60 hover:bg-white/8 hover:text-white",
                             )
                           }
                         >
@@ -198,7 +198,7 @@ export function AppShell() {
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--color-bg-subtle)]">
       {/* Desktop sidebar */}
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] lg:sticky lg:top-0 lg:flex lg:h-screen">
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-white/5 bg-[image:var(--gradient-sidebar)] lg:sticky lg:top-0 lg:flex lg:h-screen">
         <SidebarContent schoolName={schoolName} schoolLogo={schoolLogo} navItems={navItems} />
       </aside>
 
@@ -209,7 +209,7 @@ export function AppShell() {
             <motion.button
               type="button"
               aria-label="Close navigation"
-              className="absolute inset-0 bg-black/40"
+              className="absolute inset-0 bg-[#0b0d1a]/55 backdrop-blur-sm"
               onClick={() => setIsMobileNavOpen(false)}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -217,7 +217,7 @@ export function AppShell() {
               transition={{ duration: 0.2 }}
             />
             <motion.aside
-              className="relative flex h-full w-64 max-w-[80vw] flex-col bg-[var(--color-surface)] shadow-[var(--shadow-md)]"
+              className="relative flex h-full w-72 max-w-[85vw] flex-col bg-[image:var(--gradient-sidebar)] shadow-[var(--shadow-md)]"
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
@@ -227,7 +227,7 @@ export function AppShell() {
                 type="button"
                 aria-label="Close navigation"
                 onClick={() => setIsMobileNavOpen(false)}
-                className="absolute right-3 top-4 rounded-[var(--radius-md)] p-1.5 text-[var(--color-text-muted)] transition-colors duration-200 hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-text)]"
+                className="absolute right-3 top-4 rounded-full p-1.5 text-indigo-100/70 transition-colors duration-200 hover:bg-white/10 hover:text-white"
               >
                 <X className="size-5" aria-hidden="true" />
               </button>
@@ -260,7 +260,7 @@ export function AppShell() {
             </button>
           </div>
         )}
-        <header className="flex h-16 shrink-0 items-center gap-3 border-b border-[var(--color-border)] bg-[var(--color-surface)] px-4 sm:px-6">
+        <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-3 border-b border-[var(--color-border)] bg-[color-mix(in_srgb,var(--color-surface)_85%,transparent)] px-4 backdrop-blur-md sm:px-6">
           <button
             type="button"
             aria-label="Open navigation"
@@ -279,10 +279,12 @@ export function AppShell() {
             <UserMenu />
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-3 sm:p-4">
+        <main className="flex-1 overflow-y-auto bg-[var(--color-bg-subtle)] p-4 sm:p-6 lg:p-8">
+          <div className="mx-auto w-full max-w-[1400px]">
           <Suspense fallback={<FullPageSpinner />}>
             <Outlet />
           </Suspense>
+          </div>
         </main>
         <Footer schoolName={user?.school?.name} />
       </div>

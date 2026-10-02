@@ -6,7 +6,7 @@ export function TableContainer({ className, ...props }: HTMLAttributes<HTMLDivEl
   return (
     <div
       className={cn(
-        "overflow-x-auto rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)]",
+        "overflow-x-auto rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-sm)]",
         className,
       )}
       {...props}
@@ -23,7 +23,7 @@ Table.displayName = "Table";
 
 export const TableHead = forwardRef<HTMLTableSectionElement, HTMLAttributes<HTMLTableSectionElement>>(
   ({ className, ...props }, ref) => (
-    <thead ref={ref} className={cn("border-b border-[var(--color-border)]", className)} {...props} />
+    <thead ref={ref} className={cn("border-b border-[var(--color-border)] bg-[var(--color-bg-subtle)]", className)} {...props} />
   ),
 );
 TableHead.displayName = "TableHead";
@@ -37,7 +37,7 @@ export const TableRow = forwardRef<HTMLTableRowElement, HTMLAttributes<HTMLTable
   ({ className, ...props }, ref) => (
     <tr
       ref={ref}
-      className={cn("border-b border-[var(--color-border)] last:border-0", className)}
+      className={cn("border-b border-[var(--color-border)] transition-colors last:border-0 hover:bg-[var(--color-bg-subtle)]/60", className)}
       {...props}
     />
   ),
@@ -49,7 +49,7 @@ export const TableHeaderCell = forwardRef<HTMLTableCellElement, ThHTMLAttributes
     <th
       ref={ref}
       className={cn(
-        "whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]",
+        "whitespace-nowrap px-4 py-3 text-left text-[0.7rem] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]",
         className,
       )}
       {...props}
@@ -88,7 +88,7 @@ export const TableRowLink = forwardRef<
     onClick={onClick}
     className={cn(
       "border-b border-[var(--color-border)] transition-colors last:border-0",
-      onClick && "cursor-pointer hover:bg-[var(--color-bg-subtle)]",
+      onClick ? "cursor-pointer hover:bg-[color-mix(in_srgb,var(--color-primary)_6%,transparent)]" : "hover:bg-[var(--color-bg-subtle)]/60",
       className,
     )}
     {...props}

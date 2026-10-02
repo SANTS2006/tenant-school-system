@@ -22,7 +22,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="flex flex-col gap-1.5">
         {label && (
-          <label htmlFor={inputId} className="text-sm font-medium text-[var(--color-text)]">
+          <label htmlFor={inputId} className="text-sm font-semibold text-[var(--color-text)]">
             {label}
           </label>
         )}
@@ -39,11 +39,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             aria-invalid={!!error}
             aria-describedby={error ? errorId : hint ? hintId : undefined}
             className={cn(
-              "h-10 w-full rounded-[var(--radius-md)] border bg-[var(--color-surface)] px-3 text-sm text-[var(--color-text)] transition-colors",
+              "h-11 w-full rounded-[var(--radius-md)] border bg-[var(--color-surface)] px-3.5 text-sm shadow-[var(--shadow-sm)] text-[var(--color-text)] transition-colors",
               "placeholder:text-[var(--color-text-muted)]",
-              "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]",
+              "focus-visible:border-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color-mix(in_srgb,var(--color-primary)_18%,transparent)]",
               "disabled:cursor-not-allowed disabled:opacity-60",
-              Icon && "pl-9",
+              Icon && "pl-10",
               trailing && "pr-10",
               error ? "border-[var(--color-danger)]" : "border-[var(--color-border)]",
               className,

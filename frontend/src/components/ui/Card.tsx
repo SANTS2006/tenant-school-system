@@ -8,7 +8,7 @@ export const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
       ref={ref}
       className={cn(
         "rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-sm)]",
-        "transition-shadow duration-200 hover:shadow-[var(--shadow-md)]",
+        "transition-all duration-200 hover:border-[color-mix(in_srgb,var(--color-primary)_25%,var(--color-border))] hover:shadow-[var(--shadow-md)]",
         className,
       )}
       {...props}
@@ -28,7 +28,7 @@ export const CardTitle = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHeadi
   ({ className, ...props }, ref) => (
     <h3
       ref={ref}
-      className={cn("truncate text-sm font-medium text-[var(--color-text-muted)]", className)}
+      className={cn("truncate text-sm font-semibold text-[var(--color-text)]", className)}
       {...props}
     />
   ),

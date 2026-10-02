@@ -11,8 +11,8 @@ export function CampusIllustration({ className }: { className?: string }) {
       <defs>
         <linearGradient id="campus-sky" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#0b2f6e" />
-          <stop offset="0.6" stopColor="#1565c0" />
-          <stop offset="1" stopColor="#38bdf8" />
+          <stop offset="0.6" stopColor="#4f46e5" />
+          <stop offset="1" stopColor="#818cf8" />
         </linearGradient>
         <linearGradient id="campus-building" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#dbeafe" stopOpacity="0.95" />

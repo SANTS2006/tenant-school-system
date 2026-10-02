@@ -18,7 +18,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className="flex flex-col gap-1.5">
         {label && (
-          <label htmlFor={selectId} className="text-sm font-medium text-[var(--color-text)]">
+          <label htmlFor={selectId} className="text-sm font-semibold text-[var(--color-text)]">
             {label}
           </label>
         )}
@@ -28,8 +28,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           aria-invalid={!!error}
           aria-describedby={error ? errorId : hint ? hintId : undefined}
           className={cn(
-            "h-10 w-full rounded-[var(--radius-md)] border bg-[var(--color-surface)] px-3 text-sm text-[var(--color-text)] transition-colors",
-            "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]",
+            "h-11 w-full rounded-[var(--radius-md)] border bg-[var(--color-surface)] px-3.5 text-sm shadow-[var(--shadow-sm)] text-[var(--color-text)] transition-colors",
+            "focus-visible:border-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color-mix(in_srgb,var(--color-primary)_18%,transparent)]",
             "disabled:cursor-not-allowed disabled:opacity-60",
             error ? "border-[var(--color-danger)]" : "border-[var(--color-border)]",
             className,
