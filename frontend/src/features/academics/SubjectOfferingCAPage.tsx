@@ -1,4 +1,4 @@
-import { Lock, LockOpen, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Lock, LockOpen, Pencil, Plus, Trash2 } from "lucide-react";
 import { Fragment, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -24,16 +24,26 @@ import { useToast } from "@/components/ui/toastContext";
 import { useHasPermission, useHasRole } from "@/features/auth/useAuth";
 import type { ApiError } from "@/lib/api-client";
 
+import { AssessmentFormModal } from "./AssessmentFormModal";
+import type { Assessment } from "./types";
 import { useSubjectsHomePath } from "./useSubjectsHomePath";
 import {
   useAssessmentList,
   useCloseSubjectOfferingCA,
-  useCreateAssessment,
   useDeleteAssessment,
   useReopenSubjectOfferingCA,
   useSubjectOffering,
   useSubjectOfferingCaSummary,
 } from "./useAcademicsCrud";
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-4 py-3">
+      <p className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-[var(--color-text)]">{value}</p>
+    </div>
+  );
+}
 
 export function SubjectOfferingCAPage() {
   const { id } = useParams<{ id: string }>();
@@ -43,6 +53,8 @@ export function SubjectOfferingCAPage() {
   const confirm = useConfirm();
   const isTeacher = useHasRole("teacher");
   const canManageCA = useHasPermission("academics.update");
+  // The subject's teacher adds, grades and removes assessments; an administrator can also correct them.
+  const canEdit = isTeacher || canManageCA;
 
   const { data: offering, isLoading: isLoadingOffering } = useSubjectOffering(id);
   const { data: assessments, isLoading: isLoadingAssessments } = useAssessmentList({
@@ -51,40 +63,14 @@ export function SubjectOfferingCAPage() {
   });
   const { data: caSummary, isLoading: isLoadingSummary } = useSubjectOfferingCaSummary(id);
   const [openStudentId, setOpenStudentId] = useState<string | null>(null);
-  const createAssessment = useCreateAssessment();
   const deleteAssessment = useDeleteAssessment();
   const closeCA = useCloseSubjectOfferingCA();
   const reopenCA = useReopenSubjectOfferingCA();
 
-  const [name, setName] = useState("");
-  const [weight, setWeight] = useState("");
-  const [discretionary, setDiscretionary] = useState("");
-  const [maxScore, setMaxScore] = useState("100");
+  // null = dialog closed; "new" = adding; an Assessment = editing it.
+  const [editing, setEditing] = useState<Assessment | "new" | null>(null);
   const [showReopenForm, setShowReopenForm] = useState(false);
   const [reopenReason, setReopenReason] = useState("");
-
-  const handleAddAssessment = () => {
-    if (!id || !name.trim() || !weight) return;
-    createAssessment.mutate(
-      {
-        subject_offering: id,
-        name: name.trim(),
-        weight: Number(weight),
-        discretionary_weight: discretionary ? Number(discretionary) : 0,
-        max_score: maxScore,
-      },
-      {
-        onSuccess: () => {
-          showToast({ title: "Assessment added" });
-          setName("");
-          setWeight("");
-          setDiscretionary("");
-          setMaxScore("100");
-        },
-        onError: (err: ApiError) => showToast({ title: "Could not add assessment", description: err.message, tone: "danger" }),
-      },
-    );
-  };
 
   const handleDelete = async (assessmentId: string, label: string) => {
     const ok = await confirm({ title: `Delete "${label}"?`, description: "This cannot be undone.", tone: "danger" });
@@ -133,131 +119,93 @@ export function SubjectOfferingCAPage() {
   }
 
   const isClosed = offering.ca_status === "closed";
+  const allocatedShare = Math.min(100, (offering.ca_allocated_percent / Math.max(offering.ca_weight_percent, 1)) * 100);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-6">
       <button
         type="button"
         onClick={() => navigate(subjectsHome)}
-        className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text)]"
+        className="flex w-fit items-center gap-1.5 text-sm text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text)]"
       >
         <BackArrowIcon className="size-4" />
         {subjectsHome === "/subjects" ? "Back to subjects" : "Back to subject offerings"}
       </button>
 
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--color-text)]">
-            {offering.subject_name} — {offering.school_class_name} · Continuous Assessment
+        <div className="min-w-0">
+          <h1 className="break-words text-xl font-semibold text-[var(--color-text)]">
+            {offering.subject_name} — {offering.school_class_name}
           </h1>
           <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-            {offering.term_name} · {offering.main_teacher_name}
+            Continuous assessment · {offering.term_name} · {offering.main_teacher_name}
           </p>
         </div>
-        <Badge tone={isClosed ? "danger" : "success"}>{isClosed ? "CA Closed" : "CA Open"}</Badge>
+        <Badge tone={isClosed ? "danger" : "success"}>{isClosed ? "CA closed" : "CA open"}</Badge>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>CA allocation</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <div className="flex justify-between text-sm text-[var(--color-text)]">
-            <span>
-              Configured: <strong>{offering.ca_weight_percent}%</strong>
-            </span>
-            <span>
-              Allocated: <strong>{offering.ca_allocated_percent}%</strong>
-            </span>
-            <span>
-              Remaining: <strong>{offering.ca_remaining_percent}%</strong>
-            </span>
+        <CardContent className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Stat label="Configured" value={`${offering.ca_weight_percent}%`} />
+            <Stat label="Allocated" value={`${offering.ca_allocated_percent}%`} />
+            <Stat label="Remaining" value={`${offering.ca_remaining_percent}%`} />
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--color-bg-subtle)]">
-            <div
-              className="h-full rounded-full bg-[image:var(--gradient-primary)] transition-all"
-              style={{
-                width: `${Math.min(100, (offering.ca_allocated_percent / Math.max(offering.ca_weight_percent, 1)) * 100)}%`,
-              }}
-            />
+          <div
+            className="h-2 w-full overflow-hidden rounded-full bg-[var(--color-bg-subtle)]"
+            role="progressbar"
+            aria-label="CA allocated"
+            aria-valuenow={Math.round(allocatedShare)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <div className="h-full rounded-full bg-[image:var(--gradient-primary)] transition-all" style={{ width: `${allocatedShare}%` }} />
           </div>
 
           {canManageCA && (
-          <div className="mt-2 flex items-center gap-3">
-            {!isClosed ? (
-              <Button variant="secondary" size="sm" onClick={handleClose} isLoading={closeCA.isPending}>
-                <Lock className="size-4" aria-hidden="true" />
-                Close CA
-              </Button>
-            ) : !showReopenForm ? (
-              <Button variant="secondary" size="sm" onClick={() => setShowReopenForm(true)}>
-                <LockOpen className="size-4" aria-hidden="true" />
-                Reopen CA
-              </Button>
-            ) : (
-              <div className="flex flex-1 flex-wrap items-end gap-2">
-                <div className="min-w-[220px] flex-1">
-                  <Input
-                    label="Reason for reopening"
-                    value={reopenReason}
-                    onChange={(e) => setReopenReason(e.target.value)}
-                  />
+            <div className="flex flex-wrap items-end gap-3">
+              {!isClosed ? (
+                <Button variant="secondary" size="sm" onClick={handleClose} isLoading={closeCA.isPending}>
+                  <Lock className="size-4" aria-hidden="true" />
+                  Close CA
+                </Button>
+              ) : !showReopenForm ? (
+                <Button variant="secondary" size="sm" onClick={() => setShowReopenForm(true)}>
+                  <LockOpen className="size-4" aria-hidden="true" />
+                  Reopen CA
+                </Button>
+              ) : (
+                <div className="flex w-full flex-wrap items-end gap-2">
+                  <div className="min-w-0 flex-1 basis-56">
+                    <Input label="Reason for reopening" value={reopenReason} onChange={(e) => setReopenReason(e.target.value)} />
+                  </div>
+                  <Button size="sm" onClick={handleReopen} disabled={!reopenReason.trim()} isLoading={reopenCA.isPending}>
+                    Confirm reopen
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={() => setShowReopenForm(false)}>
+                    Cancel
+                  </Button>
                 </div>
-                <Button size="sm" onClick={handleReopen} disabled={!reopenReason.trim()} isLoading={reopenCA.isPending}>
-                  Confirm reopen
-                </Button>
-                <Button variant="secondary" size="sm" onClick={() => setShowReopenForm(false)}>
-                  Cancel
-                </Button>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
           )}
           {offering.ca_closed_at && isClosed && (
-            <p className="text-xs text-[var(--color-text-muted)]">
-              Closed on {new Date(offering.ca_closed_at).toLocaleString()}
-            </p>
+            <p className="text-xs text-[var(--color-text-muted)]">Closed on {new Date(offering.ca_closed_at).toLocaleString()}</p>
           )}
         </CardContent>
       </Card>
 
-      {!isClosed && isTeacher && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Add an assessment</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-wrap items-end gap-3">
-            <div className="min-w-[200px] flex-1">
-              <Input label="Name" placeholder="e.g. Assignment 1" value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-            <div className="w-28">
-              <Input label="Weight %" type="number" min={1} max={100} value={weight} onChange={(e) => setWeight(e.target.value)} />
-            </div>
-            <div className="w-28">
-              <Input label="Max score" type="number" min={1} value={maxScore} onChange={(e) => setMaxScore(e.target.value)} />
-            </div>
-            <div className="w-40">
-              <Input
-                label="Reserved for discretion"
-                type="number"
-                min={0}
-                max={weight ? Number(weight) : undefined}
-                hint="Marks you award by hand"
-                value={discretionary}
-                onChange={(e) => setDiscretionary(e.target.value)}
-              />
-            </div>
-            <Button onClick={handleAddAssessment} disabled={!name.trim() || !weight} isLoading={createAssessment.isPending}>
-              {!createAssessment.isPending && <Plus className="size-4" aria-hidden="true" />}
-              Add
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
           <CardTitle>Assessments</CardTitle>
+          {!isClosed && isTeacher && (
+            <Button size="sm" onClick={() => setEditing("new")}>
+              <Plus className="size-4" aria-hidden="true" /> Add assessment
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           {isLoadingAssessments ? (
@@ -265,7 +213,10 @@ export function SubjectOfferingCAPage() {
               <Spinner />
             </div>
           ) : !assessments || assessments.results.length === 0 ? (
-            <EmptyState title="No assessments yet" description="Add one above to start entering continuous assessment scores." />
+            <EmptyState
+              title="No assessments yet"
+              description={isTeacher ? "Add one to start entering continuous assessment scores." : "The subject's teacher hasn't added any yet."}
+            />
           ) : (
             <TableContainer>
               <Table>
@@ -276,7 +227,7 @@ export function SubjectOfferingCAPage() {
                     <TableHeaderCell>Discretionary</TableHeaderCell>
                     <TableHeaderCell>Max score</TableHeaderCell>
                     <TableHeaderCell>Status</TableHeaderCell>
-                    {isTeacher && <TableHeaderCell className="text-right">Actions</TableHeaderCell>}
+                    {canEdit && <TableHeaderCell className="text-right">Actions</TableHeaderCell>}
                   </tr>
                 </TableHead>
                 <TableBody>
@@ -285,30 +236,46 @@ export function SubjectOfferingCAPage() {
                       <TableCell className="font-medium">{assessment.name}</TableCell>
                       <TableCell>{assessment.weight}%</TableCell>
                       <TableCell>{assessment.discretionary_weight > 0 ? assessment.discretionary_weight : "—"}</TableCell>
-                      <TableCell>{assessment.max_score}</TableCell>
+                      <TableCell>{Number(assessment.max_score)}</TableCell>
                       <TableCell>
                         <Badge tone={assessment.status === "active" ? "success" : "neutral"}>
                           {assessment.status === "active" ? "Active" : "Inactive"}
                         </Badge>
                       </TableCell>
-                      {isTeacher && (
+                      {canEdit && (
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => navigate(`/academics/assessments/${assessment.id}/scores`)}
-                            >
-                              Grade entry
-                            </Button>
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(assessment.id, assessment.name)}
-                              aria-label={`Delete ${assessment.name}`}
-                              className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-danger)]"
-                            >
-                              <Trash2 className="size-4" aria-hidden="true" />
-                            </button>
+                          <div className="flex items-center justify-end gap-1">
+                            {isTeacher && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => navigate(`/academics/assessments/${assessment.id}/scores`)}
+                              >
+                                Grade entry
+                              </Button>
+                            )}
+                            {!isClosed && (
+                              <button
+                                type="button"
+                                onClick={() => setEditing(assessment)}
+                                aria-label={`Edit ${assessment.name}`}
+                                title="Edit"
+                                className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-primary)]"
+                              >
+                                <Pencil className="size-4" aria-hidden="true" />
+                              </button>
+                            )}
+                            {isTeacher && (
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(assessment.id, assessment.name)}
+                                aria-label={`Delete ${assessment.name}`}
+                                title="Delete"
+                                className="rounded p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-danger)]"
+                              >
+                                <Trash2 className="size-4" aria-hidden="true" />
+                              </button>
+                            )}
                           </div>
                         </TableCell>
                       )}
@@ -325,8 +292,8 @@ export function SubjectOfferingCAPage() {
         <CardHeader>
           <CardTitle>Students&apos; CA</CardTitle>
           <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-            Each student&apos;s total so far (submitted scores only, out of {offering?.ca_weight_percent ?? "—"}). Select a
-            student to see the full breakdown.
+            Each student&apos;s total so far (submitted scores only, out of {offering.ca_weight_percent}). Select a student to see the
+            full breakdown.
           </p>
         </CardHeader>
         <CardContent>
@@ -342,6 +309,9 @@ export function SubjectOfferingCAPage() {
                     <TableHeaderCell>Student</TableHeaderCell>
                     <TableHeaderCell>Admission #</TableHeaderCell>
                     <TableHeaderCell className="text-right">Total CA</TableHeaderCell>
+                    <TableHeaderCell className="w-10">
+                      <span className="sr-only">Details</span>
+                    </TableHeaderCell>
                   </tr>
                 </TableHead>
                 <TableBody>
@@ -359,51 +329,47 @@ export function SubjectOfferingCAPage() {
                           <TableCell className="text-right font-semibold">
                             {student.total_ca ?? <span className="text-[var(--color-text-muted)]">—</span>}
                           </TableCell>
+                          <TableCell>
+                            <ChevronDown
+                              className={`size-4 text-[var(--color-text-muted)] transition-transform ${isOpen ? "rotate-180" : ""}`}
+                              aria-hidden="true"
+                            />
+                          </TableCell>
                         </TableRow>
                         {isOpen && (
                           <TableRow>
-                            <TableCell colSpan={3} className="bg-[var(--color-bg-subtle)]">
-                              <table className="w-full text-sm">
-                                <thead>
-                                  <tr className="text-left text-xs text-[var(--color-text-muted)]">
-                                    <th className="py-1 pr-3 font-medium">Assessment</th>
-                                    <th className="py-1 pr-3 font-medium">Weight</th>
-                                    <th className="py-1 pr-3 font-medium">Score</th>
-                                    <th className="py-1 pr-3 font-medium">Counts as</th>
-                                    <th className="py-1 font-medium">Status</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {student.breakdown.map((row) => (
-                                    <tr key={row.assessment}>
-                                      <td className="py-1 pr-3">{row.name}</td>
-                                      <td className="py-1 pr-3">{row.weight}%</td>
-                                      <td className="py-1 pr-3">
-                                        {row.raw_score !== null ? `${row.raw_score} / ${row.max_score}` : "—"}
-                                        {row.discretionary_weight > 0 && (
-                                          <span className="ml-1 text-[var(--color-text-muted)]">
-                                            + {row.discretionary_mark ?? "—"} / {row.discretionary_weight} discretion
-                                          </span>
-                                        )}
-                                      </td>
-                                      <td className="py-1 pr-3">{row.weighted_score ?? "—"}</td>
-                                      <td className="py-1">
-                                        {row.status === "submitted" ? (
-                                          <Badge tone="success">Submitted</Badge>
-                                        ) : row.status === "draft" ? (
-                                          <Badge tone="warning">Draft</Badge>
-                                        ) : (
-                                          <Badge tone="neutral">Not graded</Badge>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  ))}
-                                  <tr className="border-t border-[var(--color-border)] font-semibold">
-                                    <td className="pt-2" colSpan={3}>Total CA</td>
-                                    <td className="pt-2" colSpan={2}>{student.total_ca ?? "—"}</td>
-                                  </tr>
-                                </tbody>
-                              </table>
+                            <TableCell colSpan={4} className="max-w-none whitespace-normal bg-[var(--color-bg-subtle)]">
+                              {/* One row per assessment — stacks neatly on a phone instead of a wide nested table. */}
+                              <ul className="flex flex-col divide-y divide-[var(--color-border)]">
+                                {student.breakdown.map((row) => (
+                                  <li key={row.assessment} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2">
+                                    <div className="min-w-0">
+                                      <p className="break-words text-sm font-medium text-[var(--color-text)]">
+                                        {row.name} <span className="font-normal text-[var(--color-text-muted)]">· {row.weight}%</span>
+                                      </p>
+                                      <p className="text-xs text-[var(--color-text-muted)]">
+                                        {row.raw_score !== null ? `${row.raw_score} / ${row.max_score}` : "Not scored"}
+                                        {row.discretionary_weight > 0 &&
+                                          ` + ${row.discretionary_mark ?? "—"} / ${row.discretionary_weight} discretion`}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                      <span className="text-sm font-semibold text-[var(--color-text)]">{row.weighted_score ?? "—"}</span>
+                                      {row.status === "submitted" ? (
+                                        <Badge tone="success">Submitted</Badge>
+                                      ) : row.status === "draft" ? (
+                                        <Badge tone="warning">Draft</Badge>
+                                      ) : (
+                                        <Badge tone="neutral">Not graded</Badge>
+                                      )}
+                                    </div>
+                                  </li>
+                                ))}
+                                <li className="flex items-center justify-between gap-4 py-2 text-sm font-semibold text-[var(--color-text)]">
+                                  <span>Total CA</span>
+                                  <span>{student.total_ca ?? "—"}</span>
+                                </li>
+                              </ul>
                             </TableCell>
                           </TableRow>
                         )}
@@ -416,6 +382,17 @@ export function SubjectOfferingCAPage() {
           )}
         </CardContent>
       </Card>
+
+      {id && editing !== null && (
+        <AssessmentFormModal
+          key={editing === "new" ? "new" : editing.id}
+          open
+          onClose={() => setEditing(null)}
+          subjectOfferingId={id}
+          assessment={editing === "new" ? null : editing}
+          availablePercent={offering.ca_remaining_percent}
+        />
+      )}
     </div>
   );
 }

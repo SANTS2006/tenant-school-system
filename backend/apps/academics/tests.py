@@ -2843,3 +2843,102 @@ class TestAcademicYearArchiving:
         )
 
         assert response.status_code == 200
+
+
+class TestEditingAssessments:
+    """A teacher can correct their own assessment, and so can an administrator (academics.update);
+    other staff can't. Edits recompute the scores already recorded and are refused once CA is closed."""
+
+    def _world(self):
+        from tests.factories import AcademicYearFactory, SchoolClassFactory, StaffFactory, SubjectFactory, SubjectOfferingFactory, TermFactory
+
+        school, principal = _principal()
+        year = AcademicYearFactory(school=school)
+        offering = SubjectOfferingFactory(
+            school=school, subject=SubjectFactory(school=school), academic_year=year,
+            term=TermFactory(school=school, academic_year=year), school_class=SchoolClassFactory(school=school),
+            main_teacher=StaffFactory(school=school), ca_weight_percent=40, exam_weight_percent=60,
+        )
+        teacher = offering.main_teacher
+        assign_role(user=teacher.user, role=Role.unscoped_objects.get(school=school, slug="teacher"))
+        return school, principal, offering, teacher
+
+    def _patch(self, api_client, assessment, **payload):
+        return api_client.patch(f"/api/v1/academics/assessments/{assessment.id}/", payload, format="json")
+
+    def test_administrator_can_edit_name_weight_and_status(self, api_client):
+        from tests.factories import AssessmentFactory
+
+        school, principal, offering, _ = self._world()
+        assessment = AssessmentFactory(school=school, subject_offering=offering, name="Test 1", weight=20)
+        _login(api_client, principal)
+
+        response = self._patch(api_client, assessment, name="Mid-term test", weight=30, status="inactive")
+
+        assert response.status_code == 200, response.data
+        assessment.refresh_from_db()
+        assert (assessment.name, assessment.weight, assessment.status) == ("Mid-term test", 30, "inactive")
+
+    def test_the_subjects_own_teacher_can_edit(self, api_client):
+        from tests.factories import AssessmentFactory
+
+        school, _, offering, teacher = self._world()
+        assessment = AssessmentFactory(school=school, subject_offering=offering, weight=20)
+        _login(api_client, teacher.user)
+        assert self._patch(api_client, assessment, name="Renamed").status_code == 200
+
+    def test_another_teacher_cannot_edit(self, api_client):
+        from tests.factories import AssessmentFactory, StaffFactory
+
+        school, _, offering, _ = self._world()
+        outsider = StaffFactory(school=school)
+        assign_role(user=outsider.user, role=Role.unscoped_objects.get(school=school, slug="teacher"))
+        assessment = AssessmentFactory(school=school, subject_offering=offering, weight=20)
+        _login(api_client, outsider.user)
+        # an unrelated teacher can't even see it (404) — never edit it
+        assert self._patch(api_client, assessment, name="Hijacked").status_code in (403, 404)
+        assessment.refresh_from_db()
+        assert assessment.name != "Hijacked"
+
+    def test_changing_the_weight_recomputes_scores_already_recorded(self, api_client):
+        from decimal import Decimal
+
+        from tests.factories import AssessmentFactory, AssessmentScoreFactory, StudentFactory
+
+        school, principal, offering, _ = self._world()
+        assessment = AssessmentFactory(school=school, subject_offering=offering, weight=20, max_score=100)
+        score = AssessmentScoreFactory(
+            school=school, assessment=assessment, student=StudentFactory(school=school), raw_score=Decimal("50"), status="submitted"
+        )
+        assert score.weighted_score == Decimal("10")
+        _login(api_client, principal)
+
+        assert self._patch(api_client, assessment, weight=30, max_score="50").status_code == 200
+
+        score.refresh_from_db()
+        assert score.weighted_score == Decimal("30")  # 50/50 of the new weight 30
+
+    def test_max_score_cannot_drop_below_a_score_already_entered(self, api_client):
+        from decimal import Decimal
+
+        from tests.factories import AssessmentFactory, AssessmentScoreFactory, StudentFactory
+
+        school, principal, offering, _ = self._world()
+        assessment = AssessmentFactory(school=school, subject_offering=offering, weight=20, max_score=100)
+        AssessmentScoreFactory(school=school, assessment=assessment, student=StudentFactory(school=school), raw_score=Decimal("80"))
+        _login(api_client, principal)
+
+        response = self._patch(api_client, assessment, max_score="60")
+        assert response.status_code == 400
+        assert "max_score" in str(response.data)
+
+    def test_no_editing_once_ca_is_closed(self, api_client):
+        from tests.factories import AssessmentFactory
+
+        school, principal, offering, _ = self._world()
+        assessment = AssessmentFactory(school=school, subject_offering=offering, weight=20)
+        offering.ca_status = "closed"
+        offering.save()
+        _login(api_client, principal)
+
+        assert self._patch(api_client, assessment, name="Too late").status_code == 400

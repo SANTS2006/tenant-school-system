@@ -195,6 +195,16 @@ class AssessmentSerializer(serializers.ModelSerializer):
         discretionary_weight = attrs.get(
             "discretionary_weight", getattr(self.instance, "discretionary_weight", 0)
         )
+        if self.instance is not None:
+            if self.instance.subject_offering.ca_status == SubjectOffering.CAStatus.CLOSED:
+                raise serializers.ValidationError("CA is closed for this subject — reopen it to edit assessments.")
+            max_score = attrs.get("max_score")
+            if max_score is not None:
+                highest_raw = self.instance.scores.aggregate(m=Max("raw_score"))["m"]
+                if highest_raw is not None and max_score < highest_raw:
+                    raise serializers.ValidationError(
+                        {"max_score": f"A score of {highest_raw} has already been entered, so the maximum can't be lower than that."}
+                    )
         if weight is not None and discretionary_weight > weight:
             raise serializers.ValidationError(
                 {"discretionary_weight": "Cannot be more than the assessment's weight."}

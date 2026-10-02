@@ -1,5 +1,6 @@
 from decimal import Decimal, InvalidOperation
 
+from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import status
@@ -502,9 +503,18 @@ class AssessmentViewSet(TenantScopedModelViewSet):
 
     def perform_update(self, serializer):
         subject_offering = serializer.instance.subject_offering
-        if not self._teaches(subject_offering):
-            raise PermissionDenied("Only the subject's own teacher can edit assessments.")
-        serializer.save()
+        # The subject's own teacher, or an administrator (academics.update), can correct an assessment's
+        # details — name, weight, max score, reserved discretionary marks, active/inactive.
+        if not (self._teaches(subject_offering) or self._is_admin()):
+            raise PermissionDenied("Only the subject's own teacher or an administrator can edit assessments.")
+        changed_marks = {"weight", "max_score", "discretionary_weight"} & set(serializer.validated_data)
+        with transaction.atomic():
+            assessment = serializer.save()
+            if changed_marks:
+                # `weighted_score` is stored on each score (see AssessmentScore), so scores already
+                # recorded have to be recalculated against the corrected weight / max score.
+                for score in assessment.scores.select_related("assessment", "student"):
+                    score.save()
 
     def perform_destroy(self, instance):
         if not self._teaches(instance.subject_offering):
