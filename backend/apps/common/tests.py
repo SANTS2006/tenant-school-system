@@ -271,3 +271,61 @@ class TestBrandedEmail:
         fake.Configuration = boom
         monkeypatch.setitem(sys.modules, "sib_api_v3_sdk", fake)
         assert send_email(to_email="a@b.test", to_name="A", subject="s", html_content="<p>x</p>") is False
+
+
+class TestStoredFileProxy:
+    """PDFs/ZIPs can't be fetched from Cloudinary's public URL, so signed-in users get them through
+    /api/v1/files/, which only ever fetches this project's own Cloudinary uploads."""
+
+    URL = "https://res.cloudinary.com/democloud/raw/upload/v1/lesson_materials/notes_ab12.pdf"
+
+    @staticmethod
+    def _login(api_client):
+        from tests.factories import UserFactory
+
+        user = UserFactory()
+        api_client.force_authenticate(user=user)
+
+    def test_requires_a_signed_in_user(self, api_client):
+        assert api_client.get("/api/v1/files/", {"url": self.URL}).status_code in (401, 403)
+
+    def test_refuses_anything_that_is_not_our_cloudinary_account(self, api_client, settings):
+        settings.CLOUDINARY_STORAGE = {"CLOUD_NAME": "democloud", "API_KEY": "k", "API_SECRET": "s"}
+        self._login(api_client)
+        for bad in (
+            "https://evil.example.com/raw/upload/v1/a.pdf",
+            "https://res.cloudinary.com/othercloud/raw/upload/v1/a.pdf",
+            "http://169.254.169.254/latest/meta-data",
+            "",
+        ):
+            response = api_client.get("/api/v1/files/", {"url": bad})
+            assert response.status_code == 400, bad
+
+    def test_streams_the_file_with_the_right_headers(self, api_client, settings, monkeypatch):
+        settings.CLOUDINARY_STORAGE = {"CLOUD_NAME": "democloud", "API_KEY": "k", "API_SECRET": "s"}
+        self._login(api_client)
+        seen = {}
+
+        class FakeUpstream:
+            status_code = 200
+            headers = {"Content-Length": "9"}
+
+            def iter_content(self, size):
+                yield b"%PDF-1.4 x"
+
+            def close(self):
+                pass
+
+        def fake_get(link, **kwargs):
+            seen["link"] = link
+            return FakeUpstream()
+
+        monkeypatch.setattr("apps.common.files.requests.get", fake_get)
+        response = api_client.get("/api/v1/files/", {"url": self.URL, "download": "1", "name": "Term notes.pdf"})
+
+        assert response.status_code == 200
+        assert response["Content-Type"] == "application/pdf"
+        assert response["Content-Disposition"].startswith("attachment")
+        assert "Term notes.pdf" in response["Content-Disposition"]
+        assert b"".join(response.streaming_content) == b"%PDF-1.4 x"
+        assert "lesson_materials" in seen["link"] and "notes_ab12.pdf" in seen["link"]

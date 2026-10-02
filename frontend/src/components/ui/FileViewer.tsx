@@ -4,7 +4,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Spinner } from "@/components/ui/Spinner";
-import { downloadName, fileKind, triggerFileDownload } from "@/lib/fileDownload";
+import { downloadName, fetchStoredFile, fileKind, needsFileProxy, triggerFileDownload } from "@/lib/fileDownload";
 
 import { FileViewerContext, type FileViewerApi, useFileViewer } from "./fileViewerContext";
 
@@ -15,11 +15,8 @@ function TextPreview({ url }: { url: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(url, { credentials: "omit" })
-      .then((response) => {
-        if (!response.ok) throw new Error(String(response.status));
-        return response.text();
-      })
+    fetchStoredFile(url)
+      .then((blob) => blob.text())
       .then((text) => !cancelled && setState({ text: text.slice(0, MAX_TEXT_BYTES) }))
       .catch(() => !cancelled && setState({ failed: true }));
     return () => {
@@ -42,17 +39,56 @@ function TextPreview({ url }: { url: string }) {
   );
 }
 
+/** The address a browser element can load the file from: the stored URL itself, or — for the file
+ * types Cloudinary won't serve publicly — a blob fetched through the backend. */
+function useViewableSrc(url: string): { src: string | null; failed: boolean } {
+  const proxied = needsFileProxy(url);
+  const [blob, setBlob] = useState<{ url: string; src?: string; failed?: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!proxied) return;
+    let objectUrl: string | undefined;
+    let cancelled = false;
+    fetchStoredFile(url)
+      .then((data) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(data);
+        setBlob({ url, src: objectUrl });
+      })
+      .catch(() => !cancelled && setBlob({ url, failed: true }));
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [url, proxied]);
+
+  if (!proxied) return { src: url, failed: false };
+  if (blob?.url !== url) return { src: null, failed: false };
+  return { src: blob.src ?? null, failed: !!blob.failed };
+}
+
 function Preview({ url, title }: { url: string; title: string }) {
   const kind = fileKind(url);
+  const { src, failed } = useViewableSrc(url);
+  if (failed) {
+    return <p className="p-6 text-sm text-[var(--color-text-muted)]">This file couldn't be loaded. Try Download instead.</p>;
+  }
+  if (!src && kind !== "text" && kind !== "other") {
+    return (
+      <div className="flex justify-center p-10">
+        <Spinner />
+      </div>
+    );
+  }
   switch (kind) {
     case "image":
-      return <img src={url} alt={title} className="mx-auto max-h-[70vh] max-w-full rounded-md object-contain" />;
+      return <img src={src ?? url} alt={title} className="mx-auto max-h-[70vh] max-w-full rounded-md object-contain" />;
     case "pdf":
-      return <iframe src={url} title={title} className="h-[70vh] w-full rounded-md border border-[var(--color-border)] bg-white" />;
+      return <iframe src={src ?? undefined} title={title} className="h-[70vh] w-full rounded-md border border-[var(--color-border)] bg-white" />;
     case "video":
-      return <video src={url} controls className="mx-auto max-h-[70vh] w-full rounded-md bg-black" />;
+      return <video src={src ?? url} controls className="mx-auto max-h-[70vh] w-full rounded-md bg-black" />;
     case "audio":
-      return <audio src={url} controls className="w-full" />;
+      return <audio src={src ?? url} controls className="w-full" />;
     case "text":
       return <TextPreview url={url} />;
     default:
@@ -78,6 +114,23 @@ export function FileViewerProvider({ children }: { children: ReactNode }) {
   }, []);
   const api = useMemo<FileViewerApi>(() => ({ openFile }), [openFile]);
 
+  // A file Cloudinary won't serve publicly is fetched through the backend first, then shown from a blob.
+  const openInNewTab = async () => {
+    if (!file) return;
+    if (!needsFileProxy(file.url)) {
+      window.open(file.url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    // Opened straight away (while still inside the click) so a pop-up blocker lets it through.
+    const tab = window.open("", "_blank");
+    try {
+      const blob = await fetchStoredFile(file.url, file.title);
+      if (tab) tab.location.href = URL.createObjectURL(blob);
+    } catch {
+      tab?.close();
+    }
+  };
+
   const download = async () => {
     if (!file) return;
     setDownloading(true);
@@ -95,14 +148,9 @@ export function FileViewerProvider({ children }: { children: ReactNode }) {
               <Button size="sm" onClick={download} isLoading={downloading}>
                 <Download className="size-4" aria-hidden="true" /> Download
               </Button>
-              <a
-                href={file.url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex h-8 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 text-sm text-[var(--color-text)] hover:bg-[var(--color-bg-subtle)]"
-              >
+              <Button size="sm" variant="secondary" onClick={openInNewTab}>
                 <ExternalLink className="size-4" aria-hidden="true" /> Open in new tab
-              </a>
+              </Button>
             </div>
             <Preview url={file.url} title={file.title} />
           </div>

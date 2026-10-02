@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
+import { OpenFileButton } from "@/components/ui/FileViewer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
@@ -209,15 +210,10 @@ export function DocumentFormPage() {
             <div className="flex flex-col gap-1.5">
               <span className="text-sm font-medium text-[var(--color-text)]">File</span>
               {doc?.file && !file && (
-                <a
-                  href={doc.file}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-1.5 text-sm text-[var(--color-primary)]"
-                >
+                <OpenFileButton url={doc.file} title={doc.title || "Current file"} className="flex items-center gap-1.5 text-sm text-[var(--color-primary)]">
                   <Paperclip className="size-3.5" aria-hidden="true" />
                   Current file
-                </a>
+                </OpenFileButton>
               )}
               <input
                 type="file"

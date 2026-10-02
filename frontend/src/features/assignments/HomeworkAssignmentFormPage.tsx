@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
+import { OpenFileButton } from "@/components/ui/FileViewer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
@@ -211,15 +212,10 @@ export function HomeworkAssignmentFormPage() {
             <div className="flex flex-col gap-1.5">
               <span className="text-sm font-medium text-[var(--color-text)]">Attachment</span>
               {assignment?.attachment && !attachmentFile && (
-                <a
-                  href={assignment.attachment}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-1.5 text-sm text-[var(--color-primary)]"
-                >
+                <OpenFileButton url={assignment.attachment} title={assignment.title || "Current attachment"} className="flex items-center gap-1.5 text-sm text-[var(--color-primary)]">
                   <Paperclip className="size-3.5" aria-hidden="true" />
                   Current attachment
-                </a>
+                </OpenFileButton>
               )}
               <input
                 type="file"

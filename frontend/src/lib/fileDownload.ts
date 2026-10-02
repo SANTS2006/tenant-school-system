@@ -1,3 +1,5 @@
+import { apiClient } from "@/lib/api-client";
+
 /** What kind of thing a stored file is, judged from its URL's extension — decides how the in-app
  * viewer shows it (see components/ui/FileViewer.tsx). */
 export type FileKind = "image" | "pdf" | "video" | "audio" | "text" | "other";
@@ -45,6 +47,26 @@ export function downloadableFileUrl(url: string, filename?: string): string {
   return url.replace("/upload/", `/upload/${flag}/`);
 }
 
+/** Cloudinary won't serve PDFs and ZIPs from their public URL (HTTP 401), so those are fetched through
+ * the backend's signed-in file proxy instead (apps/common/files.py). Everything else loads directly. */
+export function needsFileProxy(url: string): boolean {
+  return url.includes("res.cloudinary.com") && ["pdf", "zip"].includes(fileExtension(url));
+}
+
+/** The file's bytes, fetched the way that works for its type. Throws if it can't be fetched. */
+export async function fetchStoredFile(url: string, name?: string, asDownload = false): Promise<Blob> {
+  if (needsFileProxy(url)) {
+    const { data } = await apiClient.get<Blob>("/files/", {
+      params: { url, name, download: asDownload ? 1 : undefined },
+      responseType: "blob",
+    });
+    return data;
+  }
+  const response = await fetch(url, { credentials: "omit" });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.blob();
+}
+
 function saveBlob(blob: Blob, filename: string): void {
   const objectUrl = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -66,9 +88,7 @@ function saveBlob(blob: Blob, filename: string): void {
 export async function triggerFileDownload(url: string, title?: string): Promise<boolean> {
   const filename = downloadName(url, title);
   try {
-    const response = await fetch(url, { credentials: "omit" });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    saveBlob(await response.blob(), filename);
+    saveBlob(await fetchStoredFile(url, filename, true), filename);
     return true;
   } catch {
     const link = document.createElement("a");

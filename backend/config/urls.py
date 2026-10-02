@@ -3,6 +3,7 @@ from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path, re_path
 
+from apps.common.files import StoredFileView
 from apps.common.spa import spa_index
 from apps.examinations.urls import result_urlpatterns
 
@@ -13,6 +14,7 @@ def health_check(request):
 
 urlpatterns = [
     path("api/v1/health/", health_check, name="health-check"),
+    path("api/v1/files/", StoredFileView.as_view(), name="stored-file"),
     path("api/v1/auth/", include("apps.authentication.urls")),
     path("api/v1/schools/", include("apps.tenants.urls")),
     path("api/v1/users/", include("apps.users.urls")),

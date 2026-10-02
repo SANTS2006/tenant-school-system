@@ -28,7 +28,7 @@ SPA_CONTENT_SECURITY_POLICY = (
     "media-src 'self' blob: https://res.cloudinary.com; "
     "font-src 'self'; "
     "connect-src 'self' https://res.cloudinary.com https://*.daily.co wss://*.daily.co; "
-    "frame-src https://res.cloudinary.com https://*.daily.co; "
+    "frame-src blob: https://res.cloudinary.com https://*.daily.co; "
     "manifest-src 'self'; worker-src 'self'; "
     "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; "
     "upgrade-insecure-requests"
