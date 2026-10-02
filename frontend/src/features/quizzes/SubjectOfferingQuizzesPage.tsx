@@ -210,8 +210,25 @@ export function SubjectOfferingQuizzesPage() {
                 <details className="text-xs text-[var(--color-text-muted)]">
                   <summary className="cursor-pointer">File format</summary>
                   <p className="mt-1">
-                    Number each question, letter each option, and put a <strong>*</strong> after the one correct
-                    answer. Questions and options are shuffled per student automatically.
+                    Number each question and letter each option. Show the one correct answer any of these ways:
+                  </p>
+                  <ul className="ml-4 mt-1 list-disc">
+                    <li>
+                      a <strong>*</strong> after it (<code>B) 4*</code>)
+                    </li>
+                    <li>
+                      a tick icon (✓ ✔ ✅) or a <code>(correct)</code> tag next to it
+                    </li>
+                    <li>
+                      make <strong>just that option bold</strong> (in Word, or <code>**bold**</code> in a text file)
+                    </li>
+                    <li>
+                      or a separate line under the question: <code>Answer: B</code>
+                    </li>
+                  </ul>
+                  <p className="mt-1">
+                    Anything before question 1 (a title, instructions) is ignored. Questions and options are
+                    shuffled per student automatically.
                   </p>
                   <pre className="mt-1 rounded bg-[var(--color-bg-subtle)] p-2">{FORMAT_EXAMPLE}</pre>
                 </details>

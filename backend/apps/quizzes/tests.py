@@ -124,6 +124,52 @@ class TestParsing:
         assert questions[0]["text"] == "Symbol for sodium?"
         assert [o["is_correct"] for o in questions[1]["options"]] == [True, False]
 
+    def test_correct_answer_shown_with_icons_or_tags(self):
+        text = (
+            "1. A?\nA) x\nB) y \u2713\n"
+            "2. B?\n\u2714 A) p\nB) q\nC) r\n"
+            "3. C?\nA) a\nB) b (correct)\n"
+        )
+        questions = parse_quiz_file(_txt(text))
+        assert [[o["is_correct"] for o in q["options"]] for q in questions] == [
+            [False, True], [True, False, False], [False, True],
+        ]
+        assert questions[0]["options"][1]["text"] == "y"  # the tick is not part of the answer text
+
+    def test_correct_answer_shown_by_bold_in_a_text_file(self):
+        questions = parse_quiz_file(_txt("1. **A bold question?**\nA) x\nB) **y**\nC) z\n"))
+        assert [o["is_correct"] for o in questions[0]["options"]] == [False, True, False]
+
+    def test_bold_in_a_word_file_marks_the_answer(self):
+        import io
+        import zipfile
+
+        def para(*runs):
+            return "<w:p>" + "".join(
+                f"<w:r><w:rPr><w:b/></w:rPr><w:t>{t}</w:t></w:r>" if b else f"<w:r><w:t>{t}</w:t></w:r>"
+                for t, b in runs
+            ) + "</w:p>"
+
+        body = (
+            para(("1. Capital of France?", True))
+            + para(("A) London", False))
+            + para(("B) ", False), ("Paris", True))
+            + para(("C) Rome", False))
+        )
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as archive:
+            archive.writestr("word/document.xml", f"<w:document><w:body>{body}</w:body></w:document>")
+        upload = SimpleUploadedFile("quiz.docx", buffer.getvalue())
+
+        questions = parse_quiz_file(upload)
+
+        assert questions[0]["text"] == "Capital of France?"  # a bold question line is never mistaken for the answer
+        assert [o["is_correct"] for o in questions[0]["options"]] == [False, True, False]
+
+    def test_bold_on_every_option_is_just_styling(self):
+        with pytest.raises(QuizFileError, match="no correct option"):
+            parse_quiz_file(_txt("1. A?\n**A) x**\n**B) y**\n"))
+
     def test_empty_file_rejected(self):
         with pytest.raises(QuizFileError, match="No questions"):
             parse_quiz_file(_txt("\n\n"))
