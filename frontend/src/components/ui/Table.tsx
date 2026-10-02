@@ -1,16 +1,43 @@
-import { type HTMLAttributes, type TdHTMLAttributes, type ThHTMLAttributes, forwardRef } from "react";
+import { type HTMLAttributes, type TdHTMLAttributes, type ThHTMLAttributes, forwardRef, useLayoutEffect, useRef } from "react";
 
 import { cn } from "@/lib/cn";
 
-export function TableContainer({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+/** On a phone the table turns into a stack of cards, one per row (see `.table-cards` in index.css), with
+ * each value labelled by its column heading. The labels are copied from the header cells here, so no page
+ * has to supply them. Pass `cards={false}` for a grid that only makes sense as a real table. */
+export function TableContainer({
+  className,
+  cards = true,
+  children,
+  ...props
+}: HTMLAttributes<HTMLDivElement> & { cards?: boolean }) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (!cards) return;
+    const table = ref.current?.querySelector(":scope > table");
+    if (!table) return;
+    const labels = Array.from(table.querySelectorAll(":scope > thead th")).map((th) => th.textContent?.trim() ?? "");
+    table.querySelectorAll(":scope > tbody > tr").forEach((row) => {
+      Array.from(row.children).forEach((cell, index) => {
+        const wide = cell.getAttribute("colspan");
+        cell.setAttribute("data-label", wide ? "" : (labels[index] ?? ""));
+      });
+    });
+  });
+
   return (
     <div
+      ref={ref}
       className={cn(
         "overflow-x-auto rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-sm)]",
+        cards && "table-cards",
         className,
       )}
       {...props}
-    />
+    >
+      {children}
+    </div>
   );
 }
 

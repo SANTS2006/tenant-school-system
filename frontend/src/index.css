@@ -144,6 +144,75 @@ main h1 + p {
   background: color-mix(in srgb, var(--color-primary) 25%, transparent);
 }
 
+/* Tables on a phone: each row becomes a card, each cell a "Heading   value" line. The data-label on every
+ * cell is filled in by TableContainer (components/ui/Table.tsx). */
+@media (max-width: 639px) {
+  .table-cards {
+    overflow: visible;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .table-cards > table,
+  .table-cards > table > tbody {
+    display: block;
+    width: 100%;
+  }
+  .table-cards > table > thead {
+    display: none;
+  }
+  .table-cards > table > tbody > tr {
+    display: block;
+    margin-bottom: 0.75rem;
+    padding: 0.35rem 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-sm);
+  }
+  .table-cards > table > tbody > tr > td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    max-width: none;
+    padding: 0.55rem 0;
+    border: 0;
+    border-bottom: 1px dashed var(--color-border);
+    overflow: visible;
+    white-space: normal;
+    text-align: right;
+    word-break: break-word;
+  }
+  .table-cards > table > tbody > tr > td:last-child {
+    border-bottom: 0;
+  }
+  .table-cards > table > tbody > tr > td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    max-width: 45%;
+    color: var(--color-text-muted);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+  .table-cards > table > tbody > tr > td[data-label=""]::before {
+    display: none;
+  }
+  .table-cards > table > tbody > tr > td[data-label=""] {
+    justify-content: flex-end;
+    text-align: left;
+  }
+  /* The pagination bar under the cards stands on its own card. */
+  .table-cards > div {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+  }
+}
+
 /* Custom scrollbar (WebKit/Blink) */
 * {
   scrollbar-width: thin;
