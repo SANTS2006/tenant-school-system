@@ -68,13 +68,28 @@ export async function getDocument(id: string): Promise<Document> {
   return data;
 }
 
-export async function createDocument(values: DocumentPayload): Promise<Document> {
-  const { data } = await apiClient.post<Document>("/documents/", toRequestBody(values));
+/** Reports 0–100 while a file is on its way up, so a slow upload shows progress instead of a dead spinner. */
+function progressReporter(onProgress?: (percent: number) => void) {
+  return {
+    onUploadProgress: (event: { loaded: number; total?: number }) => {
+      if (onProgress && event.total) onProgress(Math.round((event.loaded / event.total) * 100));
+    },
+    // A large file on a slow connection can take well over the default; give it room.
+    timeout: 5 * 60 * 1000,
+  };
+}
+
+export async function createDocument(values: DocumentPayload, onProgress?: (percent: number) => void): Promise<Document> {
+  const { data } = await apiClient.post<Document>("/documents/", toRequestBody(values), progressReporter(onProgress));
   return data;
 }
 
-export async function updateDocument(id: string, values: DocumentPayload): Promise<Document> {
-  const { data } = await apiClient.patch<Document>(`/documents/${id}/`, toRequestBody(values));
+export async function updateDocument(
+  id: string,
+  values: DocumentPayload,
+  onProgress?: (percent: number) => void,
+): Promise<Document> {
+  const { data } = await apiClient.patch<Document>(`/documents/${id}/`, toRequestBody(values), progressReporter(onProgress));
   return data;
 }
 

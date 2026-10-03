@@ -255,6 +255,32 @@ main h1 + p {
  * see src/hooks/usePrintableSection.ts. Everything is hidden by default; the printable root and
  * its descendants are switched back to visible and taken out of the app's normal layout so they
  * render as their own page, starting at the top-left. */
+/* While a page section is being printed (lib/printPortal.ts) the app itself is dropped from the print layout,
+ * so only the section's copy on <body> is printed, flowing across as many pages as it needs. */
+.print-clone {
+  display: none;
+}
+@media print {
+  body.print-portal #root {
+    display: none !important;
+  }
+  .print-clone {
+    display: block !important;
+    position: static !important;
+    padding: 0 !important;
+  }
+  .print-clone * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .print-clone > * {
+    box-shadow: none !important;
+  }
+  .print-clone [class*="rounded"] {
+    break-inside: avoid;
+  }
+}
+
 @media print {
   body * {
     visibility: hidden;
@@ -295,9 +321,6 @@ main h1 + p {
 @media print {
   @page {
     margin: 10mm;
-  }
-  #root {
-    display: none !important;
   }
   .idcard-print-root {
     display: block !important;

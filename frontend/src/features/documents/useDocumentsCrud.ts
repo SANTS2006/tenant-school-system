@@ -91,18 +91,18 @@ export function useDocument(id: string | undefined) {
   });
 }
 
-export function useCreateDocument() {
+export function useCreateDocument(onProgress?: (percent: number) => void) {
   const queryClient = useQueryClient();
   return useMutation<Document, ApiError, DocumentPayload>({
-    mutationFn: createDocument,
+    mutationFn: (values) => createDocument(values, onProgress),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: DOCUMENTS_KEY }),
   });
 }
 
-export function useUpdateDocument(id: string) {
+export function useUpdateDocument(id: string, onProgress?: (percent: number) => void) {
   const queryClient = useQueryClient();
   return useMutation<Document, ApiError, DocumentPayload>({
-    mutationFn: (values) => updateDocument(id, values),
+    mutationFn: (values) => updateDocument(id, values, onProgress),
     onSuccess: (document) => {
       queryClient.invalidateQueries({ queryKey: DOCUMENTS_KEY });
       queryClient.setQueryData([...DOCUMENTS_KEY, "detail", id], document);

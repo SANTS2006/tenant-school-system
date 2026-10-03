@@ -1,9 +1,9 @@
-import { GraduationCap, Printer } from "lucide-react";
+import { GraduationCap } from "lucide-react";
 
 import { Alert } from "@/components/ui/Alert";
-import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PrintableDocument } from "@/components/ui/PrintableDocument";
 import { FullPageSpinner } from "@/components/ui/Spinner";
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
 import { LogoBadge } from "@/layouts/AppShell";
@@ -33,20 +33,11 @@ export function TranscriptPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--color-text)]">My Transcript</h1>
-          <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-            Published and locked results only — official grades for {transcript.student.name}.
-          </p>
-        </div>
-        <Button variant="secondary" onClick={() => window.print()}>
-          <Printer className="size-4" aria-hidden="true" />
-          Print
-        </Button>
-      </div>
-
+    <PrintableDocument
+      title="My Transcript"
+      description={`Published and locked results only — official grades for ${transcript.student.name}.`}
+      filename={`Transcript - ${transcript.student.name}.pdf`}
+    >
       <Card>
         <CardHeader className="flex-row items-center gap-3">
           <LogoBadge logoUrl={transcript.school?.logo} className="size-12" />
@@ -107,6 +98,6 @@ export function TranscriptPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </PrintableDocument>
   );
 }

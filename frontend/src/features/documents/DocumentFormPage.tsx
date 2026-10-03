@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
-import { Paperclip, Save } from "lucide-react";
+import { FileUp, Paperclip, Save, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
@@ -74,11 +74,13 @@ export function DocumentFormPage() {
     queryFn: () => listStudents({ status: "active", page_size: 100, ordering: "last_name" }),
   });
   const { data: staff } = useStaffLookup();
-  const createDocument = useCreateDocument();
-  const updateDocument = useUpdateDocument(id ?? "");
+  const [progress, setProgress] = useState<number | null>(null);
+  const createDocument = useCreateDocument(setProgress);
+  const updateDocument = useUpdateDocument(id ?? "", setProgress);
   const mutation = isEditMode ? updateDocument : createDocument;
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
 
   const {
     register,
@@ -110,6 +112,12 @@ export function DocumentFormPage() {
 
   const onSubmit = (values: FormValues) => {
     setGeneralError(null);
+    setFileError(null);
+    if (!isEditMode && !file) {
+      setFileError("Choose a file to upload.");
+      return;
+    }
+    setProgress(file ? 0 : null);
     mutation.mutate(
       {
         title: values.title,
@@ -128,7 +136,12 @@ export function DocumentFormPage() {
           navigate("/documents/files");
         },
         onError: (err: ApiError) => {
-          if (!applyFieldErrors(err, setError, FIELD_KEYS)) {
+          setProgress(null);
+          // The file isn't a registered input, so its error is shown by the picker itself.
+          const fileProblem = err.errors.find((e) => e.field === "file");
+          if (fileProblem) setFileError(fileProblem.message);
+          const attachedToFields = applyFieldErrors(err, setError, FIELD_KEYS);
+          if (!attachedToFields && !fileProblem) {
             const message = generalErrorMessage(err);
             setGeneralError(message);
             showToast({ title: "Could not save document", description: message, tone: "danger" });
@@ -207,19 +220,65 @@ export function DocumentFormPage() {
               </Select>
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium text-[var(--color-text)]">File</span>
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-semibold text-[var(--color-text)]">
+                File{!isEditMode && <span className="text-[var(--color-danger)]"> *</span>}
+              </span>
               {doc?.file && !file && (
-                <OpenFileButton url={doc.file} title={doc.title || "Current file"} className="flex items-center gap-1.5 text-sm text-[var(--color-primary)]">
+                <OpenFileButton url={doc.file} title={doc.title || "Current file"} className="flex w-fit items-center gap-1.5 text-sm text-[var(--color-primary)]">
                   <Paperclip className="size-3.5" aria-hidden="true" />
-                  Current file
+                  Current file — click to view
                 </OpenFileButton>
               )}
-              <input
-                type="file"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                className="text-sm text-[var(--color-text-muted)] file:mr-3 file:rounded-[var(--radius-md)] file:border-0 file:bg-[var(--color-bg-subtle)] file:px-3 file:py-1.5 file:text-sm file:text-[var(--color-text)]"
-              />
+              <label
+                className={`flex cursor-pointer flex-col items-center gap-2 rounded-[var(--radius-lg)] border-2 border-dashed px-4 py-6 text-center transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--color-bg-subtle)] ${
+                  fileError ? "border-[var(--color-danger)]" : "border-[var(--color-border)]"
+                }`}
+              >
+                <FileUp className="size-7 text-[var(--color-primary)]" aria-hidden="true" />
+                <span className="text-sm font-medium text-[var(--color-text)]">
+                  {file ? "Choose a different file" : isEditMode ? "Replace the file (optional)" : "Choose a file to upload"}
+                </span>
+                <span className="text-xs text-[var(--color-text-muted)]">PDF, Word, Excel, images and more</span>
+                <input
+                  type="file"
+                  className="sr-only"
+                  onChange={(e) => {
+                    setFile(e.target.files?.[0] ?? null);
+                    setFileError(null);
+                  }}
+                />
+              </label>
+              {file && (
+                <div className="flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-3 py-2 text-sm">
+                  <Paperclip className="size-4 shrink-0 text-[var(--color-primary)]" aria-hidden="true" />
+                  <span className="min-w-0 flex-1 truncate text-[var(--color-text)]">{file.name}</span>
+                  <span className="shrink-0 text-xs text-[var(--color-text-muted)]">
+                    {file.size >= 1024 * 1024 ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(file.size / 1024))} KB`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setFile(null)}
+                    aria-label="Remove the chosen file"
+                    className="shrink-0 rounded-full p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-danger)]"
+                  >
+                    <X className="size-4" aria-hidden="true" />
+                  </button>
+                </div>
+              )}
+              {fileError && <p className="text-sm text-[var(--color-danger)]">{fileError}</p>}
+              {progress !== null && mutation.isPending && (
+                <div
+                  className="h-2 w-full overflow-hidden rounded-full bg-[var(--color-bg-subtle)]"
+                  role="progressbar"
+                  aria-label="Upload progress"
+                  aria-valuenow={progress}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                >
+                  <div className="h-full rounded-full bg-[image:var(--gradient-primary)] transition-all" style={{ width: `${progress}%` }} />
+                </div>
+              )}
             </div>
 
             <Input

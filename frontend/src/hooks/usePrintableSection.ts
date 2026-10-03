@@ -1,60 +1,65 @@
 import { useRef, useState } from "react";
 
+import { captureNode } from "@/lib/capture";
+import { printNode } from "@/lib/printPortal";
+
+// A4 at 72dpi, in points.
+const PAGE_WIDTH = 595.28;
+const PAGE_HEIGHT = 841.89;
+const MARGIN = 28;
+
 /**
- * Scopes both "Print" and "Download" to one DOM node, so the app's own shell (sidebar, nav,
- * buttons) never ends up in the printed page or the downloaded file — only the marked section
- * does.
+ * Scopes both "Print" and "Download" to one DOM node, so the app's own shell (sidebar, nav, buttons)
+ * never ends up in the printed page or the downloaded file — only the marked section does.
  *
- * Print: the returned ref is marked `data-printable-root`; `src/index.css`'s `@media print`
- * rule hides everything else on the page for the duration of `window.print()`, and re-declares
- * every color token to its light value so a viewer in dark mode doesn't print near-invisible text.
+ * Print: the section is copied onto a plain block on <body> and the browser's print dialog opened (see
+ * lib/printPortal.ts), so it paginates properly and prints in light colours whatever theme is on screen.
  *
- * Download: renders that same node to a canvas (html2canvas) and drops it into a single-page PDF
- * (jsPDF) sized to the content, downloaded under `filename`. The page is temporarily forced to
- * the light theme for the capture too (html2canvas has no notion of `@media print`, so it would
- * otherwise snapshot whatever theme is currently on screen) and restored immediately after,
- * whether the capture succeeds or not. Both libraries are loaded lazily (dynamic import) so
- * their ~200KB only ever hits a browser that actually clicks Download.
+ * Download: the section is rendered by the browser itself (lib/capture.ts) and laid onto as many A4
+ * pages as it needs (jsPDF), saved as `filename`. Both libraries load on demand.
  */
 export function usePrintableSection(filename: string) {
   const printableRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
-  const print = () => window.print();
+  const print = () => {
+    if (printableRef.current) printNode(printableRef.current);
+    else window.print();
+  };
 
   const download = async () => {
     const node = printableRef.current;
     if (!node) return;
     setIsDownloading(true);
     setDownloadError(null);
-
-    const root = document.documentElement;
-    const previousTheme = root.getAttribute("data-theme");
-    root.setAttribute("data-theme", "light");
     try {
-      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import("html2canvas"), import("jspdf")]);
-      const canvas = await html2canvas(node, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
-      const imageData = canvas.toDataURL("image/png");
+      const [{ jsPDF }, canvas] = await Promise.all([import("jspdf"), captureNode(node, { scale: 2 })]);
+      const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+      const usableWidth = PAGE_WIDTH - MARGIN * 2;
+      const usableHeight = PAGE_HEIGHT - MARGIN * 2;
+      // How many canvas pixels fit on one page at that width.
+      const sliceHeight = Math.floor((usableHeight / usableWidth) * canvas.width);
+      const pages = Math.max(1, Math.ceil(canvas.height / sliceHeight));
 
-      // One page sized to the content itself (in points, at 72dpi) rather than forcing it onto
-      // a fixed A4/Letter page — a report card's aspect ratio doesn't match either, and this
-      // avoids the multi-page-slicing complexity that would otherwise need.
-      const pdf = new jsPDF({
-        orientation: canvas.width >= canvas.height ? "landscape" : "portrait",
-        unit: "px",
-        format: [canvas.width, canvas.height],
-      });
-      pdf.addImage(imageData, "PNG", 0, 0, canvas.width, canvas.height);
-      pdf.save(filename);
+      for (let page = 0; page < pages; page += 1) {
+        const top = page * sliceHeight;
+        const height = Math.min(sliceHeight, canvas.height - top);
+        const slice = document.createElement("canvas");
+        slice.width = canvas.width;
+        slice.height = height;
+        const context = slice.getContext("2d");
+        if (!context) throw new Error("Could not prepare the page.");
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, slice.width, slice.height);
+        context.drawImage(canvas, 0, top, canvas.width, height, 0, 0, canvas.width, height);
+        if (page > 0) pdf.addPage();
+        pdf.addImage(slice.toDataURL("image/jpeg", 0.92), "JPEG", MARGIN, MARGIN, usableWidth, (height / canvas.width) * usableWidth);
+      }
+      pdf.save(filename.endsWith(".pdf") ? filename : `${filename}.pdf`);
     } catch (err) {
       setDownloadError(err instanceof Error ? err.message : "Could not generate the file.");
     } finally {
-      if (previousTheme === null) {
-        root.removeAttribute("data-theme");
-      } else {
-        root.setAttribute("data-theme", previousTheme);
-      }
       setIsDownloading(false);
     }
   };

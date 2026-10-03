@@ -4,6 +4,8 @@ import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/toastContext";
+import { captureNode } from "@/lib/capture";
+import { printWithPortal } from "@/lib/printPortal";
 
 import { IdCardBack, IdCardFront } from "./IdCardFaces";
 import type { IdCard } from "./types";
@@ -29,16 +31,9 @@ export function IdCardSheet({ cards }: { cards: IdCard[] }) {
     setDownloading(true);
     const capture = async (skipImages: boolean) => {
       // Loaded on demand — it's only needed when someone actually downloads a card.
-      const { default: html2canvas } = await import("html2canvas");
-      return html2canvas(captureRef.current as HTMLElement, {
-        scale: 3,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-        logging: false,
-        // A photo/logo host without CORS headers can make the capture fail; the retry leaves the
-        // photos out (the card still carries the name, number and QR) rather than failing outright.
-        ignoreElements: skipImages ? (el) => el.tagName === "IMG" : undefined,
-      });
+      // A photo/logo host without CORS headers can make the capture fail; the retry leaves the
+      // photos out (the card still carries the name, number and QR) rather than failing outright.
+      return captureNode(captureRef.current as HTMLElement, { scale: 3, skipImages });
     };
     try {
       let canvas: HTMLCanvasElement;
@@ -74,7 +69,7 @@ export function IdCardSheet({ cards }: { cards: IdCard[] }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap gap-2">
-        <Button type="button" size="sm" onClick={() => window.print()}>
+        <Button type="button" size="sm" onClick={printWithPortal}>
           <Printer className="size-4" aria-hidden="true" /> Print
         </Button>
         {cards.length === 1 && (

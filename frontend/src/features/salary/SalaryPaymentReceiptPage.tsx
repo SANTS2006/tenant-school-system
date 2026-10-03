@@ -1,10 +1,10 @@
-import { Printer, Receipt } from "lucide-react";
+import { Receipt } from "lucide-react";
 import { useParams } from "react-router-dom";
 
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { PrintableDocument } from "@/components/ui/PrintableDocument";
 import { FullPageSpinner } from "@/components/ui/Spinner";
 import { useCurrentUser } from "@/features/auth/useAuth";
 import { LogoBadge } from "@/layouts/AppShell";
@@ -32,15 +32,10 @@ export function SalaryPaymentReceiptPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold text-[var(--color-text)]">Salary payment receipt</h1>
-        <Button variant="secondary" onClick={() => window.print()}>
-          <Printer className="size-4" aria-hidden="true" />
-          Print
-        </Button>
-      </div>
-
+    <PrintableDocument
+      title="Salary payment receipt"
+      filename={`Salary receipt ${payment.payment_number}.pdf`}
+    >
       <Card>
         <CardHeader className="flex-row items-center gap-3">
           <LogoBadge logoUrl={user?.school?.logo} className="size-12" />
@@ -116,6 +111,6 @@ export function SalaryPaymentReceiptPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </PrintableDocument>
   );
 }

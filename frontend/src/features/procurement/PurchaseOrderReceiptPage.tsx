@@ -1,10 +1,9 @@
-import { Printer } from "lucide-react";
 import { useParams } from "react-router-dom";
 
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { PrintableDocument } from "@/components/ui/PrintableDocument";
 import { FullPageSpinner } from "@/components/ui/Spinner";
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
 import { useCurrentUser } from "@/features/auth/useAuth";
@@ -29,15 +28,10 @@ export function PurchaseOrderReceiptPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold text-[var(--color-text)]">Purchase order receipt</h1>
-        <Button variant="secondary" onClick={() => window.print()}>
-          <Printer className="size-4" aria-hidden="true" />
-          Print
-        </Button>
-      </div>
-
+    <PrintableDocument
+      title="Purchase order receipt"
+      filename={`Purchase order ${order.order_number}.pdf`}
+    >
       <Card>
         <CardHeader className="flex-row items-center gap-3">
           <LogoBadge logoUrl={user?.school?.logo} className="size-12" />
@@ -114,6 +108,6 @@ export function PurchaseOrderReceiptPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </PrintableDocument>
   );
 }

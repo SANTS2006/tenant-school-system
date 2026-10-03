@@ -35,7 +35,7 @@ export function RecoveryCodesPanel({ codes, continueLabel, onContinue }: Recover
     link.href = url;
     link.download = "nts-recovery-codes.txt";
     link.click();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 2000);
   };
 
   return (
